@@ -48,6 +48,7 @@ rootfs:
 binary: rootfs modkit
 	CGO_ENABLED=0 GOOS=linux GOARCH=$(ARCH) go build -trimpath -buildvcs=false \
 		-ldflags "$(LDFLAGS)" -o $(ROOTFS)/usr/bin/icedash ./cmd/icedash
+	chmod 0755 $(ROOTFS)/usr/bin/icedash  # a Windows build or copy loses the flag (measured on the box)
 
 web: rootfs web-deps
 	cd web && npm run build -- --outDir ../$(WEBOUT) --emptyOutDir
