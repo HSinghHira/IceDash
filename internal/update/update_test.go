@@ -287,7 +287,7 @@ func TestApplyRunsTheStepsAndHandsOver(t *testing.T) {
 	if err != nil || !strings.Contains(string(script), `WANT="0.2.0"`) || !strings.Contains(string(script), `OLD="0.1.0"`) {
 		t.Fatalf("script: %v\n%s", err, script)
 	}
-	last := f.runs[len(f.runs)-1]
+	last := f.waitRun(t, "systemd-run")
 	if !strings.HasPrefix(last, "systemd-run --unit=icedash-self-update --collect --no-block /bin/sh ") {
 		t.Fatalf("handover: %s", last)
 	}
@@ -306,30 +306,40 @@ func TestApplyStopsOnChecksumMismatch(t *testing.T) {
 	if st.Steps[len(st.Steps)-1].State != StepFailed {
 		t.Fatalf("last step %+v", st.Steps)
 	}
-	for _, r := range f.runs {
-		if strings.HasPrefix(r, "systemd-run") {
-			t.Fatal("handed over despite a bad checksum")
-		}
+	if f.ran("systemd-run") != "" {
+		t.Fatal("handed over despite a bad checksum")
 	}
 	// a failed install can be tried again
 	f.sum = sha(f.image)
 	if err := m.Apply(); err != nil {
 		t.Fatalf("retry: %v", err)
 	}
-	waitHandover(t, m)
+	f.waitRun(t, "systemd-run")
 }
 
-// waitHandover waits until an install reached the handover step.
-func waitHandover(t *testing.T, m *Manager) {
+// ran returns the first command run that starts with prefix, or "".
+func (f *fake) ran(prefix string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, r := range f.runs {
+		if strings.HasPrefix(r, prefix) {
+			return r
+		}
+	}
+	return ""
+}
+
+// waitRun waits until a command starting with prefix ran: the install's last
+// action, so nothing touches the test's folders after it.
+func (f *fake) waitRun(t *testing.T, prefix string) string {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		st := m.Status()
-		if n := len(st.Steps); n > 0 && st.Steps[n-1].ID == "handover" {
-			return
+		if r := f.ran(prefix); r != "" {
+			return r
 		}
-		if st.State == StateFailed || time.Now().After(deadline) {
-			t.Fatalf("no handover: %+v", st)
+		if time.Now().After(deadline) {
+			t.Fatalf("%s never ran", prefix)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
