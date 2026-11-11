@@ -1,0 +1,27 @@
+[Unit]
+Description=IceDash for ZimaOS
+Documentation=https://github.com/HSinghHira/IceDash
+After=network-online.target zimaos-gateway.service zimaos-user.service zimaos-app-management.service
+Wants=network-online.target
+# State (notifications, settings, self-update) lives in /DATA/.icedash, root only.
+RequiresMountsFor=/DATA
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/icedash
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+# The self-update runs zpkg, which must change the host's /usr. Directives that
+# give the service its own mount namespace (ProtectSystem, PrivateTmp,
+# ReadOnlyPaths, ...) would make that change land in a private view only
+# (measured by Module Manager on 1.8.0), so they stay out.
+RestrictRealtime=true
+LockPersonality=true
+
+[Install]
+# Not started at boot by this alone (sysext, measured on 1.8.0): the boot
+# watchdog units IceDash installs on first start do that.
+WantedBy=multi-user.target

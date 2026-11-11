@@ -1,0 +1,4 @@
+# Shell scripts and unit files run on Linux: keep LF line endings on every checkout.
+* text=auto eol=lf
+*.png binary
+*.raw binary

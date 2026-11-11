@@ -1,0 +1,114 @@
+# IceDash CI.
+#
+# Every push and pull request: `make check` (vet, Go tests with -race, web
+# type check and tests) and `make build` (the module image, kept as an artifact).
+# Only a version tag (v0.x.y) makes a GitHub Release; a plain push to main never
+# reaches users (PLAN.md, "Versioning and releases").
+#
+# A tag whose message contains [broken-image] builds a deliberately broken image
+# (its service exits at once), for the rollback test, acceptance check 9.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # A tag must be higher than the latest release: checked first, so a wrong tag
+  # fails before anything is built.
+  guard:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tag is a higher version than the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          case "$TAG" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "::error::tag $TAG is not vX.Y.Z"; exit 1 ;; esac
+          LATEST=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>/dev/null || echo v0.0.0)
+          HIGHEST=$(printf '%s\n%s\n' "$LATEST" "$TAG" | sort -V | tail -n 1)
+          if [ "$TAG" = "$LATEST" ] || [ "$HIGHEST" != "$TAG" ]; then
+            echo "::error::tag $TAG is not higher than the latest release $LATEST"
+            exit 1
+          fi
+          echo "$TAG > $LATEST"
+
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with: { go-version-file: go.mod, cache: false }
+      - uses: actions/setup-node@v7
+        with: { node-version: 24 }
+      - run: test -z "$(gofmt -l cmd internal)" || { gofmt -l cmd internal; echo "::error::run gofmt"; exit 1; }
+      - run: make check RACE=-race
+
+  build:
+    needs: [check]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0, fetch-tags: true }
+      - uses: actions/setup-go@v7
+        with: { go-version-file: go.mod, cache: false }
+      - uses: actions/setup-node@v7
+        with: { node-version: 24 }
+      - run: sudo apt-get update && sudo apt-get install -y squashfs-tools
+      - name: Version
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = tag ]; then
+            echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+            if git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents)' | grep -qF '[broken-image]'; then
+              echo "BROKEN=1" >> "$GITHUB_ENV"
+              echo "::warning::building a deliberately broken image for the rollback test"
+            fi
+          else
+            echo "VERSION=0.0.0-dev+$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+          fi
+      - run: make build VERSION="$VERSION" BROKEN="${BROKEN:-}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: icedash-images
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [guard, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0, fetch-tags: true }
+      - uses: actions/download-artifact@v8
+        with: { name: icedash-images, path: dist }
+      - name: Release notes
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          # The tag's message if it is an annotated tag, else the commit subjects since the previous tag.
+          if [ "$(git cat-file -t "$TAG")" = tag ]; then
+            git for-each-ref "refs/tags/$TAG" --format='%(contents)' | sed '/-----BEGIN PGP SIGNATURE-----/,$d' > notes.md
+          fi
+          if [ ! -s notes.md ]; then
+            PREV=$(git describe --tags --abbrev=0 --match 'v*' "$TAG^" 2>/dev/null || true)
+            git log --no-merges --format='- %s' ${PREV:+"$PREV.."}"$TAG" > notes.md
+          fi
+          cat notes.md
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "IceDash $TAG" --notes-file notes.md --verify-tag \
+            dist/icedash-amd64.raw dist/icedash-amd64.raw.sha256 dist/icedash.raw dist/icedash.raw.sha256

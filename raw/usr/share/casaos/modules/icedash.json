@@ -1,0 +1,17 @@
+{
+  "name": "icedash",
+  "ui": {
+    "name": "icedash",
+    "title": { "en_us": "IceDash" },
+    "prefetch": true,
+    "show": true,
+    "entry": "/modules/icedash/index.html",
+    "icon": "/modules/icedash/appicon.svg",
+    "description": "A desktop-style dashboard for ZimaOS, with IceStore built in",
+    "formality": {
+      "type": "newtab",
+      "props": { "width": "100vh", "height": "100vh", "hasModalCard": true, "animation": "zoom-in" }
+    }
+  },
+  "services": [ { "name": "icedash" } ]
+}
