@@ -12,7 +12,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
@@ -21,11 +23,15 @@ import (
 	"github.com/chicohaager/lintux-modkit/gateway"
 	"github.com/chicohaager/lintux-modkit/httpx"
 	"github.com/chicohaager/lintux-modkit/watchdog"
+	"github.com/chicohaager/lintux-modkit/ysk"
 
 	"github.com/HSinghHira/IceDash/internal/api"
+	"github.com/HSinghHira/IceDash/internal/notify"
 	"github.com/HSinghHira/IceDash/internal/session"
+	"github.com/HSinghHira/IceDash/internal/settings"
 	"github.com/HSinghHira/IceDash/internal/state"
 	"github.com/HSinghHira/IceDash/internal/system"
+	"github.com/HSinghHira/IceDash/internal/update"
 )
 
 // Set at build time (Makefile LDFLAGS).
@@ -80,12 +86,34 @@ func main() {
 	sampler := system.New()
 	go sampler.Run(ctx, 2*time.Second)
 
-	srv := &api.Server{
+	notes, err := notify.Open(filepath.Join(state.Dir, "notifications.json"))
+	if err != nil {
+		log.Fatalf("[icedash] notifications: %v", err)
+	}
+	prefs := settings.Open(filepath.Join(state.Dir, "settings.json"))
+	web := &http.Client{Timeout: 10 * time.Minute}
+	upd := &update.Manager{
 		Version: version,
 		Arch:    runtime.GOARCH,
-		Started: time.Now().UTC(),
-		Verify:  verify,
-		System:  sampler,
+		Dir:     filepath.Join(state.Dir, "self-update"),
+		ExtDir:  "/var/lib/extensions",
+		Root:    "/",
+		GitHub:  update.GitHub{API: "https://api.github.com", Repo: update.Repo, HTTP: &http.Client{Timeout: 30 * time.Second}},
+		HTTP:    web,
+		Run:     run,
+		Notify:  notes,
+		Card:    dashCard{ysk.Notifier{BusURLFile: ysk.DefaultBusURLFile}},
+	}
+
+	srv := &api.Server{
+		Version:  version,
+		Arch:     runtime.GOARCH,
+		Started:  time.Now().UTC(),
+		Verify:   verify,
+		System:   sampler,
+		Update:   upd,
+		Notes:    notes,
+		Settings: prefs,
 	}
 
 	var lc net.ListenConfig
@@ -94,7 +122,16 @@ func main() {
 		log.Fatalf("[icedash] %v", err)
 	}
 	log.Printf("[icedash] listening on http://%s", listener.Addr())
-	go registerRoute(ctx, runtimePath, "http://"+listener.Addr().String())
+	go func() {
+		// Only once the gateway forwards to this process does it count as
+		// started for a waiting swap script; then the script's result is read.
+		if registerRoute(ctx, runtimePath, "http://"+listener.Addr().String()) {
+			upd.Resume(ctx)
+		}
+	}()
+	// First check 2 minutes after start (the gateway and /DATA come late at
+	// boot), then every 6 hours, while "Check for updates automatically" is on.
+	go upd.Loop(ctx, func() bool { return prefs.Get().AutoCheck }, 2*time.Minute, 6*time.Hour)
 
 	dir := staticDir
 	if d := os.Getenv("ICEDASH_STATIC_DIR"); d != "" {
@@ -129,22 +166,41 @@ func uninstall() {
 // registerRoute retries for two minutes: the gateway needs ~45 s after boot,
 // and a route posted before it listens is lost (lintux-modkit, measured on
 // 1.7.1). The route list lives in /run, so this runs on every start.
-func registerRoute(ctx context.Context, runtimePath, target string) {
+func registerRoute(ctx context.Context, runtimePath, target string) bool {
 	for i := 1; i <= 60; i++ {
 		err := gateway.Register(ctx, runtimePath, api.Route, target, 10*time.Second)
 		if err == nil {
 			log.Printf("[icedash] gateway route registered: %s -> %s", api.Route, target)
-			return
+			return true
 		}
 		if ctx.Err() != nil {
-			return
+			return false
 		}
 		log.Printf("[icedash] gateway route attempt %d: %v", i, err)
 		select {
 		case <-ctx.Done():
-			return
+			return false
 		case <-time.After(2 * time.Second):
 		}
 	}
 	log.Printf("[icedash] gave up registering the gateway route")
+	return false
 }
+
+// run runs a host command for the updater (unsquashfs, systemd-run).
+func run(ctx context.Context, name string, args ...string) ([]byte, error) {
+	return exec.CommandContext(ctx, name, args...).CombinedOutput()
+}
+
+// dashCard is the "update available" card on the stock ZimaOS dashboard,
+// through lintux-modkit's ysk (the message bus). Its button opens IceDash.
+type dashCard struct{ n ysk.Notifier }
+
+const cardID = "icedash-update"
+
+func (c dashCard) Show(ctx context.Context, v string) error {
+	return c.n.Show(ctx, ysk.NewCard(cardID, "IceDash", "/modules/icedash/appicon.svg",
+		"IceDash "+v+" is ready to install.", "Open IceDash", "modules/icedash/index.html"))
+}
+
+func (c dashCard) Withdraw(ctx context.Context) error { return c.n.Withdraw(ctx, cardID) }
