@@ -20,8 +20,18 @@ const left = ref(HIDE_AFTER)
 const shown = ref<Record<number, boolean>>({})
 const copied = ref<number | null>(null)
 
-const urls = computed(() => creds.value?.fields.filter((f) => f.url) ?? [])
-const others = computed(() => creds.value?.fields.filter((f) => !f.url) ?? [])
+/** Grouped fields (an address and its own login) as sections, in file order. */
+const groups = computed(() => {
+  const out: { name: string; fields: api.Field[] }[] = []
+  for (const f of creds.value?.fields ?? []) {
+    if (!f.group) continue
+    let g = out.find((x) => x.name === f.group)
+    if (!g) out.push((g = { name: f.group, fields: [] }))
+    g.fields.push(f)
+  }
+  return out
+})
+const loose = computed(() => creds.value?.fields.filter((f) => !f.group) ?? [])
 const countdown = computed(() => `${Math.floor(left.value / 60)}:${String(left.value % 60).padStart(2, '0')}`)
 
 let tick: ReturnType<typeof setInterval>
@@ -72,24 +82,46 @@ const idx = (f: api.Field) => creds.value?.fields.indexOf(f) ?? -1
     </p>
 
     <template v-if="creds">
-      <section v-for="f in urls" :key="idx(f)" class="group">
-        <h4 class="kicker mut">{{ f.label }}</h4>
-        <div class="box">
-          <div class="val">
-            <span class="lbl">{{ strings.address }}</span>
-            <span class="mono">{{ f.value }}</span>
+      <section v-for="g in groups" :key="g.name" class="group">
+        <h4 class="kicker mut">{{ g.name }}</h4>
+        <template v-for="f in g.fields" :key="idx(f)">
+          <div v-if="f.url" class="box">
+            <div class="val">
+              <span class="lbl">{{ strings.address }}</span>
+              <span class="mono">{{ f.value }}</span>
+            </div>
+            <button type="button" class="sq" :aria-label="`${strings.copy} ${g.name}`" @click="copy(idx(f), f.value)">
+              <Icon :name="copied === idx(f) ? 'check' : 'copy'" :size="17" />
+            </button>
+            <a class="sq" :href="f.value" target="_blank" rel="noopener" :aria-label="`${strings.openLink} ${g.name}`">
+              <Icon name="external" :size="17" />
+            </a>
           </div>
-          <button type="button" class="sq" :aria-label="`${strings.copy} ${f.label}`" @click="copy(idx(f), f.value)">
-            <Icon :name="copied === idx(f) ? 'check' : 'copy'" :size="17" />
-          </button>
-          <a class="sq" :href="f.value" target="_blank" rel="noopener" :aria-label="`${strings.openLink} ${f.label}`">
-            <Icon name="external" :size="17" />
-          </a>
+        </template>
+        <div v-if="g.fields.some((f) => !f.url)" class="grid">
+          <div v-for="f in g.fields.filter((x) => !x.url)" :key="idx(f)" class="box">
+            <div class="val">
+              <span class="lbl">{{ f.label }}</span>
+              <span class="mono">{{ f.secret && !shown[idx(f)] ? '•'.repeat(Math.min(16, Math.max(8, f.value.length))) : f.value }}</span>
+            </div>
+            <button
+              v-if="f.secret"
+              type="button"
+              class="sq"
+              :aria-label="shown[idx(f)] ? strings.hideValue : strings.showValue"
+              @click="shown[idx(f)] = !shown[idx(f)]"
+            >
+              <Icon :name="shown[idx(f)] ? 'eyeOff' : 'eye'" :size="17" />
+            </button>
+            <button type="button" class="sq" :aria-label="`${strings.copy} ${f.label}`" @click="copy(idx(f), f.value)">
+              <Icon :name="copied === idx(f) ? 'check' : 'copy'" :size="17" />
+            </button>
+          </div>
         </div>
       </section>
 
-      <div v-if="others.length" class="grid">
-        <div v-for="f in others" :key="idx(f)" class="box">
+      <div v-if="loose.length" class="grid">
+        <div v-for="f in loose" :key="idx(f)" class="box">
           <div class="val">
             <span class="lbl">{{ f.label }}</span>
             <span class="mono">{{ f.secret && !shown[idx(f)] ? '•'.repeat(Math.min(16, Math.max(8, f.value.length))) : f.value }}</span>
@@ -205,6 +237,10 @@ h4.kicker {
 }
 .sq:hover {
   background: rgba(255, 255, 255, 0.09);
+}
+.group {
+  display: grid;
+  gap: 10px;
 }
 .grid {
   display: grid;

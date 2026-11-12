@@ -34,7 +34,8 @@ const steps = computed(() => (fl.value?.steps ?? []).map((s) => withHost(s, loca
 const boxes = computed(() => {
   const out: { label: string; value: string; secret: boolean }[] = []
   if (app.value?.url) out.push({ label: strings.address, value: app.value.url, secret: false })
-  for (const f of fl.value?.creds?.fields ?? []) if (!f.url) out.push({ label: f.label, value: f.value, secret: f.secret })
+  // The app's own login only: grouped fields belong to something else (a mail viewer).
+  for (const f of fl.value?.creds?.fields ?? []) if (!f.url && !f.group) out.push({ label: f.label, value: f.value, secret: f.secret })
   return out
 })
 

@@ -109,10 +109,10 @@ const setupView = (id: string) => ({
 
 const creds = {
   fields: [
-    { label: 'Web app', value: 'http://192.168.68.17:6142', secret: false, url: true },
-    { label: 'Mail viewer', value: 'http://192.168.68.17:6142/mail', secret: false, url: true },
-    { label: 'User', value: 'admin', secret: false, url: false },
-    { label: 'Password', value: 'kQ2-vb7Lr9xWm4Ta', secret: true, url: false },
+    { group: 'Web app', label: 'Address', value: 'http://192.168.68.17:6142', secret: false, url: true },
+    { group: 'Mail viewer', label: 'Address', value: 'http://192.168.68.17:6142/mail', secret: false, url: true },
+    { group: 'Mail viewer', label: 'User', value: 'admin', secret: false, url: false },
+    { group: 'Mail viewer', label: 'Password', value: 'kQ2-vb7Lr9xWm4Ta', secret: true, url: false },
   ],
   notes: ['Create your account on first visit. Sign-up emails land in the mail viewer.'],
 }

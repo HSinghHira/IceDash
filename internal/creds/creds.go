@@ -33,8 +33,10 @@ const DefaultFile = "/run/icestore/credentials"
 // DefaultSocket is the Docker socket (root:docker 0660, measured).
 const DefaultSocket = "/var/run/docker.sock"
 
-// Field is one labelled value.
+// Field is one labelled value. Fields with the same Group belong together
+// (an address with its own login, like Documenso's MAIL VIEWER).
 type Field struct {
+	Group  string `json:"group,omitempty"`
 	Label  string `json:"label"`
 	Value  string `json:"value"`
 	Secret bool   `json:"secret"`
@@ -56,6 +58,10 @@ var (
 
 var secretLabel = regexp.MustCompile(`(?i)pass|secret|token|key`)
 
+// urlWithLogin is "http://host/path  user / password" in one value (measured
+// in Documenso's MAIL VIEWER line).
+var urlWithLogin = regexp.MustCompile(`^(https?://\S+)\s+(\S+)\s*/\s*(\S+)$`)
+
 // Parse reads the file's lines; anything else is skipped.
 func Parse(b []byte) Creds {
 	c := Creds{Fields: []Field{}, Notes: []string{}}
@@ -68,12 +74,19 @@ func Parse(b []byte) Creds {
 			if label == "" {
 				continue
 			}
-			c.Fields = append(c.Fields, Field{
-				Label:  label,
-				Value:  value,
-				Secret: secretLabel.MatchString(label),
-				URL:    strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://"),
-			})
+			isURL := strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://")
+			if m := urlWithLogin.FindStringSubmatch(value); m != nil {
+				c.Fields = append(c.Fields,
+					Field{Group: label, Label: "Address", Value: m[1], URL: true},
+					Field{Group: label, Label: "User", Value: m[2]},
+					Field{Group: label, Label: "Password", Value: m[3], Secret: true})
+				continue
+			}
+			if isURL {
+				c.Fields = append(c.Fields, Field{Group: label, Label: "Address", Value: value, URL: true})
+				continue
+			}
+			c.Fields = append(c.Fields, Field{Label: label, Value: value, Secret: secretLabel.MatchString(label)})
 		case parts[0] == "N" && len(parts) >= 2:
 			if n := strings.TrimSpace(strings.Join(parts[1:], "\t")); n != "" {
 				c.Notes = append(c.Notes, n)

@@ -16,7 +16,7 @@ func TestParse(t *testing.T) {
 	if len(c.Fields) != 3 || len(c.Notes) != 1 {
 		t.Fatalf("%+v", c)
 	}
-	if !c.Fields[0].URL || c.Fields[0].Secret || c.Fields[1].Secret || !c.Fields[2].Secret {
+	if !c.Fields[0].URL || c.Fields[0].Group != "URL" || c.Fields[0].Label != "Address" || c.Fields[0].Secret || c.Fields[1].Secret || !c.Fields[2].Secret || c.Fields[1].Group != "" {
 		t.Errorf("marks %+v", c.Fields)
 	}
 	if c.Notes[0] != "Create your account on first visit." {
@@ -85,5 +85,22 @@ func TestReadRefusesLinks(t *testing.T) {
 	_ = os.Rename(secret, filepath.Join(filepath.Dir(secret), "credentials"))
 	if _, err := reader(proc, Container{Pid: 42, Running: true}, nil).Read(context.Background(), "x"); err == nil || errors.Is(err, ErrNone) {
 		t.Fatalf("want a refusal, got %v", err)
+	}
+}
+
+func TestParseSplitsAnAddressWithItsLogin(t *testing.T) {
+	c := Parse([]byte("K\tMAIL VIEWER\thttp://192.168.68.17:6142/mail  admin / s3cr3t-value\n"))
+	want := []Field{
+		{Group: "MAIL VIEWER", Label: "Address", Value: "http://192.168.68.17:6142/mail", URL: true},
+		{Group: "MAIL VIEWER", Label: "User", Value: "admin"},
+		{Group: "MAIL VIEWER", Label: "Password", Value: "s3cr3t-value", Secret: true},
+	}
+	if len(c.Fields) != 3 {
+		t.Fatalf("%+v", c.Fields)
+	}
+	for i := range want {
+		if c.Fields[i] != want[i] {
+			t.Errorf("field %d: %+v, want %+v", i, c.Fields[i], want[i])
+		}
 	}
 }

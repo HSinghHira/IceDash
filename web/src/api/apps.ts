@@ -145,6 +145,8 @@ export const uninstallApp = (name: string, deleteData: boolean) =>
 export const logs = (name: string, lines = 500) => request<{ name: string; text: string }>(`${app(name)}/logs?lines=${lines}`)
 
 export interface Field {
+  /** Fields of one group belong together, e.g. an address with its own login. */
+  group?: string
   label: string
   value: string
   secret: boolean
