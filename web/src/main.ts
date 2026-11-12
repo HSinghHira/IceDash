@@ -7,3 +7,10 @@ import './styles/tokens.css'
 import './styles/base.css'
 
 createApp(App).mount('#app')
+
+// Dev only (`npm run dev`): ?demo=icestore|setup|menu|creds|first opens that
+// screen, for screenshots against the mock. Dropped from builds.
+if (import.meta.env.DEV) {
+  const demo = new URLSearchParams(location.search).get('demo')
+  if (demo) void import('./dev-demo').then((m) => m.run(demo))
+}

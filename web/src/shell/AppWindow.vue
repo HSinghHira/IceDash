@@ -65,7 +65,7 @@ function up() {
 .win {
   position: fixed;
   max-width: calc(100vw - 16px);
-  max-height: calc(100vh - 140px);
+  max-height: calc(100vh - 230px);
   display: flex;
   flex-direction: column;
   border-radius: 22px;

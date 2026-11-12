@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { clearNotifications, markRead, type NotificationList } from '../api/icedash'
 import { ago } from '../lib/format'
-import { noteText, notes, setNotes, startUpdate, toast } from '../store'
+import { noteText, notes, runNoteAction, setNotes, toast } from '../store'
 import { strings } from '../strings'
 
 const busy = ref(false)
@@ -18,12 +18,10 @@ async function run(fn: () => Promise<NotificationList>) {
   }
 }
 
-async function act(kind: string, id: number) {
+async function act(kind: string, id: number, app?: string) {
   void run(() => markRead(id))
-  if (kind === 'update') {
-    const err = await startUpdate()
-    if (err) toast({ title: strings.updateNow, body: err })
-  }
+  const err = await runNoteAction(kind, app)
+  if (err) toast({ title: kind === 'update' ? strings.updateNow : strings.appName, body: err })
 }
 </script>
 
@@ -40,7 +38,7 @@ async function act(kind: string, id: number) {
           <span class="body">{{ noteText(n).body }}</span>
           <time :datetime="n.time" class="when">{{ ago(new Date(n.time)) }}</time>
         </button>
-        <button v-if="n.action" type="button" class="action" @click="act(n.action.kind, n.id)">
+        <button v-if="n.action" type="button" class="action" @click="act(n.action.kind, n.id, n.app)">
           {{ n.action.kind === 'update' ? strings.updateNow : n.action.label }}
         </button>
       </li>

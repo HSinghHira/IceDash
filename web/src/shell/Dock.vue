@@ -5,24 +5,58 @@ import { computed } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
 import Icon from '../components/Icon.vue'
 import { desktopLaunchers, dockEnd } from '../lib/launchers'
-import { apps, iceStoreInZimaOS, terminalOk } from '../store'
+import type { App } from '../lib/apps'
+import { appInfo, apps, iceStoreInZimaOS, openApp, openIceStore, openMenu, terminalOk } from '../store'
 
 const launchers = computed(() =>
   desktopLaunchers(location, { terminal: terminalOk.value, iceStoreInZimaOS: iceStoreInZimaOS.value }),
 )
 const running = computed(() => apps.value.filter((a) => a.status === 'running' && a.url))
 const end = dockEnd()
+
+function launch(e: MouseEvent, id: string) {
+  if (id !== 'icestore' || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return
+  e.preventDefault()
+  openIceStore()
+}
+function open(e: MouseEvent, a: App) {
+  if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return
+  if (appInfo.value[a.id]?.first_launch) {
+    e.preventDefault()
+    openApp(a)
+  }
+}
 </script>
 
 <template>
   <nav class="dock" aria-label="Dock">
-    <a v-for="l in launchers" :key="l.id" class="slot" :href="l.url" target="_blank" rel="noopener" :title="l.name">
+    <a
+      v-for="l in launchers"
+      :key="l.id"
+      class="slot"
+      :href="l.url"
+      target="_blank"
+      rel="noopener"
+      :title="l.name"
+      @click="launch($event, l.id)"
+    >
       <span class="tile sys"><Icon :name="l.icon" :size="24" /></span>
       <span class="sr">{{ l.name }}</span>
     </a>
     <template v-if="running.length">
       <span class="divider" aria-hidden="true" />
-      <a v-for="a in running" :key="a.id" class="slot" :href="a.url" target="_blank" rel="noopener" :title="a.name">
+      <a
+        v-for="a in running"
+        :key="a.id"
+        class="slot"
+        :href="a.url"
+        target="_blank"
+        rel="noopener"
+        :title="a.name"
+        aria-haspopup="menu"
+        @click="open($event, a)"
+        @contextmenu.prevent="openMenu(a.id, $event)"
+      >
         <AppIcon :src="a.icon" :name="a.name" :size="50" />
         <span class="run" aria-hidden="true" />
         <span class="sr">{{ a.name }}</span>

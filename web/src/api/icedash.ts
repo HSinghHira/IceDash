@@ -33,6 +33,8 @@ export interface Notification {
   time: string
   kind: string
   version?: string
+  /** Phase 2: the app an app event is about. */
+  app?: string
   title: string
   body: string
   action?: { label: string; kind: string }

@@ -1,6 +1,7 @@
 // The desktop's shared state and its polling. One instance per page.
 import { computed, reactive, ref } from 'vue'
 import { ApiError, token } from './api/client'
+import * as appsApi from './api/apps'
 import * as ice from './api/icedash'
 import * as zima from './api/zimaos'
 import { toApps, type App } from './lib/apps'
@@ -15,14 +16,18 @@ export interface Toast {
   title: string
   body: string
   action?: { label: string; kind: string }
+  app?: string
 }
 
-export type WindowId = 'about' | 'notifications'
+export type WindowKind = 'about' | 'notifications' | 'icestore' | 'logs' | 'credentials'
 
 export interface Win {
-  id: WindowId
+  /** The kind, or kind:app for windows about one app. */
+  id: string
+  kind: WindowKind
   title: string
   z: number
+  app?: string
 }
 
 /** The signed-in user, read from the ZimaOS token (the backend checks it; this only picks what to show). */
@@ -67,17 +72,25 @@ export const updateWaiting = computed(() => update.value?.state === 'available' 
 export const activeWindow = computed(() => [...windows].sort((a, b) => b.z - a.z)[0])
 
 let topZ = 10
-export function openWindow(id: WindowId) {
-  const title = id === 'about' ? strings.aboutTitle : strings.notifications
+const windowTitles: Record<WindowKind, (app: string) => string> = {
+  about: () => strings.aboutTitle,
+  notifications: () => strings.notifications,
+  icestore: () => strings.iceStoreTitle,
+  logs: (a) => strings.logsTitle(a),
+  credentials: (a) => `${strings.credentials} · ${a}`,
+}
+/** Opens (or raises) a window; logs and credentials windows are per app. */
+export function openWindow(kind: WindowKind, app?: { name: string; title: string }) {
+  const id = app ? `${kind}:${app.name}` : kind
   const w = windows.find((x) => x.id === id)
   if (w) w.z = ++topZ
-  else windows.push({ id, title, z: ++topZ })
+  else windows.push({ id, kind, title: windowTitles[kind](app?.title ?? ''), z: ++topZ, app: app?.name })
 }
-export function focusWindow(id: WindowId) {
+export function focusWindow(id: string) {
   const w = windows.find((x) => x.id === id)
   if (w) w.z = ++topZ
 }
-export function closeWindow(id: WindowId) {
+export function closeWindow(id: string) {
   const i = windows.findIndex((x) => x.id === id)
   if (i >= 0) windows.splice(i, 1)
 }
@@ -158,7 +171,7 @@ export async function loadNotes() {
     const list = await ice.notifications()
     const fresh = list.items.filter((n) => n.id > lastNoteId && !n.read)
     if (notesLoaded) {
-      for (const n of fresh.reverse()) toast({ ...noteText(n), action: n.action })
+      for (const n of fresh.reverse()) toast({ ...noteText(n), action: n.action, app: n.app })
     }
     notes.value = list.items
     unread.value = list.unread
@@ -249,6 +262,126 @@ export async function startUpdate(): Promise<string | undefined> {
   }
 }
 
+// ---- Phase 2: IceStore inside IceDash ----
+
+/** What the backend knows about each installed app, by app name. */
+export const appInfo = ref<Record<string, appsApi.AppInfo>>({})
+export const jobs = ref<appsApi.Job[]>([])
+export const catalogList = ref<appsApi.CatalogList | null>(null)
+export const catalogError = ref('')
+/** The IceStore window's current list: all, installed, updates, or a category. */
+export const iceStoreView = ref<string>('all')
+/** Open popups: setup (a catalog id), first launch and uninstall (app names). */
+export const setupFor = ref<string | null>(null)
+export const firstLaunchFor = ref<string | null>(null)
+export const uninstallFor = ref<string | null>(null)
+/** The right-click menu: which app, where. */
+export const menu = ref<{ name: string; x: number; y: number } | null>(null)
+
+export const appUpdates = computed(() => Object.values(appInfo.value).filter((a) => a.update))
+export const updateCount = computed(() => (updateWaiting.value ? 1 : 0) + appUpdates.value.length)
+
+async function loadAppInfo() {
+  try {
+    const list = await appsApi.appInfo()
+    const next: Record<string, appsApi.AppInfo> = {}
+    for (const a of list.items) next[a.name] = a
+    appInfo.value = next
+  } catch (e) {
+    handle(e)
+  }
+}
+
+let jobsPoller: Poller | null = null
+async function loadJobs() {
+  try {
+    const before = new Set(jobs.value.filter((j) => j.state === 'running').map((j) => j.name))
+    jobs.value = (await appsApi.jobs()).items
+    const running = jobs.value.some((j) => j.state === 'running')
+    jobsPoller?.every(running ? 2000 : 20000)
+    // A job just ended: show the app and its notification now.
+    if (jobs.value.some((j) => before.has(j.name) && j.state !== 'running')) {
+      void loadApps()
+      void loadAppInfo()
+      void loadNotes()
+    }
+  } catch (e) {
+    handle(e)
+  }
+}
+
+/** After starting an install or update: watch it closely. */
+export function trackJob(j: appsApi.Job) {
+  jobs.value = [j, ...jobs.value.filter((x) => x.name !== j.name)]
+  jobsPoller?.every(2000)
+}
+
+export const jobFor = (name: string) => jobs.value.find((j) => j.name === name)
+
+export async function loadCatalog(force = false) {
+  try {
+    const c = force ? await appsApi.refreshCatalog() : await appsApi.catalog()
+    catalogList.value = c
+    catalogError.value = c.error ?? ''
+  } catch (e) {
+    catalogError.value = e instanceof Error ? e.message : String(e)
+    handle(e)
+  }
+}
+
+export function openIceStore(view = 'all') {
+  iceStoreView.value = view
+  openWindow('icestore')
+  if (!catalogList.value) void loadCatalog()
+}
+
+/** Opens an app; a freshly installed IceStore app shows its welcome popup first. */
+export function openApp(a: App, newTab = true) {
+  if (appInfo.value[a.id]?.first_launch) {
+    firstLaunchFor.value = a.id
+    return
+  }
+  if (a.url) window.open(a.url, newTab ? '_blank' : '_self', 'noopener')
+}
+
+/**
+ * A notification's button: "update" is IceDash's Update now; the app kinds act
+ * on the notification's app. Returns an error to show, if any.
+ */
+export async function runNoteAction(kind: string, app?: string): Promise<string | undefined> {
+  if (kind === 'update') return startUpdate()
+  if (!app) return undefined
+  const grid = apps.value.find((a) => a.id === app)
+  try {
+    if (kind === 'open_app' && grid) openApp(grid)
+    else if (kind === 'app_update') trackJob(await appsApi.updateApp(app))
+    else if (kind === 'start_app') {
+      await appsApi.appAction(app, 'start')
+      setTimeout(refreshApps, 2000)
+    }
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e)
+  }
+  return undefined
+}
+
+/** The right-click menu at the pointer, or under the element when opened by keyboard. */
+export function openMenu(name: string, e: MouseEvent | KeyboardEvent) {
+  let x = 'clientX' in e ? e.clientX : 0
+  let y = 'clientY' in e ? e.clientY : 0
+  if (!x && !y && e.currentTarget instanceof HTMLElement) {
+    const r = e.currentTarget.getBoundingClientRect()
+    x = r.left + r.width / 2
+    y = r.bottom
+  }
+  menu.value = { name, x, y }
+}
+
+export function refreshApps() {
+  void loadApps()
+  void loadAppInfo()
+}
+
 async function probeTerminal() {
   // ttyd answers on its own port; a no-cors request tells only whether it's there.
   try {
@@ -279,6 +412,9 @@ export async function start() {
 
   pollers.push(poll(loadStats, 5000))
   pollers.push(poll(loadApps, 15000))
+  pollers.push(poll(loadAppInfo, 15000))
+  jobsPoller = poll(loadJobs, 20000)
+  pollers.push(jobsPoller)
   pollers.push(poll(loadNotes, 30000))
   // Right after an update the new version may raise its result a moment after the page loads.
   if (notesLoaded) for (const ms of [3000, 10000]) setTimeout(loadNotes, ms)

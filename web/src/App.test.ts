@@ -109,3 +109,42 @@ describe('App', () => {
     }
   })
 })
+
+describe('Phase 2 app menu', () => {
+  const memberToken = `${enc({ alg: 'ES256' })}.${enc({ username: 'testmember', role: 'user', id: 2 })}.sig`
+
+  async function desktop(tok: string) {
+    localStorage.setItem('access_token', tok)
+    answers['/v2/icedash/apps'] = {
+      items: [{ name: 'homeassistant', store_id: 'com.icestore.homeassistant', icestore: true, version: '1', latest: '2', update: true, first_launch: false }],
+    }
+    answers['/v2/icedash/jobs'] = { items: [] }
+    stubFetch()
+    const w = mount(App, { attachTo: document.body })
+    await flushPromises()
+    await flushPromises()
+    return w
+  }
+
+  it('opens on right-click with the admin actions', async () => {
+    const w = await desktop(adminToken)
+    await w.find('a[href="http://localhost:8123/"]').trigger('contextmenu', { clientX: 100, clientY: 100 })
+    await flushPromises()
+    const menu = document.querySelector('.menu')
+    expect(menu).not.toBeNull()
+    const items = [...menu!.querySelectorAll('[role="menuitem"]')].map((b) => b.textContent?.trim())
+    expect(items).toEqual(['Open', 'Open in new tab', 'Credentials', 'Logs', 'Restart', 'Stop', 'Update to 2', 'Settings', 'Back up data', 'Uninstall'])
+    // The update badge shows on the icon.
+    expect(w.find('.upd').exists()).toBe(true)
+    w.unmount()
+  })
+
+  it('gives a member only Open', async () => {
+    const w = await desktop(memberToken)
+    await w.find('a[href="http://localhost:8123/"]').trigger('contextmenu', { clientX: 100, clientY: 100 })
+    await flushPromises()
+    const items = [...document.querySelectorAll('.menu [role="menuitem"]')].map((b) => b.textContent?.trim())
+    expect(items).toEqual(['Open', 'Open in new tab'])
+    w.unmount()
+  })
+})

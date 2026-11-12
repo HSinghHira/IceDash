@@ -1,12 +1,13 @@
 <script setup lang="ts">
 // New notifications also show as a toast in the bottom-right for 6 s (PLAN.md).
 import Icon from '../components/Icon.vue'
-import { dismissToast, startUpdate, toasts } from '../store'
+import { dismissToast, runNoteAction, toast, toasts } from '../store'
 import { strings } from '../strings'
 
-async function act(id: number, kind: string) {
+async function act(id: number, kind: string, app?: string) {
   dismissToast(id)
-  if (kind === 'update') await startUpdate()
+  const err = await runNoteAction(kind, app)
+  if (err) toast({ title: strings.appName, body: err })
 }
 </script>
 
@@ -17,7 +18,7 @@ async function act(id: number, kind: string) {
         <strong>{{ t.title }}</strong>
         <span>{{ t.body }}</span>
       </div>
-      <button v-if="t.action" type="button" class="action" @click="act(t.id, t.action.kind)">
+      <button v-if="t.action" type="button" class="action" @click="act(t.id, t.action.kind, t.app)">
         {{ t.action.kind === 'update' ? strings.updateNow : t.action.label }}
       </button>
       <button type="button" class="x" :aria-label="strings.close" @click="dismissToast(t.id)">

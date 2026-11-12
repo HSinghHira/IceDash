@@ -66,6 +66,80 @@ const routes: Record<string, () => unknown> = {
   'GET /v2/app_management/appstore': () => ({ data: [{ id: 0, url: 'https://cdn.jsdelivr.net/gh/IceWhaleTech/CasaOS-AppStore@gh-pages/store/main.zip' }] }),
 }
 
+// ---- Phase 2 ----
+const SITE = 'https://icestore.hsinghhira.me'
+let indexCache: unknown = null
+async function catalog() {
+  if (!indexCache) {
+    const idx = (await (await fetch(`${SITE}/index.json`)).json()) as { apps: Record<string, string>[]; updated_at: string }
+    for (const a of idx.apps) {
+      a.name = a.id!.replace('com.icestore.', '')
+      for (const k of ['icon', 'thumbnail', 'meta_url', 'compose_url']) if (a[k]?.startsWith('/')) a[k] = SITE + a[k]
+    }
+    indexCache = { updated_at: idx.updated_at, fetched_at: new Date().toISOString(), apps: idx.apps }
+  }
+  return indexCache
+}
+
+const appInfo = [
+  { name: 'gitsave', store_id: 'com.icestore.gitsave', icestore: true, version: '1.4.0', latest: '1.5.0', update: true, first_launch: false },
+  { name: 'pocket-id', store_id: 'com.icestore.pocket-id', icestore: true, version: 'v2.19.1', latest: 'v2.19.1', update: false, first_launch: false },
+  { name: 'yuvomi', store_id: 'com.icestore.yuvomi', icestore: true, version: '2.79.0', latest: '2.79.0', update: false, first_launch: true },
+  { name: 'appflowy', store_id: 'com.icestore.appflowy', icestore: true, version: '0.19.2', latest: '0.19.2', update: false, first_launch: false },
+  { name: 'homeassistant', store_id: 'org.icewhale.homeassistant', icestore: false, version: '2026.5.4', update: false, first_launch: false },
+]
+
+const setupView = (id: string) => ({
+  app: { id, name: 'documenso', title: 'Documenso', category: 'Productivity', version: 'v2.21.1', icon: `${SITE}/apps/com.icestore.documenso/assets/icon.png` },
+  installed: false,
+  name: 'documenso',
+  address: 'http://192.168.68.17:6142',
+  data: '/DATA/AppData/documenso',
+  access: { privileged: true, docker_socket: false, host_network: false },
+  ports: [{ service: 'documenso', target: '8080', published: '6142', protocol: 'tcp', description: 'Documenso web app' }],
+  inputs: [
+    { service: 'documenso', key: 'TZ', value: '$TZ', description: 'Your time zone.', required: false, main: false, secret: false },
+    { service: 'documenso', key: 'PUBLIC_URL', value: 'http://192.168.68.17:6142', fill: 'auto', description: 'The address you open Documenso at.', required: false, main: true, secret: false },
+    { service: 'documenso', key: 'DOCUMENSO_ADMIN_EMAIL', value: '', description: 'The account you sign up with becomes the admin. Leave blank for no admin.', required: false, main: true, secret: false },
+    { service: 'documenso', key: 'SMTP_HOST', value: '', description: 'Email (SMTP) server.', required: false, main: false, secret: false },
+    { service: 'documenso', key: 'SMTP_PASSWORD', value: '', description: 'SMTP password.', required: false, main: false, secret: true },
+    { service: 'documenso', key: 'NEXT_PRIVATE_GOOGLE_CLIENT_ID', value: '', description: 'Google sign-in.', required: false, main: false, secret: false },
+  ],
+})
+
+const creds = {
+  fields: [
+    { label: 'Web app', value: 'http://192.168.68.17:6142', secret: false, url: true },
+    { label: 'Mail viewer', value: 'http://192.168.68.17:6142/mail', secret: false, url: true },
+    { label: 'User', value: 'admin', secret: false, url: false },
+    { label: 'Password', value: 'kQ2-vb7Lr9xWm4Ta', secret: true, url: false },
+  ],
+  notes: ['Create your account on first visit. Sign-up emails land in the mail viewer.'],
+}
+
+const dynamic: [RegExp, string, (m: RegExpMatchArray) => unknown | Promise<unknown>][] = [
+  [/^\/v2\/icedash\/catalog$/, 'GET', () => catalog()],
+  [/^\/v2\/icedash\/catalog\/refresh$/, 'POST', () => catalog()],
+  [/^\/v2\/icedash\/catalog\/([^/]+)\/setup$/, 'GET', (m) => setupView(m[1]!)],
+  [/^\/v2\/icedash\/catalog\/([^/]+)\/check$/, 'POST', () => ({ ok: true, ports_in_use: [], suggest: {} })],
+  [/^\/v2\/icedash\/catalog\/([^/]+)$/, 'GET', async (m) => {
+    const c = (await catalog()) as { apps: Record<string, string>[] }
+    const app = c.apps.find((a) => a.id === m[1] || a.name === m[1])
+    const meta = (await (await fetch(app!.meta_url!)).json()) as Record<string, unknown>
+    meta.screenshot_link = ((meta.screenshot_link as string[]) ?? []).map((u) => (u.startsWith('/') ? SITE + u : u))
+    return { app, meta }
+  }],
+  [/^\/v2\/icedash\/apps$/, 'GET', () => ({ items: appInfo })],
+  [/^\/v2\/icedash\/jobs$/, 'GET', () => ({ items: [] })],
+  [/^\/v2\/icedash\/apps\/([^/]+)\/credentials$/, 'GET', () => creds],
+  [/^\/v2\/icedash\/apps\/([^/]+)\/logs$/, 'GET', (m) => ({ name: m[1], text: 'Server starting\nServer running on port 3000\nScheduling 2 backup jobs\n' })],
+  [/^\/v2\/icedash\/apps\/([^/]+)\/first-launch$/, 'GET', () => ({
+    name: 'yuvomi', title: 'Yuvomi', tagline: 'Household receipts, shared shopping lists and spending insights.',
+    steps: ['Sign in with the login above.', 'Change the password: Management, Users, then the key icon on your row.', 'Add a receipt from a photo, or start a shopping list.'],
+    creds: { fields: [{ label: 'User', value: 'admin', secret: false, url: false }, { label: 'Password', value: 'admin', secret: true, url: false }], notes: [] },
+  })],
+]
+
 export function mock(): Plugin {
   return {
     name: 'icedash-mock',
@@ -75,11 +149,30 @@ export function mock(): Plugin {
     ],
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        const path = (req.url ?? '').split('?')[0]
+        const path = (req.url ?? '').split('?')[0] ?? ''
         const fn = routes[`${req.method} ${path}`]
-        if (!fn) return next()
-        res.setHeader('Content-Type', 'application/json')
-        res.end(JSON.stringify(fn()))
+        if (fn) {
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify(fn()))
+          return
+        }
+        for (const [re, method, h] of dynamic) {
+          const m = path.match(re)
+          if (m && req.method === method) {
+            Promise.resolve(h(m)).then(
+              (v) => {
+                res.setHeader('Content-Type', 'application/json')
+                res.end(JSON.stringify(v))
+              },
+              (e) => {
+                res.statusCode = 502
+                res.end(JSON.stringify({ code: 'upstream', error: String(e) }))
+              },
+            )
+            return
+          }
+        }
+        next()
       })
     },
   }

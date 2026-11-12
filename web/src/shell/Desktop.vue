@@ -3,16 +3,25 @@
 // the right, search and dock at the bottom, and IceDash's own windows on top.
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import AboutPanel from '../panels/AboutPanel.vue'
+import CredentialsPanel from '../panels/CredentialsPanel.vue'
+import IceStorePanel from '../panels/IceStorePanel.vue'
+import LogsPanel from '../panels/LogsPanel.vue'
 import NotificationsPanel from '../panels/NotificationsPanel.vue'
-import { offline, panelOpen, updating, windows } from '../store'
+import { firstLaunchFor, offline, panelOpen, setupFor, uninstallFor, updating, windows, type WindowKind } from '../store'
 import { strings } from '../strings'
+import AppMenu from './AppMenu.vue'
 import AppWindow from './AppWindow.vue'
+import FirstLaunchDialog from './FirstLaunchDialog.vue'
+import SetupDialog from './SetupDialog.vue'
+import UninstallDialog from './UninstallDialog.vue'
 import DesktopIcons from './DesktopIcons.vue'
 import Dock from './Dock.vue'
 import SearchBar from './SearchBar.vue'
 import Toasts from './Toasts.vue'
 import TopBar from './TopBar.vue'
 import WidgetPanel from './WidgetPanel.vue'
+
+const widths: Record<WindowKind, number> = { about: 480, notifications: 420, icestore: 1060, logs: 780, credentials: 620 }
 
 const now = ref(new Date())
 let tick: ReturnType<typeof setInterval>
@@ -39,10 +48,17 @@ onBeforeUnmount(() => clearInterval(tick))
       <Dock />
     </div>
 
-    <AppWindow v-for="(w, i) in windows" :key="w.id" :win="w" :index="i" :width="w.id === 'about' ? 480 : 420">
-      <AboutPanel v-if="w.id === 'about'" />
-      <NotificationsPanel v-else />
+    <AppWindow v-for="(w, i) in windows" :key="w.id" :win="w" :index="i" :width="widths[w.kind]">
+      <AboutPanel v-if="w.kind === 'about'" />
+      <NotificationsPanel v-else-if="w.kind === 'notifications'" />
+      <IceStorePanel v-else-if="w.kind === 'icestore'" />
+      <LogsPanel v-else-if="w.kind === 'logs' && w.app" :name="w.app" />
+      <CredentialsPanel v-else-if="w.kind === 'credentials' && w.app" :name="w.app" :win-id="w.id" />
     </AppWindow>
+    <AppMenu />
+    <SetupDialog v-if="setupFor" :id="setupFor" :key="setupFor" />
+    <FirstLaunchDialog v-if="firstLaunchFor" :key="firstLaunchFor" :name="firstLaunchFor" />
+    <UninstallDialog v-if="uninstallFor" :key="uninstallFor" :name="uninstallFor" />
     <Toasts />
   </div>
 </template>

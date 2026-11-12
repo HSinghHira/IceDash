@@ -4,7 +4,21 @@ import { signOut } from '../api/client'
 import Icon from '../components/Icon.vue'
 import { initials, speed, usedOfTotal } from '../lib/format'
 import { clockParts } from '../lib/timezone'
-import { activeWindow, openWindow, panelOpen, refreshUpdate, sys, unread, updateWaiting, user, util, zone } from '../store'
+import {
+  activeWindow,
+  appUpdates,
+  openIceStore,
+  openWindow,
+  panelOpen,
+  refreshUpdate,
+  sys,
+  unread,
+  updateCount,
+  updateWaiting,
+  user,
+  util,
+  zone,
+} from '../store'
 import { strings } from '../strings'
 import { checkUpdate } from '../api/icedash'
 
@@ -81,9 +95,14 @@ onBeforeUnmount(() => {
       <span class="stat mono hide-sm"><span class="mut">{{ strings.cpu }}</span> {{ cpu }}</span>
       <span class="stat mono hide-sm"><span class="mut">{{ strings.ram }}</span> {{ ram }}</span>
       <span class="stat mono hide-md"><Icon name="down" :size="13" /> {{ down }}</span>
-      <button v-if="updateWaiting" class="badge mono" type="button" @click="openWindow('about')">
+      <button
+        v-if="updateCount"
+        class="badge mono"
+        type="button"
+        @click="updateWaiting || !appUpdates.length ? openWindow('about') : openIceStore('updates')"
+      >
         <Icon name="refresh" :size="15" />
-        <span class="hide-sm">{{ strings.updatesBadge(1) }}</span>
+        <span class="hide-sm">{{ strings.updatesBadge(updateCount) }}</span>
       </button>
       <button class="bell" type="button" :aria-label="strings.notificationsButton(unread)" @click="openWindow('notifications')">
         <Icon name="bell" :size="18" />

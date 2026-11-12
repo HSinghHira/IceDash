@@ -7,7 +7,7 @@ import { counts } from '../lib/apps'
 import { duration, pct, speed, usedOfTotal } from '../lib/format'
 import { ICESTORE_SITE, ZIMAOS_DASHBOARD } from '../lib/launchers'
 import { cityOf, clockParts } from '../lib/timezone'
-import { apps, iceStoreInZimaOS, sys, util, zone } from '../store'
+import { appUpdates, apps, iceStoreInZimaOS, openIceStore, sys, util, zone } from '../store'
 import { strings } from '../strings'
 
 const props = defineProps<{ now: Date }>()
@@ -122,8 +122,11 @@ const storeUrl = computed(() => (iceStoreInZimaOS.value ? ZIMAOS_DASHBOARD : ICE
           <strong>{{ c.stopped }}</strong><span>{{ strings.stopped }}</span>
         </div>
       </div>
-      <!-- TODO(Phase 2): "N app updates in IceStore" once IceDash reads IceStore's metadata. -->
-      <a class="store" :href="storeUrl" target="_blank" rel="noopener">
+      <button v-if="appUpdates.length" type="button" class="store" @click="openIceStore('updates')">
+        <span>{{ strings.appUpdates(appUpdates.length) }}</span>
+        <span class="go">{{ strings.review }}</span>
+      </button>
+      <a v-else class="store" :href="storeUrl" target="_blank" rel="noopener" @click.prevent="openIceStore()">
         <span>{{ strings.browseIceStore }}</span>
         <span class="go">{{ strings.open }}</span>
       </a>
@@ -287,9 +290,16 @@ header {
   padding: 10px 14px;
   border-radius: 14px;
   border: 1px solid rgba(76, 201, 240, 0.35);
+  background: none;
   color: var(--text);
+  font: inherit;
   font-size: 13.5px;
   text-decoration: none;
+  width: 100%;
+  cursor: pointer;
+}
+button.store span:first-child {
+  text-decoration: underline;
 }
 .store:hover {
   background: rgba(76, 201, 240, 0.08);
