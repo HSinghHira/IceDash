@@ -422,6 +422,18 @@ func TestCardFollowsTheState(t *testing.T) {
 	}
 }
 
+// After an update the new process withdraws the card the old one showed.
+func TestLoopWithdrawsALeftoverCard(t *testing.T) {
+	f := newFake(t, "v0.2.0")
+	m, _, c := manager(t, f)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Loop does its first sync, then sees the end at once
+	m.Loop(ctx, func() bool { return false }, time.Hour, time.Hour)
+	if c.gone != 1 || c.shown != 0 {
+		t.Fatalf("withdrawn %d, shown %d", c.gone, c.shown)
+	}
+}
+
 // The swap script itself, against stand-ins for zpkg and systemctl: an image
 // file holding "good <version>" makes its service write $D/started; "broken"
 // never starts, like the [broken-image] test release.

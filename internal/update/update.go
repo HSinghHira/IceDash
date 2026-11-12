@@ -577,6 +577,14 @@ func readLog(path string) (first, result string, ok bool) {
 // and keeps the dashboard card up while an update waits: ZimaOS doesn't store
 // these cards, so it's re-sent every minute and withdrawn after.
 func (m *Manager) Loop(ctx context.Context, auto func() bool, first, every time.Duration) {
+	// A card the previous process put up (before an update or a restart) is
+	// still on open dashboards: treat it as shown, so the first sync takes it
+	// down unless an update still waits (acceptance check 8).
+	m.mu.Lock()
+	m.shown = true
+	m.mu.Unlock()
+	m.syncCard(ctx)
+
 	next := time.Now().Add(first)
 	card := time.NewTicker(time.Minute)
 	defer card.Stop()
