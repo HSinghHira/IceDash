@@ -40,6 +40,8 @@ function userFromToken(t: string): { name: string; admin: boolean } | null {
 
 export const session = ref<SessionState>('loading')
 export const offline = ref(false)
+/** True from Update now until the page reloads on the new version or the old one is back. */
+export const updating = ref(false)
 export const user = ref<{ name: string; admin: boolean } | null>(null)
 export const version = ref('')
 
@@ -100,7 +102,7 @@ export function noteText(n: Pick<ice.Notification, 'kind' | 'title' | 'body' | '
 function handle(e: unknown) {
   if (e instanceof ApiError) {
     if (e.status === 401) session.value = 'ended'
-    offline.value = e.code === 'unreachable'
+    offline.value = e.code === 'unreachable' && !updating.value
   }
 }
 
@@ -181,34 +183,44 @@ async function loadUpdate() {
     updatePoller?.every(st.state === 'installing' || st.state === 'checking' ? 1000 : 30000)
   } catch (e) {
     // While an update installs, IceDash restarts and isn't there for a moment.
-    if (update.value?.state === 'installing') return
+    if (update.value?.state === 'installing' || updating.value) return
     handle(e)
   }
 }
 
-/** After Update now: wait for the new version to answer, then reload (PLAN.md, step 8). */
-export async function waitForNewVersion(from: string) {
+/**
+ * After Update now: wait for the new version to answer, then reload (PLAN.md, step 8).
+ * If the same version answers again from a new process, the swap rolled back:
+ * stop waiting and show the result.
+ */
+export async function waitForNewVersion(from: string, startedBefore?: string) {
   if (reloading) return
   reloading = true
+  updating.value = true
   const deadline = Date.now() + 5 * 60 * 1000
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 2000))
     try {
       const h = await ice.health()
+      offline.value = false
       if (h.version !== from) {
         keepSeen()
         location.reload()
         return
       }
-      // Still the old version: if the updater says it failed before the swap, stop waiting.
       const st = await ice.updateStatus()
       update.value = st
-      if (st.state === 'failed') break
+      // Failed before the swap, or the previous version is back after it.
+      if (st.state === 'failed' || (startedBefore && h.started !== startedBefore && st.state !== 'installing')) break
     } catch {
       // restarting
     }
   }
   reloading = false
+  updating.value = false
+  // The result notification may land a moment after the old version is back.
+  await refreshUpdate()
+  setTimeout(loadNotes, 3000)
 }
 
 /** After a check: the new status, and any notification the check raised. */
@@ -224,10 +236,11 @@ export async function startUpdate(): Promise<string | undefined> {
   openWindow('about')
   if (!user.value?.admin) return strings.adminOnly
   const from = update.value?.current ?? version.value
+  const before = await ice.health().catch(() => undefined)
   try {
     update.value = await ice.applyUpdate()
     updatePoller?.every(1000)
-    void waitForNewVersion(from)
+    void waitForNewVersion(from, before?.started)
     return undefined
   } catch (e) {
     if (e instanceof ApiError && e.code === 'admin_only') return strings.adminOnly

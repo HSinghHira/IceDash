@@ -4,7 +4,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import AboutPanel from '../panels/AboutPanel.vue'
 import NotificationsPanel from '../panels/NotificationsPanel.vue'
-import { offline, panelOpen, windows } from '../store'
+import { offline, panelOpen, updating, windows } from '../store'
 import { strings } from '../strings'
 import AppWindow from './AppWindow.vue'
 import DesktopIcons from './DesktopIcons.vue'
@@ -26,7 +26,8 @@ onBeforeUnmount(() => clearInterval(tick))
 <template>
   <div class="desktop">
     <TopBar :now="now" />
-    <p v-if="offline" class="offline" role="status">{{ strings.cantReach }}</p>
+    <p v-if="updating" class="offline" role="status">{{ strings.updatingBanner }}</p>
+    <p v-else-if="offline" class="offline" role="status">{{ strings.cantReach }}</p>
 
     <div class="area" :class="{ 'no-panel': !panelOpen }">
       <DesktopIcons class="icons" />

@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App.vue'
-import { stop } from './store'
+import { stop, update, updating, waitForNewVersion } from './store'
 
 const enc = (o: object) => btoa(JSON.stringify(o)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_')
 const adminToken = `${enc({ alg: 'ES256' })}.${enc({ username: 'Hira', role: 'admin', id: 1 })}.sig`
@@ -91,6 +91,21 @@ describe('App', () => {
       w.unmount()
     } finally {
       answers['/v2/icedash/notifications?since=0'] = before
+    }
+  })
+
+  it('stops waiting when the previous version comes back after a rollback', async () => {
+    vi.useFakeTimers()
+    try {
+      stubFetch()
+      const done = waitForNewVersion('0.2.0', '2026-11-11T00:00:00Z')
+      expect(updating.value).toBe(true)
+      await vi.advanceTimersByTimeAsync(2500)
+      await done
+      expect(updating.value).toBe(false)
+      expect(update.value?.state).toBe('idle')
+    } finally {
+      vi.useRealTimers()
     }
   })
 })

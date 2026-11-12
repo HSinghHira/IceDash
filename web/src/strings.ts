@@ -12,6 +12,7 @@ export const strings = {
   sessionEndedBody: 'Sign in to ZimaOS again to keep using IceDash.',
   goToZimaOS: 'Go to ZimaOS',
   cantReach: 'Can’t reach IceDash on this server right now. Retrying…',
+  updatingBanner: 'Installing the update. IceDash restarts and may be away for up to 2 minutes; if the new version doesn’t start, the previous one comes back.',
 
   // top bar and the IceDash menu
   desktop: 'Desktop',
