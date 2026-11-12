@@ -7,7 +7,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -26,12 +28,16 @@ import (
 	"github.com/chicohaager/lintux-modkit/ysk"
 
 	"github.com/HSinghHira/IceDash/internal/api"
+	"github.com/HSinghHira/IceDash/internal/apps"
+	"github.com/HSinghHira/IceDash/internal/catalog"
+	"github.com/HSinghHira/IceDash/internal/creds"
 	"github.com/HSinghHira/IceDash/internal/notify"
 	"github.com/HSinghHira/IceDash/internal/session"
 	"github.com/HSinghHira/IceDash/internal/settings"
 	"github.com/HSinghHira/IceDash/internal/state"
 	"github.com/HSinghHira/IceDash/internal/system"
 	"github.com/HSinghHira/IceDash/internal/update"
+	"github.com/HSinghHira/IceDash/internal/zima"
 )
 
 // Set at build time (Makefile LDFLAGS).
@@ -105,6 +111,17 @@ func main() {
 		Card:    dashCard{ysk.Notifier{BusURLFile: ysk.DefaultBusURLFile}},
 	}
 
+	// Phase 2: IceStore inside IceDash.
+	cat := &catalog.Catalog{HTTP: &http.Client{Timeout: 30 * time.Second}, Cache: filepath.Join(state.Dir, "catalog.json")}
+	mgr := &apps.Manager{
+		Catalog: cat,
+		Zima:    &zima.Client{},
+		Creds:   &creds.Reader{},
+		Notify:  notes,
+		State:   filepath.Join(state.Dir, "apps.json"),
+	}
+	go mgr.Watch(ctx)
+
 	srv := &api.Server{
 		Version:  version,
 		Arch:     runtime.GOARCH,
@@ -114,6 +131,9 @@ func main() {
 		Update:   upd,
 		Notes:    notes,
 		Settings: prefs,
+		Catalog:  cat,
+		Apps:     mgr,
+		Email:    accountEmail,
 	}
 
 	var lc net.ListenConfig
@@ -204,3 +224,29 @@ func (c dashCard) Show(ctx context.Context, v string) error {
 }
 
 func (c dashCard) Withdraw(ctx context.Context) error { return c.n.Withdraw(ctx, cardID) }
+
+// accountEmail reads the signed-in user's email from ZimaOS (empty on the
+// measured box, so it often fills in nothing).
+func accountEmail(ctx context.Context, token string) string {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1/v1/users/current", nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("Authorization", token)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer res.Body.Close()
+	var v struct {
+		Data struct {
+			Email string `json:"email"`
+		} `json:"data"`
+	}
+	if res.StatusCode != http.StatusOK || json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&v) != nil {
+		return ""
+	}
+	return v.Data.Email
+}

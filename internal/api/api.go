@@ -14,6 +14,8 @@ import (
 
 	"github.com/chicohaager/lintux-modkit/httpx"
 
+	"github.com/HSinghHira/IceDash/internal/apps"
+	"github.com/HSinghHira/IceDash/internal/catalog"
 	"github.com/HSinghHira/IceDash/internal/notify"
 	"github.com/HSinghHira/IceDash/internal/session"
 	"github.com/HSinghHira/IceDash/internal/settings"
@@ -54,6 +56,12 @@ type Server struct {
 	Update   Updater
 	Notes    Notes
 	Settings Settings
+
+	// Phase 2.
+	Catalog *catalog.Catalog
+	Apps    *apps.Manager
+	// Email returns the signed-in user's ZimaOS email, or "".
+	Email func(ctx context.Context, token string) string
 }
 
 // Health is the answer of GET /v2/icedash/health. The updater and the UI poll
@@ -84,6 +92,8 @@ func (s *Server) Handler() http.Handler {
 
 	mux.Handle("GET "+Route+"/settings", user(s.getSettings))
 	mux.Handle("POST "+Route+"/settings", admin(s.setSettings))
+
+	s.appRoutes(mux, user, admin)
 
 	// Anything else under the route still needs a session first, so an
 	// unknown path tells nothing to someone who isn't signed in.

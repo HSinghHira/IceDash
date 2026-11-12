@@ -27,12 +27,21 @@ const (
 	KindUpdated         = "updated"
 	KindUpdateFailed    = "update_failed"
 	KindRollbackFailed  = "rollback_failed"
+
+	// Phase 2: app events. App names the app (its compose name).
+	KindAppInstalled       = "app_installed"
+	KindAppInstallFailed   = "app_install_failed"
+	KindAppUpdated         = "app_updated"
+	KindAppUpdateFailed    = "app_update_failed"
+	KindAppUpdateAvailable = "app_update_available"
+	KindAppStopped         = "app_stopped"
 )
 
 // Action is the optional button on a notification.
 type Action struct {
 	Label string `json:"label"`
-	// Kind tells the UI what the button does: "update" starts Update now.
+	// Kind tells the UI what the button does: "update" starts Update now;
+	// "open_app" opens the notification's app; "app_update" updates it.
 	Kind string `json:"kind"`
 }
 
@@ -42,6 +51,7 @@ type Notification struct {
 	Time    time.Time `json:"time"`
 	Kind    string    `json:"kind"`
 	Version string    `json:"version,omitempty"`
+	App     string    `json:"app,omitempty"`
 	Title   string    `json:"title"`
 	Body    string    `json:"body"`
 	Action  *Action   `json:"action,omitempty"`

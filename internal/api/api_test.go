@@ -112,6 +112,12 @@ func TestEverythingElseNeedsAToken(t *testing.T) {
 		{"POST", "/notifications/clear"}, {"GET", "/update"}, {"POST", "/update/check"},
 		{"POST", "/update/apply"}, {"GET", "/settings"}, {"POST", "/settings"},
 		{"GET", "/nope"}, {"GET", "/"},
+		{"GET", "/catalog"}, {"POST", "/catalog/refresh"}, {"GET", "/catalog/com.icestore.documenso"},
+		{"GET", "/catalog/documenso/setup"}, {"POST", "/catalog/documenso/check"}, {"POST", "/catalog/documenso/install"},
+		{"GET", "/jobs"}, {"GET", "/apps"}, {"POST", "/apps/gitsave/start"}, {"POST", "/apps/gitsave/stop"},
+		{"POST", "/apps/gitsave/restart"}, {"POST", "/apps/gitsave/update"}, {"POST", "/apps/gitsave/uninstall"},
+		{"GET", "/apps/gitsave/logs"}, {"GET", "/apps/gitsave/credentials"}, {"GET", "/apps/gitsave/backup"},
+		{"GET", "/apps/gitsave/first-launch"}, {"POST", "/apps/gitsave/first-launch/dismiss"},
 	} {
 		if w := call(h, c.method, Route+c.path, "", ""); w.Code != 401 {
 			t.Errorf("%s %s without a token: %d", c.method, c.path, w.Code)
@@ -224,3 +230,25 @@ func TestCrossOriginPostRefused(t *testing.T) {
 }
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+// Phase 2 acceptance check 4: changes, logs, credentials and backups are admin only.
+func TestMemberCantChangeApps(t *testing.T) {
+	h := newEnv(t).h
+	for _, c := range []struct{ method, path string }{
+		{"POST", "/catalog/refresh"}, {"GET", "/catalog/documenso/setup"}, {"POST", "/catalog/documenso/check"},
+		{"POST", "/catalog/documenso/install"}, {"POST", "/apps/gitsave/start"}, {"POST", "/apps/gitsave/stop"},
+		{"POST", "/apps/gitsave/restart"}, {"POST", "/apps/gitsave/update"}, {"POST", "/apps/gitsave/uninstall"},
+		{"GET", "/apps/gitsave/logs"}, {"GET", "/apps/gitsave/credentials"}, {"GET", "/apps/gitsave/backup"},
+	} {
+		if w := call(h, c.method, Route+c.path, member, "{}"); w.Code != 403 {
+			t.Errorf("%s %s as a member: %d", c.method, c.path, w.Code)
+		}
+	}
+	// Reading is fine; without app handling wired in it says so.
+	if w := call(h, "GET", Route+"/apps", member, ""); w.Code != 503 {
+		t.Errorf("GET /apps as a member: %d", w.Code)
+	}
+	if w := call(h, "POST", Route+"/apps/..%2Fetc/start", admin, ""); w.Code != 400 && w.Code != 404 {
+		t.Errorf("bad name: %d", w.Code)
+	}
+}
