@@ -2,18 +2,18 @@ import { strings } from '../strings'
 
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
 
-/** The unit (power of 1024) that suits n. */
-function unitIndex(n: number): number {
+/** The unit (power of base) that suits n. */
+function unitIndex(n: number, base = 1024): number {
   let i = 0
-  while (n >= 1024 && i < UNITS.length - 1) {
-    n /= 1024
+  while (n >= base && i < UNITS.length - 1) {
+    n /= base
     i++
   }
   return i
 }
 
-function amount(n: number, i: number): string {
-  const v = n / 1024 ** i
+function amount(n: number, i: number, base = 1024): string {
+  const v = n / base ** i
   return v >= 100 || i === 0 ? String(Math.round(v)) : v.toFixed(1).replace(/\.0$/, '')
 }
 
@@ -24,10 +24,13 @@ export function bytes(n: number): string {
   return `${amount(n, i)} ${UNITS[i]}`
 }
 
-/** Used and total in the total's unit: "6.2 / 16 GB" style parts. */
-export function usedOfTotal(used: number, total: number): { used: string; total: string; unit: string } {
-  const i = unitIndex(Math.max(total, 0))
-  return { used: amount(Math.max(used, 0), i), total: amount(Math.max(total, 0), i), unit: UNITS[i] ?? 'B' }
+/**
+ * Used and total in the total's unit: "6.2 / 16 GB" style parts. Memory counts
+ * in 1024s; disks pass base 1000, as the ZimaOS dashboard shows them.
+ */
+export function usedOfTotal(used: number, total: number, base: 1000 | 1024 = 1024): { used: string; total: string; unit: string } {
+  const i = unitIndex(Math.max(total, 0), base)
+  return { used: amount(Math.max(used, 0), i, base), total: amount(Math.max(total, 0), i, base), unit: UNITS[i] ?? 'B' }
 }
 
 /** Bytes per second → "4.1 MB/s". */

@@ -53,6 +53,8 @@ describe('format', () => {
     expect(speed(4.1 * 1024 * 1024)).toBe('4.1 MB/s')
     expect(speed(380 * 1024)).toBe('380 KB/s')
     expect(usedOfTotal(3379572736, 16644636672)).toEqual({ used: '3.1', total: '15.5', unit: 'GB' })
+    // Disks as ZimaOS shows them: 140 of 238 GB, not 130 of 222.
+    expect(usedOfTotal(140e9, 238e9, 1000)).toEqual({ used: '140', total: '238', unit: 'GB' })
   })
 
   it('formats uptime and times ago', () => {

@@ -20,7 +20,7 @@ const meters = computed(() => {
   if (!u) return []
   const memUsed = u.mem.total - u.mem.available
   const mem = usedOfTotal(memUsed, u.mem.total)
-  const disk = usedOfTotal(u.sys_disk.used, u.sys_disk.size)
+  const disk = usedOfTotal(u.sys_disk.used, u.sys_disk.size, 1000)
   return [
     {
       id: 'cpu',
