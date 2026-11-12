@@ -125,7 +125,33 @@ async function loadStats() {
 
 let lastNoteId = 0
 let notesLoaded = false
-async function loadNotes() {
+
+// Update now reloads the page on the new version. The newest notification id
+// seen before the reload is kept for that one reload, so what arrived meanwhile
+// ("Updated to …", "Update failed …") still shows as a toast.
+const seenKey = 'icedash-seen-note'
+function keepSeen() {
+  try {
+    sessionStorage.setItem(seenKey, String(lastNoteId))
+  } catch {
+    // no storage: the result still shows in the bell
+  }
+}
+function takeSeen() {
+  try {
+    const v = sessionStorage.getItem(seenKey)
+    sessionStorage.removeItem(seenKey)
+    const n = v === null ? NaN : Number(v)
+    if (Number.isFinite(n)) {
+      lastNoteId = n
+      notesLoaded = true
+    }
+  } catch {
+    // no storage
+  }
+}
+
+export async function loadNotes() {
   try {
     const list = await ice.notifications()
     const fresh = list.items.filter((n) => n.id > lastNoteId && !n.read)
@@ -170,6 +196,7 @@ export async function waitForNewVersion(from: string) {
     try {
       const h = await ice.health()
       if (h.version !== from) {
+        keepSeen()
         location.reload()
         return
       }
@@ -184,8 +211,9 @@ export async function waitForNewVersion(from: string) {
   reloading = false
 }
 
+/** After a check: the new status, and any notification the check raised. */
 export async function refreshUpdate() {
-  await loadUpdate()
+  await Promise.all([loadUpdate(), loadNotes()])
 }
 
 /**
@@ -228,6 +256,7 @@ export async function start() {
     return
   }
   session.value = 'ok'
+  takeSeen()
 
   ice.health().then((h) => (version.value = h.version)).catch(handle)
   zima.customSystem().then((c) => (zone.value = pickZone(c.timezone))).catch(() => undefined)
@@ -238,6 +267,8 @@ export async function start() {
   pollers.push(poll(loadStats, 5000))
   pollers.push(poll(loadApps, 15000))
   pollers.push(poll(loadNotes, 30000))
+  // Right after an update the new version may raise its result a moment after the page loads.
+  if (notesLoaded) for (const ms of [3000, 10000]) setTimeout(loadNotes, ms)
   updatePoller = poll(loadUpdate, 30000)
   pollers.push(updatePoller)
   window.addEventListener('focus', onFocus)

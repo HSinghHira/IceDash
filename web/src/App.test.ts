@@ -67,4 +67,30 @@ describe('App', () => {
     expect(w.find('.avatar').text()).toBe('HI')
     w.unmount()
   })
+
+  it('shows the update result that arrived while the page reloaded', async () => {
+    localStorage.setItem('access_token', adminToken)
+    sessionStorage.setItem('icedash-seen-note', '1')
+    const before = answers['/v2/icedash/notifications?since=0']
+    answers['/v2/icedash/notifications?since=0'] = {
+      items: [
+        { id: 2, time: '2026-11-12T08:08:07Z', kind: 'updated', version: 'v0.2.1', title: 'Updated to v0.2.1', body: 'IceDash is now running v0.2.1.', read: false },
+        { id: 1, time: '2026-11-12T08:07:59Z', kind: 'update_available', version: 'v0.2.1', title: 'Update available', body: '', read: false },
+      ],
+      unread: 2,
+    }
+    try {
+      stubFetch()
+      const w = mount(App, { attachTo: document.body })
+      await flushPromises()
+      await flushPromises()
+      const toasts = w.findAll('.toast').map((t) => t.text())
+      expect(toasts).toHaveLength(1)
+      expect(toasts[0]).toContain('v0.2.1')
+      expect(sessionStorage.getItem('icedash-seen-note')).toBeNull()
+      w.unmount()
+    } finally {
+      answers['/v2/icedash/notifications?since=0'] = before
+    }
+  })
 })
