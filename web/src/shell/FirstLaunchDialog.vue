@@ -8,6 +8,7 @@ import AppIcon from '../components/AppIcon.vue'
 import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
 import { copyText } from '../lib/copy'
+import { withHost } from '../lib/setup'
 import { appInfo, apps, firstLaunchFor } from '../store'
 import { strings } from '../strings'
 
@@ -27,6 +28,8 @@ onMounted(async () => {
 })
 
 const title = computed(() => fl.value?.title || app.value?.name || props.name)
+/** IceStore's steps say [ZIMAOS-IP-ADDRESS] or your-zimaos-ip: show this server instead. */
+const steps = computed(() => (fl.value?.steps ?? []).map((s) => withHost(s, location.hostname)))
 /** Address first, then the login fields that aren't addresses. */
 const boxes = computed(() => {
   const out: { label: string; value: string; secret: boolean }[] = []
@@ -82,10 +85,10 @@ async function finish(open: boolean) {
 
       <p v-for="(n, i) in fl?.creds?.notes ?? []" :key="i" class="note"><Icon name="info" :size="18" /> <span>{{ n }}</span></p>
 
-      <section v-if="fl?.steps.length" class="how">
+      <section v-if="steps.length" class="how">
         <h3 class="kicker">{{ strings.howToUse }}</h3>
         <ol>
-          <li v-for="(s, i) in fl.steps" :key="i"><span class="num">{{ i + 1 }}</span><span>{{ s }}</span></li>
+          <li v-for="(s, i) in steps" :key="i"><span class="num">{{ i + 1 }}</span><span>{{ s }}</span></li>
         </ol>
       </section>
 

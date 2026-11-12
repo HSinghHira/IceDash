@@ -128,3 +128,29 @@ describe('timezone', () => {
     expect(p.date).toContain('11 November')
   })
 })
+
+describe('setup helpers', () => {
+  it('labels env keys and spots placeholders', async () => {
+    const { inputLabel, placeholderIn, withHost } = await import('./setup')
+    expect(inputLabel('DOCUMENSO_ADMIN_EMAIL', 'documenso')).toBe('Admin email')
+    expect(inputLabel('SERVER_IP', 'autoxpose')).toBe('Server IP')
+    expect(inputLabel('PUBLIC_URL', 'documenso')).toBe('Public URL')
+    expect(placeholderIn('CHANGEME_PUBLIC_IP')).toBe(true)
+    expect(placeholderIn('http://[ZIMAOS-IP-ADDRESS]:6181')).toBe(true)
+    expect(placeholderIn('203.0.113.1')).toBe(false)
+    expect(withHost('Open http://[ZIMAOS-IP-ADDRESS]:6181 or your-zimaos-ip', '192.168.68.17')).toBe(
+      'Open http://192.168.68.17:6181 or 192.168.68.17',
+    )
+  })
+
+  it('renders markdown safely', async () => {
+    const { markdown } = await import('./markdown')
+    const html = markdown(
+      '**Hi** <script>x</script>\n\n- a [link](https://x.y/?a=1&b=2)\n- [bad](javascript:alert(1))\n\n1. one\n2. two',
+    )
+    expect(html).toContain('<strong>Hi</strong> &lt;script&gt;')
+    expect(html).toContain('<a href="https://x.y/?a=1&amp;b=2"')
+    expect(html).not.toContain('href="javascript')
+    expect(html).toContain('<ol><li>one</li><li>two</li></ol>')
+  })
+})

@@ -21,3 +21,8 @@ export function inputLabel(key: string, app: string): string {
   words[0] = words[0]!.charAt(0).toUpperCase() + words[0]!.slice(1)
   return words.join(' ')
 }
+
+/** Puts this server's host into IceStore text: [ZIMAOS-IP-ADDRESS], [SERVER-IP], your-zimaos-ip. */
+export function withHost(text: string, host: string): string {
+  return text.replace(/\[ZIMAOS-IP-ADDRESS\]|\[SERVER-IP\]|your-zimaos-ip/gi, host)
+}
