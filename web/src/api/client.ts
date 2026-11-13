@@ -123,6 +123,44 @@ export async function request<T>(path: string, opts: RequestOptions = {}, retrie
   return data as T
 }
 
+/**
+ * Signs in with the system's own login (POST /v1/users/login, measured on
+ * CasaOS 0.4.15) and keeps the tokens where its own UI keeps them
+ * (access_token, refresh_token, expires_at, user), so both stay signed in.
+ * Throws an ApiError with the system's message when it says no.
+ */
+export async function signIn(username: string, password: string, opts: RequestOptions = {}): Promise<void> {
+  const doFetch = opts.fetch ?? fetch
+  let res: Response
+  try {
+    res = await doFetch('/v1/users/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    })
+  } catch {
+    throw new ApiError(0, 'unreachable', 'network error')
+  }
+  type Login = {
+    message?: string
+    data?: { token?: { access_token?: string; refresh_token?: string; expires_at?: number }; user?: unknown }
+  }
+  let body: Login = {}
+  try {
+    body = (await res.json()) as Login
+  } catch {
+    // not JSON
+  }
+  const t = body.data?.token
+  if (!res.ok || !t?.access_token) {
+    throw new ApiError(res.status, 'sign_in_failed', body.message ?? res.statusText)
+  }
+  write(opts.storage, TOKEN_KEY, t.access_token)
+  if (t.refresh_token) write(opts.storage, REFRESH_KEY, t.refresh_token)
+  if (t.expires_at !== undefined) write(opts.storage, 'expires_at', String(t.expires_at))
+  if (body.data?.user) write(opts.storage, 'user', JSON.stringify(body.data.user))
+}
+
 /** Sign out: forget the tokens and go to the stock dashboard's login page. */
 export function signOut() {
   for (const k of [TOKEN_KEY, REFRESH_KEY, 'expires_at']) {

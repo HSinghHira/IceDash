@@ -11,6 +11,13 @@ export const strings = {
   sessionEndedTitle: 'Your session has ended',
   sessionEndedBody: (sys: string) => `Sign in to ${sys} again to keep using IceDash.`,
   goToSystem: (sys: string) => `Go to ${sys}`,
+  signInHere: (sys: string) => `Sign in with your ${sys} account.`,
+  username: 'Username',
+  password: 'Password',
+  signInButton: 'Sign in',
+  signingIn: 'Signing in…',
+  signInFailed: 'That username or password didn’t work.',
+  openStockDashboard: (sys: string) => `Open the ${sys} dashboard instead`,
   cantReach: 'Can’t reach IceDash on this server right now. Retrying…',
   updatingBanner: 'Installing the update. IceDash restarts and may be away for up to 2 minutes; if the new version doesn’t start, the previous one comes back.',
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ApiError, request } from './client'
+import { ApiError, request, signIn } from './client'
 
 function storage(init: Record<string, string> = {}) {
   const m = new Map(Object.entries(init))
@@ -92,5 +92,40 @@ describe('request', () => {
     }).catch((e: unknown) => e)
     expect((err as ApiError).status).toBe(401)
     expect((err as ApiError).code).toBe('auth_invalid')
+  })
+})
+
+// The answers CasaOS 0.4.15 gave (HOST-NOTES, "Phase 3a").
+describe('signIn', () => {
+  it('keeps the tokens where CasaOS keeps them', async () => {
+    const st = storage({ access_token: 'stale' })
+    const seen: Seen = { calls: [] }
+    await signIn('casaos', 'casaos', {
+      storage: st,
+      fetch: fakeFetch(
+        {
+          '/v1/users/login': [
+            [200, { success: 200, data: { token: { access_token: 'new.a.t', refresh_token: 'new.r.t', expires_at: 1794569815 }, user: { id: 1, username: 'casaos', role: 'admin' } } }],
+          ],
+        },
+        seen,
+      ),
+    })
+    expect(JSON.parse(String(seen.calls[0]!.init!.body))).toEqual({ username: 'casaos', password: 'casaos' })
+    expect(st.m.get('access_token')).toBe('new.a.t')
+    expect(st.m.get('refresh_token')).toBe('new.r.t')
+    expect(st.m.get('expires_at')).toBe('1794569815')
+    expect(JSON.parse(st.m.get('user')!).username).toBe('casaos')
+  })
+
+  it('throws the system answer on a wrong password and keeps nothing', async () => {
+    const st = storage()
+    const err = await signIn('casaos', 'nope', {
+      storage: st,
+      fetch: fakeFetch({ '/v1/users/login': [[400, { success: 10013, message: 'User does not exist or password is invalid', data: null }]] }),
+    }).catch((e) => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.code).toBe('sign_in_failed')
+    expect(st.m.size).toBe(0)
   })
 })
