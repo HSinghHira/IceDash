@@ -5,6 +5,8 @@
 // A 401 goes through POST /v1/users/refresh once, as ZimaOS's own UI and
 // lintux-modkit's web/common.js do (measured on 1.8.0, HOST-NOTES item 6).
 
+import { loginUrl } from '../lib/host'
+
 export const TOKEN_KEY = 'access_token'
 export const REFRESH_KEY = 'refresh_token'
 
@@ -121,7 +123,7 @@ export async function request<T>(path: string, opts: RequestOptions = {}, retrie
   return data as T
 }
 
-/** The ZimaOS sign-out: forget the tokens and go to ZimaOS's login page. */
+/** Sign out: forget the tokens and go to the stock dashboard's login page. */
 export function signOut() {
   for (const k of [TOKEN_KEY, REFRESH_KEY, 'expires_at']) {
     try {
@@ -130,5 +132,5 @@ export function signOut() {
       // nothing stored
     }
   }
-  location.href = '/#/login'
+  location.href = loginUrl()
 }

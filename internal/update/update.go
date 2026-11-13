@@ -96,12 +96,16 @@ type Manager struct {
 	Arch    string // amd64
 	Dir     string // /DATA/.icedash/self-update
 	ExtDir  string // /var/lib/extensions, where zpkg keeps installed images
-	Root    string // "/": the host, for the collision check
-	GitHub  GitHub
-	HTTP    *http.Client // downloads
-	Run     Runner
-	Notify  Notifier
-	Card    Card
+	// Layout is "" for the ZimaOS sysext image, LayoutFolder on CasaOS.
+	Layout string
+	// Home is the install folder in the folder layout (/opt/icedash).
+	Home   string
+	Root   string // "/": the host, for the collision check
+	GitHub GitHub
+	HTTP   *http.Client // downloads
+	Run    Runner
+	Notify Notifier
+	Card   Card
 	// AllowURL vets each download URL; nil means AllowedURL (GitHub only).
 	AllowURL func(string) error
 	MaxBytes int64
@@ -230,6 +234,9 @@ func (m *Manager) prepare(ctx context.Context, rel *Release) error {
 		m.step("download", "Finding the image for this machine")
 		return err
 	}
+	if m.Layout == LayoutFolder {
+		return m.prepareFolder(ctx, rel, img)
+	}
 	for _, sub := range []string{"new", "previous"} {
 		if err := os.RemoveAll(filepath.Join(m.Dir, sub)); err != nil {
 			return err
@@ -273,8 +280,13 @@ func (m *Manager) prepare(ctx context.Context, rel *Release) error {
 	}
 
 	m.step("handover", "Installing: IceDash restarts in a few seconds")
+	return m.handover(ctx, SwapScript(m.Dir, strings.TrimPrefix(rel.Tag, "v"), m.Version))
+}
+
+// handover runs the swap script in a transient unit, outside IceDash's own
+// service, which it restarts.
+func (m *Manager) handover(ctx context.Context, body string) error {
 	script := filepath.Join(m.Dir, "run.sh")
-	body := SwapScript(m.Dir, strings.TrimPrefix(rel.Tag, "v"), m.Version)
 	if err := os.WriteFile(script, []byte(body), 0o700); err != nil {
 		return err
 	}
@@ -286,10 +298,13 @@ func (m *Manager) prepare(ctx context.Context, rel *Release) error {
 	return nil
 }
 
-// pick chooses icedash-<arch>.raw, or icedash.raw (the amd64 copy) on amd64.
+// pick chooses icedash-<arch>.raw, or icedash.raw (the amd64 copy) on amd64;
+// in the folder layout, icedash-casaos-<arch>.tar.gz.
 func (m *Manager) pick(rel *Release) (Asset, error) {
 	names := []string{"icedash-" + m.Arch + ".raw"}
-	if m.Arch == "amd64" {
+	if m.Layout == LayoutFolder {
+		names = []string{FolderAsset(m.Arch)}
+	} else if m.Arch == "amd64" {
 		names = append(names, "icedash.raw")
 	}
 	for _, n := range names {

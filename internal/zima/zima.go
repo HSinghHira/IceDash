@@ -31,6 +31,7 @@ type Client struct {
 	URLFile string // default DefaultURLFile
 	Base    string // tests: used instead of the file
 	HTTP    *http.Client
+	System  string // the system's name in errors; "ZimaOS" when empty
 }
 
 // ZimaAppID is how ZimaOS 1.8 names a v2 app.
@@ -43,6 +44,24 @@ func WithToken(ctx context.Context, token string) context.Context {
 	return context.WithValue(ctx, tokenKey{}, token)
 }
 
+// BaseURL is app management's /v2/app_management address (the CasaOS
+// client shares it: CasaOS keeps the same file).
+func (c *Client) BaseURL() (string, error) { return c.base() }
+
+// SystemName names the system in errors ("ZimaOS" when empty).
+func (c *Client) SystemName() string {
+	if c.System == "" {
+		return "ZimaOS"
+	}
+	return c.System
+}
+
+// TokenFrom returns the token WithToken put in ctx, or "".
+func TokenFrom(ctx context.Context) string {
+	t, _ := ctx.Value(tokenKey{}).(string)
+	return t
+}
+
 func (c *Client) base() (string, error) {
 	if c.Base != "" {
 		return strings.TrimRight(c.Base, "/") + "/v2/app_management", nil
@@ -53,7 +72,7 @@ func (c *Client) base() (string, error) {
 	}
 	b, err := os.ReadFile(f)
 	if err != nil {
-		return "", fmt.Errorf("ZimaOS app management isn't running: %w", err)
+		return "", fmt.Errorf("%s app management isn't running: %w", c.SystemName(), err)
 	}
 	u := strings.TrimSpace(string(b))
 	if !strings.HasPrefix(u, "http://127.0.0.1:") && !strings.HasPrefix(u, "http://localhost:") {
@@ -70,7 +89,7 @@ type Error struct {
 
 func (e *Error) Error() string {
 	if e.Message == "" {
-		return fmt.Sprintf("ZimaOS answered %d", e.Status)
+		return fmt.Sprintf("app management answered %d", e.Status)
 	}
 	return e.Message
 }
@@ -108,7 +127,7 @@ func (c *Client) do(ctx context.Context, method, path string, body any, ctype st
 	}
 	res, err := hc.Do(req)
 	if err != nil {
-		return fmt.Errorf("ZimaOS app management: %w", err)
+		return fmt.Errorf("%s app management: %w", c.SystemName(), err)
 	}
 	defer res.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(res.Body, 32<<20))
@@ -131,7 +150,7 @@ func (c *Client) do(ctx context.Context, method, path string, body any, ctype st
 	}
 	if out != nil {
 		if err := json.Unmarshal(raw, out); err != nil {
-			return fmt.Errorf("ZimaOS app management: %w", err)
+			return fmt.Errorf("%s app management: %w", c.SystemName(), err)
 		}
 	}
 	return nil
@@ -258,7 +277,7 @@ func (c *Client) raw(ctx context.Context, method, path string, body any) ([]byte
 	}
 	res, err := hc.Do(req)
 	if err != nil {
-		return nil, 0, fmt.Errorf("ZimaOS app management: %w", err)
+		return nil, 0, fmt.Errorf("%s app management: %w", c.SystemName(), err)
 	}
 	defer res.Body.Close()
 	b, err := io.ReadAll(io.LimitReader(res.Body, 4<<20))

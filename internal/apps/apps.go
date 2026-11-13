@@ -3,7 +3,8 @@
 // credentials, backups, the first-launch popup and app notifications
 // (PLAN.md, "Phase 2: IceStore inside IceDash").
 //
-// Every change goes through ZimaOS's own app management (package zima), so
+// Every change goes through the system's own app management (package zima on
+// ZimaOS, package casa on CasaOS), so
 // apps installed here look and behave the same on the stock dashboard.
 package apps
 
@@ -392,7 +393,7 @@ func (m *Manager) track(name string) {
 	ok := t.State == "succeeded"
 	errText := t.Error
 	if !ok && errText == "" {
-		errText = "ZimaOS stopped the task (" + t.State + ")"
+		errText = "the task stopped (" + t.State + ")"
 	}
 	if ok && j.Kind == "install" {
 		m.mu.Lock()
@@ -506,7 +507,7 @@ func (m *Manager) installed(ctx context.Context, name string) (zima.Installed, e
 // ErrNotInstalled: no app of that name.
 var ErrNotInstalled = errors.New("that app isn't installed")
 
-// Start, Stop and Restart go through ZimaOS.
+// Start, Stop and Restart go through the system's app management.
 func (m *Manager) Start(ctx context.Context, name string) error {
 	if _, err := m.installed(ctx, name); err != nil {
 		return err

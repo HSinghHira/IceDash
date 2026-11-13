@@ -6,11 +6,11 @@ export const strings = {
   version: (v: string) => `Version ${v}`,
 
   // sign-in
-  signInTitle: 'Sign in to ZimaOS first',
-  signInBody: 'IceDash uses your ZimaOS account. Sign in on the ZimaOS dashboard, then open IceDash again.',
+  signInTitle: (sys: string) => `Sign in to ${sys} first`,
+  signInBody: (sys: string) => `IceDash uses your ${sys} account. Sign in on the ${sys} dashboard, then open IceDash again.`,
   sessionEndedTitle: 'Your session has ended',
-  sessionEndedBody: 'Sign in to ZimaOS again to keep using IceDash.',
-  goToZimaOS: 'Go to ZimaOS',
+  sessionEndedBody: (sys: string) => `Sign in to ${sys} again to keep using IceDash.`,
+  goToSystem: (sys: string) => `Go to ${sys}`,
   cantReach: 'Can’t reach IceDash on this server right now. Retrying…',
   updatingBanner: 'Installing the update. IceDash restarts and may be away for up to 2 minutes; if the new version doesn’t start, the previous one comes back.',
 
@@ -19,7 +19,7 @@ export const strings = {
   menuLabel: 'IceDash menu',
   menuAbout: 'About IceDash',
   menuCheck: 'Check for updates',
-  menuZimaOS: 'Open the ZimaOS dashboard',
+  menuDashboard: (sys: string) => `Open the ${sys} dashboard`,
   menuSignOut: 'Sign out',
   cpu: 'CPU',
   ram: 'RAM',
@@ -70,7 +70,10 @@ export const strings = {
   restoreWindow: (t: string) => `Show ${t}`,
   noAddress: 'This app has no web address.',
   aboutTitle: 'About IceDash',
-  aboutBody: 'A desktop-style dashboard for ZimaOS, in the IceStore design. The stock ZimaOS dashboard stays where it is.',
+  aboutBody: (sys: string, takenOver: boolean) =>
+    takenOver
+      ? `A desktop-style dashboard for ${sys}, in the IceStore design. The stock ${sys} dashboard is one click away.`
+      : `A desktop-style dashboard for ${sys}, in the IceStore design. The stock ${sys} dashboard stays where it is.`,
   installedVersion: 'Installed',
   latestVersion: 'Latest',
   lastChecked: (when: string) => `Last checked ${when}`,
@@ -181,7 +184,7 @@ export const strings = {
   backupHint: 'The app keeps running. For a database, its own export is safer.',
   actionDone: { start: 'Starting', stop: 'Stopping', restart: 'Restarting' } as Record<string, string>,
   uninstallTitle: (app: string) => `Uninstall ${app}?`,
-  uninstallBody: 'ZimaOS removes the app and its container.',
+  uninstallBody: (sys: string) => `${sys} removes the app and its container.`,
   deleteData: (dir: string) => `Also delete its data in ${dir}`,
   dataKept: (dir: string) => `Its data stays in ${dir}.`,
   dataDeleted: 'Its data was deleted too.',

@@ -1,6 +1,6 @@
 // Package api is IceDash's HTTP API under /v2/icedash (PLAN.md, "Backend API").
 //
-// Every route except /health needs a valid ZimaOS session (session.Middleware);
+// Every route except /health needs a valid session on the system (session.Middleware);
 // routes that change the box are admin-only (session.RequireAdmin), and every
 // POST must be same-origin (httpx.CSRF). Errors are JSON with a stable code.
 package api
@@ -60,21 +60,30 @@ type Server struct {
 	// Phase 2.
 	Catalog *catalog.Catalog
 	Apps    *apps.Manager
-	// Email returns the signed-in user's ZimaOS email, or "".
+	// Email returns the signed-in user's email on the system, or "".
 	Email func(ctx context.Context, token string) string
+
+	// Phase 3a: the system IceDash runs on.
+	Host      string          // "zimaos" or "casaos"
+	HostName  string          // "ZimaOS" or "CasaOS"
+	StockURL  string          // where the stock dashboard is ("/" on ZimaOS, "/casaos/" on CasaOS)
+	SessionOn session.Options // the system's sign-in rules
 }
 
 // Health is the answer of GET /v2/icedash/health. The updater and the UI poll
 // it to see which version runs.
 type Health struct {
-	Version string    `json:"version"`
-	Arch    string    `json:"arch"`
-	Started time.Time `json:"started"`
+	Version  string    `json:"version"`
+	Arch     string    `json:"arch"`
+	Started  time.Time `json:"started"`
+	Host     string    `json:"host"`
+	HostName string    `json:"host_name"`
+	StockURL string    `json:"stock_url"`
 }
 
 // Handler returns the API with its checks in place.
 func (s *Server) Handler() http.Handler {
-	signedIn := session.Middleware(s.Verify)
+	signedIn := session.MiddlewareFor(s.Verify, s.SessionOn)
 	user := func(h http.HandlerFunc) http.Handler { return signedIn(h) }
 	admin := func(h http.HandlerFunc) http.Handler { return signedIn(session.RequireAdmin(h)) }
 
@@ -102,7 +111,11 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
-	httpx.WriteJSON(w, http.StatusOK, Health{Version: s.Version, Arch: s.Arch, Started: s.Started})
+	h := Health{Version: s.Version, Arch: s.Arch, Started: s.Started, Host: s.Host, HostName: s.HostName, StockURL: s.StockURL}
+	if h.Host == "" {
+		h.Host, h.HostName, h.StockURL = "zimaos", "ZimaOS", "/"
+	}
+	httpx.WriteJSON(w, http.StatusOK, h)
 }
 
 func (s *Server) system(w http.ResponseWriter, r *http.Request) {

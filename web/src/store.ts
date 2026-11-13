@@ -5,6 +5,7 @@ import * as appsApi from './api/apps'
 import * as ice from './api/icedash'
 import * as zima from './api/zimaos'
 import { toApps, type App } from './lib/apps'
+import { setHost } from './lib/host'
 import { poll, type Poller } from './lib/poll'
 import { pickZone } from './lib/timezone'
 import { strings } from './strings'
@@ -445,6 +446,8 @@ async function probeTerminal() {
 const pollers: Poller[] = []
 
 export async function start() {
+  // The system's name and stock dashboard address, needed even on the sign-in screen.
+  void ice.health().then(setHost).catch(() => undefined)
   const t = token()
   user.value = t ? userFromToken(t) : null
   if (!t || !user.value) {

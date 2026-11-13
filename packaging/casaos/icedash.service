@@ -1,0 +1,23 @@
+[Unit]
+Description=IceDash for CasaOS
+Documentation=https://github.com/HSinghHira/IceDash
+After=network-online.target casaos-gateway.service casaos-user-service.service casaos-app-management.service casaos-message-bus.service
+Wants=network-online.target
+# State (notifications, settings, self-update) lives in /DATA/.icedash, root only.
+RequiresMountsFor=/DATA
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/opt/icedash/current/icedash
+Restart=always
+RestartSec=5
+# On stop, IceDash gives / back to the stock CasaOS UI; the next start takes it again.
+TimeoutStopSec=20
+StandardOutput=journal
+StandardError=journal
+RestrictRealtime=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

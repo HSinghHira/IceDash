@@ -1,7 +1,8 @@
 # IceDash CI.
 #
 # Every push and pull request: `make check` (vet, Go tests with -race, web
-# type check and tests) and `make build` (the module image, kept as an artifact).
+# type check and tests) and `make build` (the ZimaOS module image and the
+# CasaOS packages, kept as an artifact).
 # Only a version tag (v0.x.y) makes a GitHub Release; a plain push to main never
 # reaches users (PLAN.md, "Versioning and releases").
 #
@@ -111,4 +112,4 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "IceDash $TAG" --notes-file notes.md --verify-tag \
-            dist/icedash-amd64.raw dist/icedash-amd64.raw.sha256 dist/icedash.raw dist/icedash.raw.sha256
+            dist/icedash-amd64.raw dist/icedash-amd64.raw.sha256 dist/icedash.raw dist/icedash.raw.sha256             dist/icedash-casaos-amd64.tar.gz dist/icedash-casaos-amd64.tar.gz.sha256             dist/icedash-casaos-arm64.tar.gz dist/icedash-casaos-arm64.tar.gz.sha256             dist/install-casaos.sh

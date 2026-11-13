@@ -6,7 +6,7 @@ import * as api from '../api/apps'
 import AppIcon from '../components/AppIcon.vue'
 import Icon from '../components/Icon.vue'
 import { bytes } from '../lib/format'
-import { ZIMAOS_DASHBOARD } from '../lib/launchers'
+import { dashboardUrl } from '../lib/host'
 import { markdown } from '../lib/markdown'
 import {
   appInfo,
@@ -141,7 +141,7 @@ const views = computed(() => [
           <button type="button" class="ghost" :disabled="refreshing" :title="strings.refresh" @click="refresh">
             <Icon name="refresh" :size="17" :class="{ spin: refreshing }" />
           </button>
-          <a class="ghost wide" :href="ZIMAOS_DASHBOARD" target="_blank" rel="noopener">
+          <a class="ghost wide" :href="dashboardUrl()" target="_blank" rel="noopener">
             <Icon name="grid" :size="17" /> {{ strings.officialStore }}
           </a>
         </div>

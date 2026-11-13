@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { appUrl, counts, statusOf, toApps, type GridEntry } from './apps'
 import { ago, bytes, duration, initials, pct, speed, usedOfTotal } from './format'
-import { desktopLaunchers, terminalUrl } from './launchers'
+import { setHost } from './host'
+import { desktopLaunchers, dockEnd, terminalUrl } from './launchers'
 import { search } from './search'
 import { cityOf, clockParts, pickZone } from './timezone'
 
@@ -90,6 +91,16 @@ describe('launchers', () => {
     const l = desktopLaunchers(where, { terminal: false, iceStoreInZimaOS: true })
     expect(l.map((x) => x.id)).toEqual(['files', 'icestore', 'appstore'])
     expect(l[1]!.url).toBe('/#/')
+  })
+  it('opens CasaOS pages on its home page at /casaos/', () => {
+    setHost({ host: 'casaos', host_name: 'CasaOS', stock_url: '/casaos/' })
+    try {
+      const l = desktopLaunchers(where, { terminal: false, iceStoreInZimaOS: true })
+      expect(l.map((x) => x.url)).toEqual(['/casaos/#/', '/casaos/#/', '/casaos/#/'])
+      expect(dockEnd().map((x) => x.url)).toEqual(['/casaos/#/', '/casaos/#/'])
+    } finally {
+      setHost({ host: 'zimaos', host_name: 'ZimaOS', stock_url: '/' })
+    }
   })
   it('brackets an IPv6 host', () => {
     expect(terminalUrl({ protocol: 'http:', hostname: 'fe80::1' })).toBe('http://[fe80::1]:7681/')

@@ -7,6 +7,9 @@ export interface Health {
   version: string
   arch: string
   started: string
+  host?: string
+  host_name?: string
+  stock_url?: string
 }
 
 export const health = () => request<Health>(`${base}/health`)

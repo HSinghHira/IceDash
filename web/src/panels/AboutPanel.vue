@@ -5,6 +5,7 @@ import { computed, ref } from 'vue'
 import { checkUpdate, saveSettings } from '../api/icedash'
 import Icon from '../components/Icon.vue'
 import { ago } from '../lib/format'
+import { dashboardUrl, host } from '../lib/host'
 import { autoCheck, refreshUpdate, startUpdate, update, user, version } from '../store'
 import { strings } from '../strings'
 
@@ -53,7 +54,8 @@ async function toggleAuto(e: Event) {
       <img :src="logo" alt="" width="52" height="52" />
       <div>
         <h3>{{ strings.appName }}</h3>
-        <p class="mut">{{ strings.aboutBody }}</p>
+        <p class="mut">{{ strings.aboutBody(host.name, host.id === 'casaos') }}</p>
+        <a class="stock" :href="dashboardUrl()" target="_blank" rel="noopener">{{ strings.menuDashboard(host.name) }}</a>
       </div>
     </div>
 
@@ -136,6 +138,12 @@ h3 {
 }
 .head p {
   margin: 0;
+  font-size: 13px;
+}
+.stock {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--ac);
   font-size: 13px;
 }
 .mut {

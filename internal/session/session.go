@@ -47,25 +47,46 @@ func WithClaims(ctx context.Context, c Claims) context.Context {
 	return context.WithValue(ctx, ctxKey{}, c)
 }
 
+// Options adapt the checks to the system (PLAN.md, Phase 3a).
+type Options struct {
+	// System names the system in error messages ("ZimaOS" when empty).
+	System string
+	// EveryoneAdmin makes every signed-in user an admin. CasaOS has one
+	// account per install and its token has no role claim (measured on 0.4.15).
+	EveryoneAdmin bool
+}
+
 // Middleware lets a request through only with a valid token, and puts the
 // user's claims in its context. It answers 401 with code auth_required (no
 // token) or auth_invalid (a bad or expired one), so the UI can tell them apart.
 func Middleware(v Verifier) func(http.Handler) http.Handler {
+	return MiddlewareFor(v, Options{})
+}
+
+// MiddlewareFor is Middleware with the system's options.
+func MiddlewareFor(v Verifier, o Options) func(http.Handler) http.Handler {
+	system := o.System
+	if system == "" {
+		system = "ZimaOS"
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := Token(r)
 			if token == "" {
-				httpx.WriteError(w, http.StatusUnauthorized, "auth_required", "sign in to ZimaOS first")
+				httpx.WriteError(w, http.StatusUnauthorized, "auth_required", "sign in to "+system+" first")
 				return
 			}
 			if err := v.Verify(token); err != nil {
-				httpx.WriteError(w, http.StatusUnauthorized, "auth_invalid", "your ZimaOS session has ended")
+				httpx.WriteError(w, http.StatusUnauthorized, "auth_invalid", "your "+system+" session has ended")
 				return
 			}
 			c, err := Parse(token)
 			if err != nil || c.Username == "" {
-				httpx.WriteError(w, http.StatusUnauthorized, "auth_invalid", "your ZimaOS session has ended")
+				httpx.WriteError(w, http.StatusUnauthorized, "auth_invalid", "your "+system+" session has ended")
 				return
+			}
+			if o.EveryoneAdmin {
+				c.Role = "admin"
 			}
 			next.ServeHTTP(w, r.WithContext(WithClaims(r.Context(), c)))
 		})

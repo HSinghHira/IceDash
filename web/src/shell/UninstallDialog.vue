@@ -3,6 +3,7 @@
 import { computed, ref } from 'vue'
 import * as api from '../api/apps'
 import AppIcon from '../components/AppIcon.vue'
+import { host } from '../lib/host'
 import Modal from '../components/Modal.vue'
 import { apps, refreshApps, toast, uninstallFor } from '../store'
 import { strings } from '../strings'
@@ -39,7 +40,7 @@ async function go() {
         <AppIcon :src="app?.icon" :name="title" :size="44" />
         <h2>{{ strings.uninstallTitle(title) }}</h2>
       </header>
-      <p class="mut">{{ strings.uninstallBody }} {{ deleteData ? '' : strings.dataKept(dir) }}</p>
+      <p class="mut">{{ strings.uninstallBody(host.name) }} {{ deleteData ? '' : strings.dataKept(dir) }}</p>
       <label class="check"><input v-model="deleteData" type="checkbox" /> {{ strings.deleteData(dir) }}</label>
       <p v-if="error" class="err" role="alert">{{ error }}</p>
       <footer>

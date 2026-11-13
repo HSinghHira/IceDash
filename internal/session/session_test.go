@@ -73,3 +73,24 @@ func TestRequireAdmin(t *testing.T) {
 		t.Fatalf("member: %d %s", w.Code, w.Body)
 	}
 }
+
+// A CasaOS 0.4.15 token: no role claim, and the one account is the admin.
+func TestEveryoneAdminOnCasaOS(t *testing.T) {
+	casa := token(`{"username":"casaos","id":1,"iss":"casaos","exp":1794569815}`)
+	var got Claims
+	h := MiddlewareFor(verifier{}, Options{System: "CasaOS", EveryoneAdmin: true})(RequireAdmin(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got, _ = FromContext(r.Context())
+	})))
+	if w := serve(h, casa); w.Code != http.StatusOK || !got.Admin() || got.Username != "casaos" {
+		t.Fatalf("%d %+v", w.Code, got)
+	}
+	// Without the option the same token is a member.
+	h = Middleware(verifier{})(RequireAdmin(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})))
+	if w := serve(h, casa); w.Code != http.StatusForbidden {
+		t.Fatalf("without EveryoneAdmin: %d", w.Code)
+	}
+	h = MiddlewareFor(verifier{}, Options{System: "CasaOS"})(http.NotFoundHandler())
+	if w := serve(h, ""); !strings.Contains(w.Body.String(), "sign in to CasaOS first") {
+		t.Fatalf("message: %s", w.Body.String())
+	}
+}

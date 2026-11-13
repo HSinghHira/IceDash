@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { signOut } from '../api/client'
 import Icon from '../components/Icon.vue'
 import { initials, speed, usedOfTotal } from '../lib/format'
+import { dashboardUrl, host } from '../lib/host'
 import { clockParts } from '../lib/timezone'
 import {
   activeWindow,
@@ -84,7 +85,7 @@ onBeforeUnmount(() => {
         <div v-if="menu === 'icedash'" class="menu" role="menu">
           <button role="menuitem" type="button" @click="(close(), openWindow('about'))">{{ strings.menuAbout }}</button>
           <button role="menuitem" type="button" @click="checkForUpdates">{{ strings.menuCheck }}</button>
-          <a role="menuitem" href="/#/" target="_blank" rel="noopener" @click="close">{{ strings.menuZimaOS }}</a>
+          <a role="menuitem" :href="dashboardUrl()" target="_blank" rel="noopener" @click="close">{{ strings.menuDashboard(host.name) }}</a>
           <hr />
           <button role="menuitem" type="button" @click="signOut">{{ strings.menuSignOut }}</button>
         </div>

@@ -45,7 +45,7 @@ func (s *Server) appRoutes(mux *http.ServeMux, user, admin func(http.HandlerFunc
 	mux.Handle("POST "+Route+"/apps/{name}/first-launch/dismiss", user(s.firstLaunchDismiss))
 }
 
-// withToken passes the user's ZimaOS token on to app management.
+// withToken passes the user's token on to the system's app management.
 func withToken(r *http.Request) context.Context {
 	return zima.WithToken(r.Context(), session.Token(r))
 }

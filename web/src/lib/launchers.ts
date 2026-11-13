@@ -1,6 +1,8 @@
-// The system launchers. In Phase 1 each opens a ZimaOS page in a new tab
-// (deep links measured on ZimaOS 1.8.0, docs/HOST-NOTES.md item 6).
+// The system launchers. Each opens a page of the stock dashboard in a new tab
+// (deep links measured on ZimaOS 1.8.0, docs/HOST-NOTES.md item 6; on CasaOS
+// 0.4.15 everything is on its home page).
 import { strings } from '../strings'
+import { dashboardUrl, filesUrl } from './host'
 import type { IconName } from './icons'
 
 export interface Launcher {
@@ -11,7 +13,7 @@ export interface Launcher {
 }
 
 /** The stock dashboard: App Store and Settings are popups there with no URL of their own. */
-export const ZIMAOS_DASHBOARD = '/#/'
+export const stockDashboard = () => dashboardUrl()
 export const ICESTORE_SITE = 'https://icestore.hsinghhira.me'
 export const TERMINAL_PORT = 7681
 
@@ -23,14 +25,14 @@ export interface Where {
 /** Launchers for the desktop (Files, IceStore, App Store, Terminal). */
 export function desktopLaunchers(where: Where, opts: { terminal: boolean; iceStoreInZimaOS: boolean }): Launcher[] {
   const list: Launcher[] = [
-    { id: 'files', name: strings.files, icon: 'folder', url: '/modules/icewhale_files/index.html#/files' },
+    { id: 'files', name: strings.files, icon: 'folder', url: filesUrl() },
     {
       id: 'icestore',
       name: strings.iceStore,
       icon: 'snowflake',
-      url: opts.iceStoreInZimaOS ? ZIMAOS_DASHBOARD : ICESTORE_SITE,
+      url: opts.iceStoreInZimaOS ? dashboardUrl() : ICESTORE_SITE,
     },
-    { id: 'appstore', name: strings.appStore, icon: 'grid', url: ZIMAOS_DASHBOARD },
+    { id: 'appstore', name: strings.appStore, icon: 'grid', url: dashboardUrl() },
   ]
   if (opts.terminal) list.push({ id: 'terminal', name: strings.terminal, icon: 'terminal', url: terminalUrl(where) })
   return list
@@ -39,9 +41,9 @@ export function desktopLaunchers(where: Where, opts: { terminal: boolean; iceSto
 /** Settings and Trash, at the end of the dock. */
 export function dockEnd(): Launcher[] {
   return [
-    { id: 'settings', name: strings.settings, icon: 'settings', url: ZIMAOS_DASHBOARD },
+    { id: 'settings', name: strings.settings, icon: 'settings', url: dashboardUrl() },
     // TODO(Phase 3): the Files app gets its own Trash view; until then Files opens.
-    { id: 'trash', name: strings.trash, icon: 'trash', url: '/modules/icewhale_files/index.html#/files' },
+    { id: 'trash', name: strings.trash, icon: 'trash', url: filesUrl() },
   ]
 }
 

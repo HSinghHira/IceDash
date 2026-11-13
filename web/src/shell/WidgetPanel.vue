@@ -5,7 +5,8 @@ import { computed } from 'vue'
 import Icon from '../components/Icon.vue'
 import { counts } from '../lib/apps'
 import { duration, pct, speed, usedOfTotal } from '../lib/format'
-import { ICESTORE_SITE, ZIMAOS_DASHBOARD } from '../lib/launchers'
+import { dashboardUrl } from '../lib/host'
+import { ICESTORE_SITE } from '../lib/launchers'
 import { cityOf, clockParts } from '../lib/timezone'
 import { appUpdates, apps, iceStoreInZimaOS, openIceStore, sys, util, zone } from '../store'
 import { strings } from '../strings'
@@ -63,7 +64,7 @@ const chart = computed(() => {
 })
 
 const c = computed(() => counts(apps.value))
-const storeUrl = computed(() => (iceStoreInZimaOS.value ? ZIMAOS_DASHBOARD : ICESTORE_SITE))
+const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICESTORE_SITE))
 </script>
 
 <template>
