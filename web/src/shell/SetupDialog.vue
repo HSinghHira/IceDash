@@ -106,18 +106,17 @@ const fillMark = (f?: string) =>
 </script>
 
 <template>
-  <Modal :label="strings.setUpBeforeInstall" :width="720" @close="close">
+  <Modal :label="strings.setUpBeforeInstall" :width="580" @close="close">
     <p v-if="loadError" class="error" role="alert">{{ loadError }}</p>
     <p v-else-if="!view" class="mut">{{ strings.loading }}</p>
     <form v-else class="setup" @submit.prevent="doInstall">
       <header class="head">
-        <AppIcon :src="app?.icon" :name="app?.title ?? ''" :size="66" />
+        <AppIcon :src="app?.icon" :name="app?.title ?? ''" :size="52" />
         <div class="titles">
           <p class="kicker">{{ strings.setUpBeforeInstall }}</p>
           <h2>{{ app?.title }}</h2>
           <p class="sub">IceStore · {{ app?.category }} · {{ app?.version }}</p>
         </div>
-        <button type="button" class="x" :aria-label="strings.close" @click="close"><Icon name="close" :size="18" /></button>
       </header>
 
       <p v-if="view.installed" class="warn small">{{ strings.alreadyInstalled }}</p>
@@ -245,12 +244,12 @@ const fillMark = (f?: string) =>
 <style scoped>
 .setup {
   display: grid;
-  gap: 22px;
+  gap: 16px;
 }
 .head {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 14px;
 }
 .titles {
   flex: 1;
@@ -259,7 +258,7 @@ const fillMark = (f?: string) =>
 .kicker {
   margin: 0 0 4px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -267,29 +266,14 @@ const fillMark = (f?: string) =>
 }
 h2 {
   margin: 0;
-  font-size: 28px;
+  font-size: 21px;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 .sub {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: var(--mut);
-  font-size: 15px;
-}
-.x {
-  align-self: flex-start;
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--text);
-  cursor: pointer;
-}
-.x:hover {
-  background: rgba(255, 255, 255, 0.08);
+  font-size: 13px;
 }
 .field {
   display: grid;
@@ -304,7 +288,7 @@ h2 {
 label,
 .cell-label {
   font-weight: 600;
-  font-size: 16px;
+  font-size: 14px;
 }
 .small-field label {
   font-family: var(--font-mono);
@@ -314,15 +298,15 @@ label,
 input {
   width: 100%;
   min-width: 0;
-  padding: 16px 18px;
-  border-radius: 14px;
+  padding: 10px 13px;
+  border-radius: 11px;
   border: 1px solid rgba(76, 201, 240, 0.35);
   background: rgba(0, 0, 0, 0.35);
   color: var(--text);
-  font-size: 15px;
+  font-size: 13.5px;
 }
 .small-field input {
-  padding: 11px 14px;
+  padding: 8px 12px;
   border-color: var(--line);
 }
 input:focus {
@@ -336,8 +320,8 @@ input:focus {
 .hint {
   margin: 0;
   color: var(--mut);
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 12.5px;
+  line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -348,11 +332,11 @@ input:focus {
   align-items: center;
   gap: 5px;
   flex: none;
-  padding: 5px 12px;
+  padding: 3px 10px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--line);
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 11px;
   color: var(--mut);
   white-space: nowrap;
 }
@@ -374,8 +358,8 @@ input:focus {
   flex: none;
   display: grid;
   place-items: center;
-  width: 52px;
-  border-radius: 14px;
+  width: 40px;
+  border-radius: 11px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
@@ -384,15 +368,15 @@ input:focus {
 .row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 14px;
+  gap: 10px;
 }
 .cell {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  padding: 14px 18px;
-  border-radius: 16px;
+  padding: 9px 13px;
+  border-radius: 13px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.025);
 }
@@ -401,14 +385,14 @@ input:focus {
   margin-right: auto;
 }
 .port {
-  width: 84px;
-  padding: 8px 10px;
+  width: 72px;
+  padding: 6px 9px;
   text-align: right;
   border-color: var(--line);
 }
 .data {
   color: var(--mut);
-  font-size: 14px;
+  font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -427,13 +411,13 @@ input:focus {
   display: grid;
   gap: 6px;
   margin: 0;
-  padding: 12px 16px;
+  padding: 9px 13px;
   list-style: none;
-  border-radius: 14px;
+  border-radius: 12px;
   background: rgba(245, 184, 76, 0.08);
   border: 1px solid rgba(245, 184, 76, 0.3);
   color: var(--warn);
-  font-size: 14px;
+  font-size: 12.5px;
 }
 .access li {
   display: flex;
@@ -450,7 +434,7 @@ input:focus {
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  padding: 16px 20px;
+  padding: 11px 14px;
   border: 0;
   background: none;
   color: var(--text);
@@ -460,13 +444,13 @@ input:focus {
 }
 .adv-head strong {
   display: block;
-  font-size: 17px;
+  font-size: 14px;
 }
 .adv-sub {
   display: block;
-  margin-top: 2px;
+  margin-top: 1px;
   color: var(--mut);
-  font-size: 14px;
+  font-size: 12px;
 }
 .chev {
   transition: transform 0.15s;
@@ -476,8 +460,8 @@ input:focus {
 }
 .adv-body {
   display: grid;
-  gap: 16px;
-  padding: 4px 20px 20px;
+  gap: 12px;
+  padding: 2px 14px 14px;
 }
 .foot {
   display: flex;
@@ -491,10 +475,10 @@ input:focus {
   gap: 12px;
 }
 .btn {
-  padding: 14px 30px;
+  padding: 9px 22px;
   border-radius: var(--radius-pill);
   font: inherit;
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -529,14 +513,8 @@ input:focus {
   color: #ff8a8a;
 }
 @media (max-width: 600px) {
-  .head {
-    gap: 14px;
-  }
   h2 {
-    font-size: 22px;
-  }
-  .btn {
-    padding: 12px 22px;
+    font-size: 19px;
   }
 }
 </style>

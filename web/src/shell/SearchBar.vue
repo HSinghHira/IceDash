@@ -6,7 +6,7 @@ import Icon from '../components/Icon.vue'
 import type { IconName } from '../lib/icons'
 import { desktopLaunchers, dockEnd } from '../lib/launchers'
 import { search } from '../lib/search'
-import { apps, iceStoreInZimaOS, searchOpen, terminalOk } from '../store'
+import { apps, iceStoreInZimaOS, openApp, openIceStore, searchOpen, terminalOk } from '../store'
 import { strings } from '../strings'
 
 interface Hit {
@@ -44,8 +44,11 @@ watch(searchOpen, async (open) => {
 
 function go(h: Hit | undefined) {
   if (!h) return
-  window.open(h.url, '_blank', 'noopener')
   searchOpen.value = false
+  const app = h.id.startsWith('a:') ? apps.value.find((a) => 'a:' + a.id === h.id) : undefined
+  if (app) openApp(app)
+  else if (h.id === 'l:icestore') openIceStore()
+  else window.open(h.url, '_blank', 'noopener')
 }
 function onInputKey(e: KeyboardEvent) {
   if (e.key === 'ArrowDown') {
@@ -71,12 +74,11 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKey))
 </script>
 
 <template>
-  <button class="pill" type="button" :aria-label="strings.searchLabel" @click="searchOpen = true">
-    <Icon name="search" :size="17" />
-    <span class="ph">{{ strings.searchPlaceholder }}</span>
-    <kbd>{{ strings.searchShortcut }}</kbd>
+  <button class="slot" type="button" :aria-label="strings.searchLabel" :title="`${strings.searchPlaceholder} (${strings.searchShortcut})`" @click="searchOpen = true">
+    <span class="tile"><Icon name="search" :size="21" /></span>
   </button>
 
+  <Teleport to="body">
   <div v-if="searchOpen" class="overlay" @click.self="searchOpen = false">
     <div class="box" role="dialog" aria-modal="true" :aria-label="strings.searchLabel">
       <label class="field">
@@ -117,32 +119,23 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKey))
       </ul>
     </div>
   </div>
+  </Teleport>
 </template>
 
 <style scoped>
-.pill {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: min(340px, 100%);
-  padding: 8px 10px 8px 16px;
-  border-radius: var(--radius-pill);
-  background: rgba(16, 20, 24, 0.6);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
-  border: 1px solid var(--line);
-  color: var(--mut);
-  cursor: text;
-  font-size: 14px;
+.slot {
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: transform 0.15s ease;
 }
-.pill:hover {
-  border-color: rgba(76, 201, 240, 0.35);
-}
-.ph {
-  flex: 1;
-  text-align: left;
-  color: var(--text);
-  opacity: 0.8;
+.slot:hover,
+.slot:focus-visible {
+  transform: translateY(-3px);
 }
 kbd {
   font-family: var(--font-mono);

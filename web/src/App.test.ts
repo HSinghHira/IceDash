@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App.vue'
-import { stop, update, updating, waitForNewVersion } from './store'
+import { openWindow, stop, update, updating, waitForNewVersion } from './store'
 
 const enc = (o: object) => btoa(JSON.stringify(o)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_')
 const adminToken = `${enc({ alg: 'ES256' })}.${enc({ username: 'Hira', role: 'admin', id: 1 })}.sig`
@@ -61,7 +61,7 @@ describe('App', () => {
     const text = w.text()
     expect(text).toContain('Home Assistant')
     expect(text).toContain('GitSave')
-    expect(text).toContain('Files')
+    expect(w.find('nav.dock').text()).toContain('Files')
     expect(w.find('a[href="http://localhost:8123/"]').exists()).toBe(true)
     expect(w.find('.status.stopped').exists()).toBe(true)
     expect(w.find('.avatar').text()).toBe('HI')
@@ -145,6 +145,95 @@ describe('Phase 2 app menu', () => {
     await flushPromises()
     const items = [...document.querySelectorAll('.menu [role="menuitem"]')].map((b) => b.textContent?.trim())
     expect(items).toEqual(['Open', 'Open in new tab'])
+    w.unmount()
+  })
+})
+
+describe('Desktop layout', () => {
+  it('puts apps on the desktop and IceDash launchers in the dock', async () => {
+    localStorage.setItem('access_token', adminToken)
+    stubFetch()
+    const w = mount(App, { attachTo: document.body })
+    await flushPromises()
+    await flushPromises()
+    const desk = w.find('nav.icons').text()
+    const dock = w.find('nav.dock').text()
+    expect(desk).toContain('Home Assistant')
+    expect(desk).not.toContain('Files')
+    expect(dock).toContain('Files')
+    expect(dock).not.toContain('Home Assistant')
+    w.unmount()
+  })
+
+  it('drops notifications from the bell and closes them with the close dot', async () => {
+    localStorage.setItem('access_token', adminToken)
+    stubFetch()
+    const w = mount(App, { attachTo: document.body })
+    await flushPromises()
+    await w.find('button.bell').trigger('click')
+    expect(w.find('.center').exists()).toBe(true)
+    await w.find('.center .dot.close').trigger('click')
+    expect(w.find('.center').exists()).toBe(false)
+    w.unmount()
+  })
+
+  it('closes, folds and widens windows with the dots', async () => {
+    localStorage.setItem('access_token', adminToken)
+    stubFetch()
+    const w = mount(App, { attachTo: document.body })
+    await flushPromises()
+    openWindow('about')
+    await flushPromises()
+    const win = () => w.find('section.win')
+    await win().find('.dot.min').trigger('click')
+    expect(win().isVisible()).toBe(false)
+    await w.find('[data-dock-win="about"]').trigger('click')
+    expect(win().isVisible()).toBe(true)
+    await win().find('.dot.max').trigger('click')
+    expect(win().classes()).toContain('max')
+    await win().find('.dot.close').trigger('click')
+    expect(w.find('section.win').exists()).toBe(false)
+    w.unmount()
+  })
+})
+
+describe('Apps in windows', () => {
+  it('opens an app in a window, minimizes it to the dock and brings it back', async () => {
+    localStorage.setItem('access_token', adminToken)
+    answers['/v2/icedash/apps/homeassistant/frame'] = { name: 'homeassistant', frameable: true }
+    stubFetch()
+    const w = mount(App, { attachTo: document.body })
+    await flushPromises()
+    await flushPromises()
+    await w.find('a[href="http://localhost:8123/"]').trigger('click', { button: 0 })
+    await flushPromises()
+    const win = () => w.find('section.win.app')
+    expect(win().exists()).toBe(true)
+    expect(win().find('iframe').attributes('src')).toBe('http://localhost:8123/')
+    expect(win().find('a.tab').attributes('href')).toBe('http://localhost:8123/')
+    // Minimize: hidden, with its icon in the dock.
+    await win().find('.dot.min').trigger('click')
+    expect(win().isVisible()).toBe(false)
+    const slot = w.find('[data-dock-win="app:homeassistant"]')
+    expect(slot.exists()).toBe(true)
+    await slot.trigger('click')
+    expect(win().isVisible()).toBe(true)
+    w.unmount()
+  })
+
+  it('opens an app that refuses frames in a new tab', async () => {
+    localStorage.setItem('access_token', adminToken)
+    answers['/v2/icedash/apps/homeassistant/frame'] = { name: 'homeassistant', frameable: false }
+    stubFetch()
+    const opened: string[] = []
+    vi.stubGlobal('open', (u: string) => (opened.push(u), null))
+    const w = mount(App, { attachTo: document.body })
+    await flushPromises()
+    await flushPromises()
+    await flushPromises()
+    await w.find('a[href="http://localhost:8123/"]').trigger('click', { button: 0 })
+    expect(opened).toEqual(['http://localhost:8123/'])
+    expect(w.find('section.win.app').exists()).toBe(false)
     w.unmount()
   })
 })

@@ -9,7 +9,7 @@ import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
 import { copyText } from '../lib/copy'
 import { withHost } from '../lib/setup'
-import { appInfo, apps, firstLaunchFor } from '../store'
+import { appInfo, apps, firstLaunchFor, launchApp } from '../store'
 import { strings } from '../strings'
 
 const props = defineProps<{ name: string }>()
@@ -57,20 +57,20 @@ async function finish(open: boolean) {
     }
   }
   firstLaunchFor.value = null
-  if (open && app.value?.url) window.open(app.value.url, '_blank', 'noopener')
+  if (open && app.value) launchApp(app.value)
 }
 </script>
 
 <template>
-  <Modal :label="strings.welcome(title)" :width="760" @close="finish(false)">
+  <Modal :label="strings.welcome(title)" :width="580" @close="finish(false)">
     <div class="fl">
-      <AppIcon :src="app?.icon" :name="title" :size="88" class="logo" />
+      <AppIcon :src="app?.icon" :name="title" :size="64" class="logo" />
       <p class="kicker">{{ strings.firstLaunch }}</p>
       <h2>{{ strings.welcome(title) }}</h2>
       <p v-if="fl?.tagline" class="tag">{{ fl.tagline }}</p>
 
-      <div v-if="boxes.length" class="boxes">
-        <div v-for="b in boxes" :key="b.label" class="box" :class="{ wide: b.label === strings.address }">
+      <div v-if="boxes.length" class="boxes" :class="`n${boxes.length}`">
+        <div v-for="b in boxes" :key="b.label" class="box" :class="{ wide: b.label === strings.address, secret: b.secret }">
           <div class="val">
             <span class="lbl">{{ b.label }}</span>
             <span class="mono">{{ b.secret && !shown ? '•'.repeat(10) : b.value }}</span>
@@ -109,7 +109,7 @@ async function finish(open: boolean) {
 <style scoped>
 .fl {
   display: grid;
-  gap: 18px;
+  gap: 13px;
   text-align: center;
 }
 .logo {
@@ -119,44 +119,47 @@ async function finish(open: boolean) {
 .kicker {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ac2);
 }
 h2 {
-  margin: -6px 0 0;
-  font-size: 34px;
+  margin: -4px 0 0;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 .tag {
-  margin: -6px 0 0;
+  margin: -4px 0 0;
   color: var(--mut);
-  font-size: 17px;
+  font-size: 14px;
 }
 .boxes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
   text-align: left;
+}
+.boxes.n2 {
+  grid-template-columns: 1.6fr 1fr;
+}
+.boxes.n3 {
+  grid-template-columns: 1.6fr 1fr 1.25fr;
+}
+.boxes.n4 {
+  grid-template-columns: 1fr 1fr;
 }
 .box {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 14px 14px 18px;
-  border-radius: 16px;
+  padding: 8px 8px 8px 13px;
+  border-radius: 12px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.03);
   min-width: 0;
-}
-.box {
-  flex: 1 1 210px;
-}
-.box.wide {
-  flex: 2 1 300px;
 }
 .val {
   flex: 1;
@@ -166,11 +169,11 @@ h2 {
 }
 .lbl {
   color: var(--mut);
-  font-size: 14px;
+  font-size: 12px;
 }
 .mono {
   font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -179,9 +182,9 @@ h2 {
   flex: none;
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
@@ -192,10 +195,11 @@ h2 {
   align-items: flex-start;
   gap: 12px;
   margin: 0;
-  padding: 14px 18px;
-  border-radius: 14px;
+  padding: 10px 13px;
+  border-radius: 12px;
   background: rgba(76, 201, 240, 0.08);
   text-align: left;
+  font-size: 13px;
   line-height: 1.45;
 }
 .note :deep(svg) {
@@ -204,17 +208,17 @@ h2 {
   color: var(--ac2);
 }
 .how {
-  padding: 18px 22px;
-  border-radius: 18px;
+  padding: 13px 16px;
+  border-radius: 14px;
   border: 1px solid var(--line);
   text-align: left;
 }
 .how .kicker {
-  margin-bottom: 12px;
+  margin-bottom: 9px;
 }
 ol {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -222,21 +226,21 @@ ol {
 li {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  font-size: 16px;
+  gap: 11px;
+  font-size: 13.5px;
   line-height: 1.45;
 }
 .num {
   flex: none;
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 23px;
+  height: 23px;
   border-radius: 50%;
   background: rgba(76, 201, 240, 0.12);
   color: var(--ac2);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
 }
 .foot {
@@ -250,12 +254,12 @@ li {
 .check {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  font-size: 16px;
+  gap: 8px;
+  font-size: 13.5px;
 }
 .check input {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   accent-color: var(--ac);
 }
 .btns {
@@ -266,10 +270,10 @@ li {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 14px 28px;
+  padding: 9px 20px;
   border-radius: var(--radius-pill);
   font: inherit;
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -288,8 +292,13 @@ li {
   opacity: 0.5;
 }
 @media (max-width: 600px) {
+  .boxes.n2,
+  .boxes.n3,
+  .boxes.n4 {
+    grid-template-columns: 1fr;
+  }
   h2 {
-    font-size: 26px;
+    font-size: 21px;
   }
 }
 </style>

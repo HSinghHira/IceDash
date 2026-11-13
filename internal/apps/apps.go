@@ -66,8 +66,9 @@ type Manager struct {
 	mu       sync.Mutex
 	jobs     map[string]*Job
 	st       *file
-	status   map[string]string    // last app grid status per app
-	ownStops map[string]time.Time // stops IceDash asked for, so they aren't "unexpected"
+	status   map[string]string     // last app grid status per app
+	ownStops map[string]time.Time  // stops IceDash asked for, so they aren't "unexpected"
+	frames   map[string]frameEntry // Frameable answers, by app
 }
 
 // file is what the manager keeps in /DATA/.icedash/apps.json.

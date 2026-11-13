@@ -164,9 +164,9 @@ onBeforeUnmount(() => {
         :class="{ danger: i.danger, accent: i.more }"
         @click="run(i)"
       >
-        <Icon :name="i.icon" :size="18" />
+        <Icon :name="i.icon" :size="15" />
         <span>{{ i.label }}</span>
-        <Icon v-if="i.more" name="chevron" :size="16" class="more" />
+        <Icon v-if="i.more" name="chevron" :size="14" class="more" />
       </button>
     </template>
   </div>
@@ -176,9 +176,9 @@ onBeforeUnmount(() => {
 .menu {
   position: fixed;
   z-index: 250;
-  min-width: 250px;
-  padding: 8px;
-  border-radius: 18px;
+  min-width: 200px;
+  padding: 6px;
+  border-radius: 14px;
   background: rgba(14, 18, 22, 0.97);
   border: 1px solid var(--line);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7);
@@ -190,9 +190,9 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 10px 12px 8px;
+  padding: 7px 10px 6px;
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 10.5px;
 }
 .name {
   font-weight: 700;
@@ -225,21 +225,21 @@ onBeforeUnmount(() => {
 .div {
   display: block;
   height: 1px;
-  margin: 6px 10px;
+  margin: 4px 8px;
   background: var(--line);
 }
 .item {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   width: 100%;
-  padding: 11px 14px;
+  padding: 6px 10px;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: 9px;
   background: none;
   color: var(--text);
   font: inherit;
-  font-size: 16px;
+  font-size: 13.5px;
   text-align: left;
   cursor: pointer;
 }

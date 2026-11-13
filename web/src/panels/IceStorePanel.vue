@@ -135,7 +135,7 @@ const views = computed(() => [
       <template v-if="!page">
         <div class="tools">
           <label class="search">
-            <Icon name="search" :size="18" />
+            <Icon name="search" :size="16" />
             <input v-model="query" type="search" :placeholder="strings.searchIceStore" :aria-label="strings.searchIceStore" />
           </label>
           <button type="button" class="ghost" :disabled="refreshing" :title="strings.refresh" @click="refresh">
@@ -154,7 +154,7 @@ const views = computed(() => [
           <li v-for="a in list" :key="a.id" class="card">
             <button type="button" class="card-hit" :aria-label="`${a.title}: ${strings.details}`" @click="show(a)" />
             <div class="card-top">
-              <AppIcon :src="a.icon" :name="a.title" :size="56" />
+              <AppIcon :src="a.icon" :name="a.title" :size="42" />
               <div class="card-titles">
                 <span class="kicker">{{ a.category }}</span>
                 <span class="title">{{ a.title }}</span>
@@ -181,7 +181,7 @@ const views = computed(() => [
       <article v-else class="page">
         <button type="button" class="back" @click="page = null"><Icon name="arrowLeft" :size="17" /> {{ strings.back }}</button>
         <header class="page-head">
-          <AppIcon :src="page.app.icon" :name="page.app.title" :size="76" />
+          <AppIcon :src="page.app.icon" :name="page.app.title" :size="60" />
           <div class="page-titles">
             <span class="kicker">{{ page.app.category }}</span>
             <h3>{{ page.app.title }}</h3>
@@ -226,9 +226,9 @@ const views = computed(() => [
 <style scoped>
 .store {
   display: grid;
-  grid-template-columns: 190px 1fr;
-  gap: 22px;
-  min-height: 60vh;
+  grid-template-columns: 158px 1fr;
+  gap: 18px;
+  min-height: 50vh;
 }
 .side {
   display: flex;
@@ -243,13 +243,13 @@ const views = computed(() => [
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 10px 14px;
+  padding: 6px 11px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 9px;
   background: none;
   color: var(--mut);
   font: inherit;
-  font-size: 15px;
+  font-size: 13px;
   text-align: left;
   cursor: pointer;
 }
@@ -299,24 +299,25 @@ const views = computed(() => [
 .search input {
   flex: 1;
   min-width: 0;
-  padding: 12px 0;
+  padding: 8px 0;
   border: 0;
   background: none;
   color: var(--text);
   font: inherit;
+  font-size: 13.5px;
   outline: none;
 }
 .ghost {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 0 14px;
+  padding: 0 12px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.03);
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: 12.5px;
   text-decoration: none;
   cursor: pointer;
   white-space: nowrap;
@@ -330,15 +331,15 @@ const views = computed(() => [
   }
 }
 .count {
-  margin: 6px 0 14px;
+  margin: 4px 0 10px;
   text-align: right;
-  font-size: 13px;
+  font-size: 11.5px;
   color: var(--mut);
 }
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -347,9 +348,9 @@ const views = computed(() => [
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 18px;
-  border-radius: var(--radius-card);
+  gap: 9px;
+  padding: 13px;
+  border-radius: 16px;
   border: 1px solid var(--line);
   background: var(--card);
   transition: border-color 0.15s, background 0.15s;
@@ -369,7 +370,7 @@ const views = computed(() => [
 .card-top {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 11px;
   pointer-events: none;
 }
 .card-titles {
@@ -378,14 +379,14 @@ const views = computed(() => [
 }
 .kicker {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ac2);
 }
 .title {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -395,8 +396,8 @@ const views = computed(() => [
   flex: 1;
   margin: 0;
   color: var(--mut);
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 12.5px;
+  line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -410,7 +411,7 @@ const views = computed(() => [
   gap: 10px;
 }
 .ver {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--mut);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -419,13 +420,13 @@ const views = computed(() => [
 }
 .pill {
   position: relative;
-  padding: 9px 22px;
+  padding: 6px 16px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.05);
   color: var(--text);
   font: inherit;
-  font-size: 14px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -445,8 +446,8 @@ const views = computed(() => [
   cursor: not-allowed;
 }
 .pill.big {
-  padding: 13px 30px;
-  font-size: 16px;
+  padding: 9px 22px;
+  font-size: 14px;
 }
 .back {
   display: inline-flex;
@@ -474,7 +475,7 @@ const views = computed(() => [
 }
 h3 {
   margin: 2px 0 4px;
-  font-size: 26px;
+  font-size: 21px;
 }
 h4 {
   margin: 22px 0 8px;
@@ -490,14 +491,14 @@ h4 {
   overflow-x: auto;
 }
 .shots img {
-  height: 220px;
+  height: 170px;
   border-radius: 14px;
   border: 1px solid var(--line);
   flex: none;
 }
 .md {
   color: rgba(255, 255, 255, 0.82);
-  font-size: 15px;
+  font-size: 13.5px;
   line-height: 1.6;
 }
 .md :deep(a) {

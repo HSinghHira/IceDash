@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "mock": "vite --mode mock --port 5173 --open /modules/icedash/",
     "build": "vite build",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run"

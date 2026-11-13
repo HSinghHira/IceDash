@@ -11,6 +11,10 @@
   --acd: #2fb4dc;
   --ink: #031219;
   --warn: #f5b84c;
+  /* Window dots: close, minimize, maximize. */
+  --dot-close: #ff6b6b;
+  --dot-min: #f5b84c;
+  --dot-max: #4cc9f0;
 
   --font: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-display: Unbounded, Inter, system-ui, sans-serif;

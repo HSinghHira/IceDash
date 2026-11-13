@@ -19,7 +19,7 @@ export interface Toast {
   app?: string
 }
 
-export type WindowKind = 'about' | 'notifications' | 'icestore' | 'logs' | 'credentials'
+export type WindowKind = 'about' | 'notifications' | 'icestore' | 'logs' | 'credentials' | 'app'
 
 export interface Win {
   /** The kind, or kind:app for windows about one app. */
@@ -28,6 +28,9 @@ export interface Win {
   title: string
   z: number
   app?: string
+  /** Folded to its title bar, or filling the desktop. */
+  min?: boolean
+  max?: boolean
 }
 
 /** The signed-in user, read from the ZimaOS token (the backend checks it; this only picks what to show). */
@@ -66,10 +69,13 @@ export const toasts = ref<Toast[]>([])
 
 export const windows = reactive<Win[]>([])
 export const panelOpen = ref(true)
+/** The notification centre under the bell. */
+export const notesOpen = ref(false)
 export const searchOpen = ref(false)
 
 export const updateWaiting = computed(() => update.value?.state === 'available' || update.value?.state === 'failed' && !!update.value.latest)
-export const activeWindow = computed(() => [...windows].sort((a, b) => b.z - a.z)[0])
+/** The front window that isn't minimized. */
+export const activeWindow = computed(() => [...windows].filter((w) => !w.min).sort((a, b) => b.z - a.z)[0])
 
 let topZ = 10
 const windowTitles: Record<WindowKind, (app: string) => string> = {
@@ -78,6 +84,7 @@ const windowTitles: Record<WindowKind, (app: string) => string> = {
   icestore: () => strings.iceStoreTitle,
   logs: (a) => strings.logsTitle(a),
   credentials: (a) => `${strings.credentials} · ${a}`,
+  app: (a) => a,
 }
 /** Opens (or raises) a window; logs and credentials windows are per app. */
 export function openWindow(kind: WindowKind, app?: { name: string; title: string }) {
@@ -89,6 +96,19 @@ export function openWindow(kind: WindowKind, app?: { name: string; title: string
 export function focusWindow(id: string) {
   const w = windows.find((x) => x.id === id)
   if (w) w.z = ++topZ
+}
+export function toggleMin(id: string) {
+  const w = windows.find((x) => x.id === id)
+  if (!w) return
+  w.min = !w.min
+  if (!w.min) w.z = ++topZ // back in front
+}
+export function toggleMax(id: string) {
+  const w = windows.find((x) => x.id === id)
+  if (w) {
+    w.max = !w.max
+    w.min = false
+  }
 }
 export function closeWindow(id: string) {
   const i = windows.findIndex((x) => x.id === id)
@@ -123,6 +143,7 @@ async function loadApps() {
   try {
     apps.value = toApps(await zima.appGrid(), location.hostname)
     appsLoaded.value = true
+    void loadFrames()
   } catch (e) {
     handle(e)
   }
@@ -287,6 +308,7 @@ async function loadAppInfo() {
     const next: Record<string, appsApi.AppInfo> = {}
     for (const a of list.items) next[a.name] = a
     appInfo.value = next
+    void loadFrames()
   } catch (e) {
     handle(e)
   }
@@ -336,12 +358,40 @@ export function openIceStore(view = 'all') {
 }
 
 /** Opens an app; a freshly installed IceStore app shows its welcome popup first. */
-export function openApp(a: App, newTab = true) {
+/**
+ * Opens an app: a freshly installed IceStore app shows its welcome popup
+ * first; then it opens in a window, or in a new tab when it refuses to be
+ * shown inside another page (or newTab is set).
+ */
+export function openApp(a: App, newTab = false) {
   if (appInfo.value[a.id]?.first_launch) {
     firstLaunchFor.value = a.id
     return
   }
-  if (a.url) window.open(a.url, newTab ? '_blank' : '_self', 'noopener')
+  launchApp(a, newTab)
+}
+
+/** Opens an app without the welcome popup. */
+export function launchApp(a: App, newTab = false) {
+  if (!a.url) return
+  if (newTab || frameable.value[a.id] === false) {
+    window.open(a.url, '_blank', 'noopener')
+    return
+  }
+  openWindow('app', { name: a.id, title: a.name })
+}
+
+/** Per app: may it show in a window? Unknown counts as yes. */
+export const frameable = ref<Record<string, boolean>>({})
+async function loadFrames() {
+  for (const a of apps.value) {
+    if (!a.url || a.id in frameable.value) continue
+    try {
+      frameable.value[a.id] = (await appsApi.frame(a.id)).frameable
+    } catch {
+      // ask again next time
+    }
+  }
 }
 
 /**
@@ -429,5 +479,7 @@ function onFocus() {
 
 export function stop() {
   for (const p of pollers.splice(0)) p.stop()
+  frameable.value = {}
+  windows.splice(0)
   window.removeEventListener('focus', onFocus)
 }

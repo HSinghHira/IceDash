@@ -33,10 +33,10 @@ async function go() {
 </script>
 
 <template>
-  <Modal :label="strings.uninstallTitle(title)" :width="520" @close="uninstallFor = null">
+  <Modal :label="strings.uninstallTitle(title)" :width="440" @close="uninstallFor = null">
     <div class="un">
       <header>
-        <AppIcon :src="app?.icon" :name="title" :size="56" />
+        <AppIcon :src="app?.icon" :name="title" :size="44" />
         <h2>{{ strings.uninstallTitle(title) }}</h2>
       </header>
       <p class="mut">{{ strings.uninstallBody }} {{ deleteData ? '' : strings.dataKept(dir) }}</p>
@@ -62,7 +62,7 @@ header {
 }
 h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: 18px;
 }
 .mut {
   margin: 0;
@@ -89,7 +89,7 @@ footer {
   gap: 12px;
 }
 .btn {
-  padding: 12px 26px;
+  padding: 8px 20px;
   border-radius: var(--radius-pill);
   font: inherit;
   font-weight: 600;

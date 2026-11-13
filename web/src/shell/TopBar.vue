@@ -7,6 +7,7 @@ import { clockParts } from '../lib/timezone'
 import {
   activeWindow,
   appUpdates,
+  notesOpen,
   openIceStore,
   openWindow,
   panelOpen,
@@ -104,7 +105,7 @@ onBeforeUnmount(() => {
         <Icon name="refresh" :size="15" />
         <span class="hide-sm">{{ strings.updatesBadge(updateCount) }}</span>
       </button>
-      <button class="bell" type="button" :aria-label="strings.notificationsButton(unread)" @click="openWindow('notifications')">
+      <button class="bell" type="button" :aria-label="strings.notificationsButton(unread)" @click="notesOpen = !notesOpen">
         <Icon name="bell" :size="18" />
         <span v-if="unread" class="dot" aria-hidden="true" />
       </button>

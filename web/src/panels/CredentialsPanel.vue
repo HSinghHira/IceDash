@@ -65,7 +65,7 @@ const idx = (f: api.Field) => creds.value?.fields.indexOf(f) ?? -1
 <template>
   <div class="creds">
     <header class="head">
-      <AppIcon :src="app?.icon" :name="app?.name ?? name" :size="60" />
+      <AppIcon :src="app?.icon" :name="app?.name ?? name" :size="44" />
       <div>
         <p class="kicker">{{ strings.credentialsKicker }}</p>
         <h3>{{ app?.name ?? name }}</h3>
@@ -151,17 +151,17 @@ const idx = (f: api.Field) => creds.value?.fields.indexOf(f) ?? -1
 <style scoped>
 .creds {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 .head {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 .kicker {
   margin: 0 0 2px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -169,10 +169,10 @@ const idx = (f: api.Field) => creds.value?.fields.indexOf(f) ?? -1
 }
 h3 {
   margin: 0;
-  font-size: 24px;
+  font-size: 19px;
 }
 h4.kicker {
-  margin: 0 0 8px;
+  margin: 0 0 2px;
   color: var(--mut);
 }
 .chips {
@@ -184,11 +184,11 @@ h4.kicker {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
+  padding: 3px 10px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--line);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 11px;
   color: var(--mut);
 }
 .chip.ok {
@@ -200,8 +200,8 @@ h4.kicker {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 16px 14px 20px;
-  border-radius: 16px;
+  padding: 8px 8px 8px 13px;
+  border-radius: 12px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.03);
   min-width: 0;
@@ -214,11 +214,11 @@ h4.kicker {
 }
 .lbl {
   color: var(--mut);
-  font-size: 14px;
+  font-size: 12px;
 }
 .val .mono {
   font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -227,9 +227,9 @@ h4.kicker {
   flex: none;
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
@@ -240,22 +240,23 @@ h4.kicker {
 }
 .group {
   display: grid;
-  gap: 10px;
+  gap: 7px;
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
 }
 .note {
   display: flex;
   align-items: flex-start;
   gap: 12px;
   margin: 0;
-  padding: 14px 18px;
-  border-radius: 14px;
+  padding: 10px 13px;
+  border-radius: 12px;
   background: rgba(76, 201, 240, 0.08);
   color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
   line-height: 1.45;
 }
 .note :deep(svg) {
@@ -264,8 +265,8 @@ h4.kicker {
   color: var(--ac2);
 }
 .foot {
-  margin: 4px 0 0;
-  font-size: 14px;
+  margin: 2px 0 0;
+  font-size: 12px;
 }
 .mut {
   color: var(--mut);

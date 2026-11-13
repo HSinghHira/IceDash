@@ -92,7 +92,7 @@ async function copyAll() {
   cursor: pointer;
 }
 .out {
-  height: min(56vh, 520px);
+  height: min(50vh, 460px);
   margin: 0;
   padding: 14px 16px;
   overflow: auto;

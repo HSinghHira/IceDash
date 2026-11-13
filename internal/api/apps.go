@@ -40,6 +40,7 @@ func (s *Server) appRoutes(mux *http.ServeMux, user, admin func(http.HandlerFunc
 	mux.Handle("GET "+Route+"/apps/{name}/logs", admin(s.appLogs))
 	mux.Handle("GET "+Route+"/apps/{name}/credentials", admin(s.appCredentials))
 	mux.Handle("GET "+Route+"/apps/{name}/backup", admin(s.appBackup))
+	mux.Handle("GET "+Route+"/apps/{name}/frame", user(s.appFrame))
 	mux.Handle("GET "+Route+"/apps/{name}/first-launch", user(s.firstLaunch))
 	mux.Handle("POST "+Route+"/apps/{name}/first-launch/dismiss", user(s.firstLaunchDismiss))
 }
@@ -359,4 +360,17 @@ func (s *Server) firstLaunchDismiss(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Apps.Dismiss(username(r), name)
 	httpx.WriteJSON(w, http.StatusOK, map[string]string{"name": name})
+}
+
+func (s *Server) appFrame(w http.ResponseWriter, r *http.Request) {
+	name, ok := appName(w, r)
+	if !ok || !s.appsReady(w) {
+		return
+	}
+	f, err := s.Apps.Frameable(withToken(r), name)
+	if err != nil {
+		writeAppErr(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, f)
 }

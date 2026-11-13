@@ -118,6 +118,7 @@ func TestEverythingElseNeedsAToken(t *testing.T) {
 		{"POST", "/apps/gitsave/restart"}, {"POST", "/apps/gitsave/update"}, {"POST", "/apps/gitsave/uninstall"},
 		{"GET", "/apps/gitsave/logs"}, {"GET", "/apps/gitsave/credentials"}, {"GET", "/apps/gitsave/backup"},
 		{"GET", "/apps/gitsave/first-launch"}, {"POST", "/apps/gitsave/first-launch/dismiss"},
+		{"GET", "/apps/gitsave/frame"},
 	} {
 		if w := call(h, c.method, Route+c.path, "", ""); w.Code != 401 {
 			t.Errorf("%s %s without a token: %d", c.method, c.path, w.Code)

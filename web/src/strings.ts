@@ -64,6 +64,11 @@ export const strings = {
 
   // windows
   close: 'Close',
+  minimize: 'Minimize',
+  maximize: 'Maximize',
+  restoreSize: 'Restore size',
+  restoreWindow: (t: string) => `Show ${t}`,
+  noAddress: 'This app has no web address.',
   aboutTitle: 'About IceDash',
   aboutBody: 'A desktop-style dashboard for ZimaOS, in the IceStore design. The stock ZimaOS dashboard stays where it is.',
   installedVersion: 'Installed',
@@ -86,7 +91,7 @@ export const strings = {
 
   // notifications
   notifications: 'Notifications',
-  markAllRead: 'Mark all as read',
+  markAllRead: 'Mark all read',
   clearAll: 'Clear all',
   noNotifications: 'You’re all caught up.',
   notificationTitle: {

@@ -356,6 +356,27 @@ type Grid struct {
 	Name    string `json:"name"`
 	Status  string `json:"status"`
 	AppType string `json:"app_type"`
+	Port    Port   `json:"port"`
+	Index   string `json:"index"`
+	Scheme  string `json:"scheme"`
+}
+
+// Port is the app grid's port: a string on 1.8.0, a number elsewhere.
+type Port string
+
+func (p *Port) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err == nil {
+		*p = Port(s)
+		return nil
+	}
+	var n json.Number
+	if err := json.Unmarshal(b, &n); err == nil {
+		*p = Port(n.String())
+		return nil
+	}
+	*p = ""
+	return nil
 }
 
 // AppGrid returns the app grid (GET /web/appgrid), for the status watcher.

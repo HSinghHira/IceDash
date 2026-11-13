@@ -1,11 +1,15 @@
 // Dev only: a stand-in for ZimaOS and IceDash's backend, so `npm run dev` shows
-// the desktop on a PC without a box. ICEDASH_MOCK=1 npm run dev
+// the desktop on a PC without a box: `make preview`, or `npm run mock` in web/.
 // The answers copy the shapes measured on a ZimaCube with ZimaOS 1.8.0
 // (docs/HOST-NOTES.md). Never part of a build.
 import type { Plugin } from 'vite'
 
 const enc = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url')
 const fakeToken = `${enc({ alg: 'ES256' })}.${enc({ username: 'Hira', role: 'admin', id: 1, iss: 'zimaos' })}.mock`
+
+// Apps point at the real box, so app windows show the real apps when this PC
+// is on the same network. ICEDASH_PREVIEW_HOST changes it.
+const BOX = process.env.ICEDASH_PREVIEW_HOST ?? '192.168.68.17'
 
 const icon = (id: string) => `https://icestore.hsinghhira.me/apps/com.icestore.${id}/assets/icon.png`
 const appgrid = [
@@ -19,7 +23,7 @@ const appgrid = [
   ['cloudflared', 'Cloudflared', '14333', 'running', 'https://cdn.jsdelivr.net/gh/IceWhaleTech/CasaOS-AppStore@gh-pages/apps/org.icewhale.cloudflared/assets/icon.svg'],
   ['doory-art', 'Doory Art', '6143', 'running', icon('doory-art')],
 ].map(([name, title, port, status, ic]) => ({
-  app_type: 'v2app', name, port, status, icon: ic, index: '/', scheme: 'http', hostname: '', title: { custom: title, en_US: title },
+  app_type: 'v2app', name, port, status, icon: ic, index: '/', scheme: 'http', hostname: BOX, title: { custom: title, en_US: title },
 }))
 appgrid.push({ app_type: 'container', name: 'c68ca986fe10', status: 'running', title: { en_US: 'baby-schedule' } } as never)
 
@@ -41,12 +45,21 @@ const routes: Record<string, () => unknown> = {
   'GET /v2/icedash/notifications': () => ({
     items: [
       {
+        id: 4, time: new Date(Date.now() - 2 * 60000).toISOString(), kind: 'app_installed', app: 'yuvomi',
+        title: 'Yuvomi is ready', body: 'Yuvomi is installed and starting.', action: { label: 'Open', kind: 'open_app' }, read: false,
+      },
+      {
+        id: 3, time: new Date(Date.now() - 50 * 60000).toISOString(), kind: 'app_stopped', app: 'gitsave',
+        title: 'GitSave stopped', body: 'GitSave isn’t running now. Start it from its menu, or look at its logs to see why.',
+        action: { label: 'Start', kind: 'start_app' }, read: true,
+      },
+      {
         id: 2, time: new Date(Date.now() - 4 * 60000).toISOString(), kind: 'update_available', version: 'v0.2.0',
         title: 'Update available', body: 'IceDash v0.2.0 is ready to install.', action: { label: 'Update now', kind: 'update' }, read: false,
       },
       { id: 1, time: new Date(Date.now() - 26 * 3600000).toISOString(), kind: 'updated', version: 'v0.1.0', title: 'Updated', body: '', read: true },
     ],
-    unread: 1,
+    unread: 2,
   }),
   'GET /v2/icedash/update': () => ({
     current: '0.1.0', latest: 'v0.2.0', notes: 'The desktop from mock-up 1: apps, dock, widgets and search.',
@@ -132,6 +145,7 @@ const dynamic: [RegExp, string, (m: RegExpMatchArray) => unknown | Promise<unkno
   [/^\/v2\/icedash\/apps$/, 'GET', () => ({ items: appInfo })],
   [/^\/v2\/icedash\/jobs$/, 'GET', () => ({ items: [] })],
   [/^\/v2\/icedash\/apps\/([^/]+)\/credentials$/, 'GET', () => creds],
+  [/^\/v2\/icedash\/apps\/([^/]+)\/frame$/, 'GET', (m) => frameCheck(m[1]!)],
   [/^\/v2\/icedash\/apps\/([^/]+)\/logs$/, 'GET', (m) => ({ name: m[1], text: 'Server starting\nServer running on port 3000\nScheduling 2 backup jobs\n' })],
   [/^\/v2\/icedash\/apps\/([^/]+)\/first-launch$/, 'GET', () => ({
     name: 'yuvomi', title: 'Yuvomi', tagline: 'Household receipts, shared shopping lists and spending insights.',
@@ -139,6 +153,31 @@ const dynamic: [RegExp, string, (m: RegExpMatchArray) => unknown | Promise<unkno
     creds: { fields: [{ label: 'User', value: 'admin', secret: false, url: false }, { label: 'Password', value: 'admin', secret: true, url: false }], notes: [] },
   })],
 ]
+
+/** The real app's headers decide, as the backend does (internal/apps/frame.go). */
+async function frameCheck(name: string) {
+  const a = appgrid.find((x) => x.name === name)
+  if (!a?.port) return { name, frameable: false, reason: 'no address' }
+  let url = `http://${BOX}:${a.port}/`
+  for (let hop = 0; hop < 6; hop++) {
+    let res: Response
+    try {
+      res = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(4000) })
+    } catch {
+      return { name, frameable: true }
+    }
+    const xfo = res.headers.get('x-frame-options')
+    if (xfo) return { name, frameable: false, reason: `X-Frame-Options: ${xfo}` }
+    const fa = /frame-ancestors([^;]*)/i.exec(res.headers.get('content-security-policy') ?? '')
+    if (fa && !/(^|\s)(\*|https?:)(\s|$)/.test(fa[1]!)) return { name, frameable: false, reason: 'frame-ancestors' }
+    const loc = res.headers.get('location')
+    if (res.status < 300 || res.status >= 400 || !loc) break
+    const next = new URL(loc, url)
+    if ((next.port || '80') !== a.port) break
+    url = `http://${BOX}:${a.port}${next.pathname}${next.search}`
+  }
+  return { name, frameable: true }
+}
 
 export function mock(): Plugin {
   return {

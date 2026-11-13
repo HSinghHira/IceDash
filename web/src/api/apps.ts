@@ -168,6 +168,9 @@ export interface FirstLaunch {
   creds?: Creds
 }
 
+/** Whether the app lets itself be shown in a window inside IceDash. */
+export const frame = (name: string) => request<{ name: string; frameable: boolean; reason?: string }>(`${app(name)}/frame`)
+
 export const firstLaunch = (name: string) => request<FirstLaunch>(`${app(name)}/first-launch`)
 export const dismissFirstLaunch = (name: string) =>
   request<{ name: string }>(`${app(name)}/first-launch/dismiss`, { method: 'POST' })

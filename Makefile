@@ -18,7 +18,7 @@ ROOTFS  := build/rootfs
 WEBOUT  := $(ROOTFS)/usr/share/casaos/www/modules/icedash
 LDFLAGS := -s -w -X main.version=$(VERSION:v%=%) $(if $(BROKEN),-X main.broken=1)
 
-.PHONY: build check modkit vet test web-deps web-test rootfs binary web image clean
+.PHONY: build check modkit vet test web-deps web-test rootfs binary web image preview clean
 
 build: check image
 
@@ -55,6 +55,12 @@ web: rootfs web-deps
 
 image: binary web
 	sh $(MODKIT)/sysext/build-sysext.sh icedash $(ROOTFS) $(ARCH) dist $(VERSION)
+
+# See the web app on this PC with sample data shaped like a real box; nothing
+# is built or pushed. Open http://localhost:5173/modules/icedash/ (it opens by
+# itself). Add ?demo=icestore, setup, menu, creds or first to open a screen.
+preview: web-deps
+	cd web && npm run mock
 
 clean:
 	rm -rf build dist
