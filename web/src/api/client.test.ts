@@ -20,14 +20,14 @@ function fakeFetch(routes: Record<string, [number, unknown][]>, seen: Seen = { c
 const auth = (s: Seen, i: number) => (s.calls[i]?.init?.headers as Record<string, string>)?.Authorization
 
 describe('request', () => {
-  it('sends the ZimaOS token as a bearer token', async () => {
+  it('sends the bare token, which ZimaOS and CasaOS both take', async () => {
     const seen: Seen = { calls: [] }
     const data = await request<{ ok: boolean }>('/v2/icedash/system', {
       fetch: fakeFetch({ '/v2/icedash/system': [[200, { ok: true }]] }, seen),
       storage: storage({ access_token: 'abc.def.ghi' }),
     })
     expect(data.ok).toBe(true)
-    expect(auth(seen, 0)).toBe('Bearer abc.def.ghi')
+    expect(auth(seen, 0)).toBe('abc.def.ghi')
   })
 
   it('sends no Authorization header without a token', async () => {
@@ -78,7 +78,7 @@ describe('request', () => {
     })
     expect(data.ok).toBe(true)
     expect(seen.calls.map((c) => c.path)).toEqual(['/v2/icedash/system', '/v1/users/refresh', '/v2/icedash/system'])
-    expect(auth(seen, 2)).toBe('Bearer new')
+    expect(auth(seen, 2)).toBe('new')
     expect(store.m.get('refresh_token')).toBe('r2')
   })
 

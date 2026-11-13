@@ -5,7 +5,7 @@ import * as appsApi from './api/apps'
 import * as ice from './api/icedash'
 import * as zima from './api/zimaos'
 import { toApps, type App } from './lib/apps'
-import { setHost } from './lib/host'
+import { host, setHost } from './lib/host'
 import { poll, type Poller } from './lib/poll'
 import { pickZone } from './lib/timezone'
 import { strings } from './strings'
@@ -41,7 +41,8 @@ function userFromToken(t: string): { name: string; admin: boolean } | null {
   try {
     const json = atob(part.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(part.length / 4) * 4, '='))
     const p = JSON.parse(json) as { username?: string; role?: string }
-    return p.username ? { name: p.username, admin: p.role === 'admin' } : null
+    // CasaOS tokens have no role: its one account is the admin (measured on 0.4.15).
+    return p.username ? { name: p.username, admin: p.role === 'admin' || host.id === 'casaos' } : null
   } catch {
     return null
   }
@@ -446,8 +447,9 @@ async function probeTerminal() {
 const pollers: Poller[] = []
 
 export async function start() {
-  // The system's name and stock dashboard address, needed even on the sign-in screen.
-  void ice.health().then(setHost).catch(() => undefined)
+  // The system's name and stock dashboard address, needed even on the sign-in
+  // screen, and before reading the token (admin rules differ per system).
+  await ice.health().then(setHost).catch(() => undefined)
   const t = token()
   user.value = t ? userFromToken(t) : null
   if (!t || !user.value) {

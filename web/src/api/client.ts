@@ -88,7 +88,8 @@ export async function request<T>(path: string, opts: RequestOptions = {}, retrie
   const doFetch = opts.fetch ?? fetch
   const headers: Record<string, string> = { Accept: 'application/json' }
   const t = token(opts.storage)
-  if (t) headers.Authorization = `Bearer ${t}`
+  // The bare token: CasaOS 0.4.15 answers 401 to "Bearer <token>", ZimaOS takes both (measured).
+  if (t) headers.Authorization = t
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
 
   let res: Response

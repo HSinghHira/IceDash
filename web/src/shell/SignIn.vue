@@ -33,7 +33,7 @@ async function submit() {
 <template>
   <main class="signin">
     <img :src="logo" alt="" width="64" height="64" />
-    <h1>{{ ended ? strings.sessionEndedTitle : strings.signInTitle(host.name) }}</h1>
+    <h1>{{ ended ? strings.sessionEndedTitle : host.id === 'casaos' ? strings.signInToIceDash : strings.signInTitle(host.name) }}</h1>
 
     <template v-if="host.id === 'casaos'">
       <p>{{ strings.signInHere(host.name) }}</p>

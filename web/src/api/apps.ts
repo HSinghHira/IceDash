@@ -180,7 +180,7 @@ export async function downloadBackup(name: string): Promise<void> {
   const t = token()
   let res: Response
   try {
-    res = await fetch(`${app(name)}/backup`, { headers: t ? { Authorization: `Bearer ${t}` } : {}, credentials: 'same-origin' })
+    res = await fetch(`${app(name)}/backup`, { headers: t ? { Authorization: t } : {}, credentials: 'same-origin' })
   } catch {
     throw new ApiError(0, 'unreachable', 'network error')
   }

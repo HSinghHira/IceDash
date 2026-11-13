@@ -11,6 +11,7 @@ export const strings = {
   sessionEndedTitle: 'Your session has ended',
   sessionEndedBody: (sys: string) => `Sign in to ${sys} again to keep using IceDash.`,
   goToSystem: (sys: string) => `Go to ${sys}`,
+  signInToIceDash: 'Sign in to IceDash',
   signInHere: (sys: string) => `Sign in with your ${sys} account.`,
   username: 'Username',
   password: 'Password',
