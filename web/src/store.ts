@@ -1,6 +1,6 @@
 // The desktop's shared state and its polling. One instance per page.
 import { computed, reactive, ref } from 'vue'
-import { ApiError, token } from './api/client'
+import { ApiError, keepStockVersion, token } from './api/client'
 import * as appsApi from './api/apps'
 import * as ice from './api/icedash'
 import * as zima from './api/zimaos'
@@ -458,6 +458,7 @@ export async function start() {
   }
   session.value = 'ok'
   takeSeen()
+  if (host.id === 'casaos') void keepStockVersion()
 
   ice.health().then((h) => (version.value = h.version)).catch(handle)
   zima.customSystem().then((c) => (zone.value = pickZone(c.timezone))).catch(() => undefined)

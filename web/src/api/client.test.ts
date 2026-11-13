@@ -107,6 +107,7 @@ describe('signIn', () => {
           '/v1/users/login': [
             [200, { success: 200, data: { token: { access_token: 'new.a.t', refresh_token: 'new.r.t', expires_at: 1794569815 }, user: { id: 1, username: 'casaos', role: 'admin' } } }],
           ],
+          '/v1/sys/version': [[200, { success: 200, data: { current_version: '0.4.15', need_update: false } }]],
         },
         seen,
       ),
@@ -116,6 +117,9 @@ describe('signIn', () => {
     expect(st.m.get('refresh_token')).toBe('new.r.t')
     expect(st.m.get('expires_at')).toBe('1794569815')
     expect(JSON.parse(st.m.get('user')!).username).toBe('casaos')
+    // without "version" the stock CasaOS UI drops the token
+    expect(st.m.get('version')).toBe('0.4.15')
+    expect((seen.calls[1]!.init!.headers as Record<string, string>).Authorization).toBe('new.a.t')
   })
 
   it('throws the system answer on a wrong password and keeps nothing', async () => {

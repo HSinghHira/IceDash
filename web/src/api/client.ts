@@ -160,6 +160,27 @@ export async function signIn(username: string, password: string, opts: RequestOp
   if (t.refresh_token) write(opts.storage, REFRESH_KEY, t.refresh_token)
   if (t.expires_at !== undefined) write(opts.storage, 'expires_at', String(t.expires_at))
   if (body.data?.user) write(opts.storage, 'user', JSON.stringify(body.data.user))
+  await keepStockVersion(opts)
+}
+
+/**
+ * CasaOS's own UI drops the token and shows its login when localStorage has
+ * no "version" (its router, measured on 0.4.15); its login saves
+ * GET /v1/sys/version's current_version there. IceDash does the same, so the
+ * stock UI at /casaos/ stays signed in too.
+ */
+export async function keepStockVersion(opts: RequestOptions = {}): Promise<void> {
+  if (read(opts.storage, 'version')) return
+  const t = token(opts.storage)
+  if (!t) return
+  try {
+    const res = await (opts.fetch ?? fetch)('/v1/sys/version', { headers: { Authorization: t } })
+    if (!res.ok) return
+    const v = ((await res.json()) as { data?: { current_version?: string } }).data?.current_version
+    if (v) write(opts.storage, 'version', v)
+  } catch {
+    // the stock UI asks for a sign-in then; IceDash is unaffected
+  }
 }
 
 /** Sign out: forget the tokens and go to the stock dashboard's login page. */
