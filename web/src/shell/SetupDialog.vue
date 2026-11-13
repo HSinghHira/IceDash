@@ -8,7 +8,7 @@ import AppIcon from '../components/AppIcon.vue'
 import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
 import { inputLabel, placeholderIn } from '../lib/setup'
-import { setupFor, toast, trackJob } from '../store'
+import { apps, setupFor, toast, trackJob } from '../store'
 import { strings } from '../strings'
 
 const props = defineProps<{ id: string }>()
@@ -79,6 +79,20 @@ function scheduleCheck() {
 }
 watch([values, ports, () => view.value], scheduleCheck, { deep: true })
 onBeforeUnmount(() => clearTimeout(timer))
+
+/** The installed app that answers on this port, when IceDash knows it. */
+const holderOf = (port: string) =>
+  apps.value.find((a) => {
+    try {
+      return !!a.url && new URL(a.url).port === port
+    } catch {
+      return false
+    }
+  })?.name
+const takenText = (port: string) => {
+  const by = holderOf(port)
+  return by ? strings.portTakenBy(port, by) : strings.portTaken(port)
+}
 
 function usePort(key: string, p: string) {
   ports[key] = p
@@ -179,14 +193,20 @@ const fillMark = (f?: string) =>
           <span v-else-if="portState(api.portKey(p)) === 'free'" class="chip ok"><Icon name="check" :size="13" /> {{ strings.portFree }}</span>
           <template v-else>
             <span class="chip need">{{ strings.portInUse }}</span>
-            <button
-              v-if="result?.suggest[api.portKey(p)]"
-              type="button"
-              class="link"
-              @click="usePort(api.portKey(p), result!.suggest[api.portKey(p)]!)"
-            >
-              {{ strings.useFreePort(result!.suggest[api.portKey(p)]!) }}
-            </button>
+            <div class="clash" role="status">
+              <span>
+                {{ takenText(ports[api.portKey(p)] ?? '') }}
+                {{ result?.suggest[api.portKey(p)] ? strings.portFreeOffer(result!.suggest[api.portKey(p)]!) : strings.portPickOther }}
+              </span>
+              <button
+                v-if="result?.suggest[api.portKey(p)]"
+                type="button"
+                class="switch"
+                @click="usePort(api.portKey(p), result!.suggest[api.portKey(p)]!)"
+              >
+                {{ strings.useFreePort(result!.suggest[api.portKey(p)]!) }}
+              </button>
+            </div>
           </template>
         </div>
         <div class="cell">
@@ -398,14 +418,32 @@ input:focus {
   white-space: nowrap;
   max-width: 100%;
 }
-.link {
-  border: 0;
-  background: none;
+.clash {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--mut);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.switch {
+  flex: none;
+  padding: 5px 11px;
+  border-radius: 9px;
+  border: 1px solid var(--ac);
+  background: transparent;
   color: var(--ac);
   font: inherit;
-  font-size: 14px;
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
-  text-decoration: underline;
+}
+.switch:hover,
+.switch:focus-visible {
+  background: rgba(76, 201, 240, 0.12);
 }
 .access {
   display: grid;

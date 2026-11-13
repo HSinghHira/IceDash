@@ -57,8 +57,9 @@ image: binary web
 	sh $(MODKIT)/sysext/build-sysext.sh icedash $(ROOTFS) $(ARCH) dist $(VERSION)
 
 # See the web app on this PC with sample data shaped like a real box; nothing
-# is built or pushed. Open http://localhost:5173/modules/icedash/ (it opens by
-# itself). Add ?demo=icestore, setup, menu, creds or first to open a screen.
+# is built or pushed. Open http://127.0.0.1:5199/modules/icedash/ (it opens by
+# itself). Add ?demo=icestore, setup, clash, installing, menu, creds or first
+# to open a screen.
 preview: web-deps
 	cd web && npm run mock
 

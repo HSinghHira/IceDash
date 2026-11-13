@@ -91,7 +91,7 @@ func TestReadRefusesLinks(t *testing.T) {
 func TestParseSplitsAnAddressWithItsLogin(t *testing.T) {
 	c := Parse([]byte("K\tMAIL VIEWER\thttp://192.168.68.17:6142/mail  admin / s3cr3t-value\n"))
 	want := []Field{
-		{Group: "MAIL VIEWER", Label: "Address", Value: "http://192.168.68.17:6142/mail", URL: true},
+		{Group: "MAIL VIEWER", Label: "Address", Value: "http://192.168.68.17:6142/mail/", URL: true},
 		{Group: "MAIL VIEWER", Label: "User", Value: "admin"},
 		{Group: "MAIL VIEWER", Label: "Password", Value: "s3cr3t-value", Secret: true},
 	}
@@ -101,6 +101,23 @@ func TestParseSplitsAnAddressWithItsLogin(t *testing.T) {
 	for i := range want {
 		if c.Fields[i] != want[i] {
 			t.Errorf("field %d: %+v, want %+v", i, c.Fields[i], want[i])
+		}
+	}
+}
+
+func TestAddressesEndInASlash(t *testing.T) {
+	for in, want := range map[string]string{
+		"http://192.168.68.17:6142/mail":     "http://192.168.68.17:6142/mail/",
+		"http://192.168.68.17:6142/mail/":    "http://192.168.68.17:6142/mail/",
+		"http://192.168.68.17:6142":          "http://192.168.68.17:6142",
+		"http://192.168.68.17:6142/":         "http://192.168.68.17:6142/",
+		"http://192.168.68.17:6142/a/b":      "http://192.168.68.17:6142/a/b/",
+		"http://192.168.68.17:6142/app.html": "http://192.168.68.17:6142/app.html",
+		"http://192.168.68.17:6142/x?y=1":    "http://192.168.68.17:6142/x?y=1",
+		"http://192.168.68.17:6142/x#top":    "http://192.168.68.17:6142/x#top",
+	} {
+		if got := withSlash(in); got != want {
+			t.Errorf("withSlash(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

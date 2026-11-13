@@ -109,7 +109,7 @@ const setupView = (id: string) => ({
   address: 'http://192.168.68.17:6142',
   data: '/DATA/AppData/documenso',
   access: { privileged: true, docker_socket: false, host_network: false },
-  ports: [{ service: 'documenso', target: '8080', published: '6142', protocol: 'tcp', description: 'Documenso web app' }],
+  ports: [{ service: 'documenso', target: '8080', published: id.endsWith('.clash') ? '6101' : '6142', protocol: 'tcp', description: 'Documenso web app' }],
   inputs: [
     { service: 'documenso', key: 'TZ', value: '$TZ', description: 'Your time zone.', required: false, main: false, secret: false },
     { service: 'documenso', key: 'PUBLIC_URL', value: 'http://192.168.68.17:6142', fill: 'auto', description: 'The address you open Documenso at.', required: false, main: true, secret: false },
@@ -123,18 +123,55 @@ const setupView = (id: string) => ({
 const creds = {
   fields: [
     { group: 'Web app', label: 'Address', value: 'http://192.168.68.17:6142', secret: false, url: true },
-    { group: 'Mail viewer', label: 'Address', value: 'http://192.168.68.17:6142/mail', secret: false, url: true },
+    { group: 'Mail viewer', label: 'Address', value: 'http://192.168.68.17:6142/mail/', secret: false, url: true },
     { group: 'Mail viewer', label: 'User', value: 'admin', secret: false, url: false },
     { group: 'Mail viewer', label: 'Password', value: 'kQ2-vb7Lr9xWm4Ta', secret: true, url: false },
   ],
   notes: ['Create your account on first visit. Sign-up emails land in the mail viewer.'],
 }
 
-const dynamic: [RegExp, string, (m: RegExpMatchArray) => unknown | Promise<unknown>][] = [
+// One install at a time: 4 s accepted, 10 s pulling images, then done (the box took 1 min 40 s).
+let job: { started: number } | null = null
+const jobNow = () => {
+  const t = Date.now() - job!.started
+  const done = t > 14000
+  return {
+    name: 'documenso', title: 'Documenso', icon: `${SITE}/apps/com.icestore.documenso/assets/icon.png`, kind: 'install', task_id: 't1',
+    state: done ? 'succeeded' : 'running', phase: done ? 'completed' : t > 4000 ? 'pulling_images' : 'accepted',
+    started: new Date(job!.started).toISOString(),
+  }
+}
+const installJob = () => {
+  job = { started: Date.now() }
+  return jobNow()
+}
+
+const readBody = (req: NodeJS.ReadableStream) =>
+  new Promise<unknown>((resolve) => {
+    let raw = ''
+    req.on('data', (c) => (raw += c))
+    req.on('end', () => {
+      try {
+        resolve(raw ? JSON.parse(raw) : undefined)
+      } catch {
+        resolve(undefined)
+      }
+    })
+  })
+
+const dynamic: [RegExp, string, (m: RegExpMatchArray, body?: unknown) => unknown | Promise<unknown>][] = [
   [/^\/v2\/icedash\/catalog$/, 'GET', () => catalog()],
   [/^\/v2\/icedash\/catalog\/refresh$/, 'POST', () => catalog()],
   [/^\/v2\/icedash\/catalog\/([^/]+)\/setup$/, 'GET', (m) => setupView(m[1]!)],
-  [/^\/v2\/icedash\/catalog\/([^/]+)\/check$/, 'POST', () => ({ ok: true, ports_in_use: [], suggest: {} })],
+  // Ports AppFlowy holds clash, as the dry run says on the box.
+  [/^\/v2\/icedash\/catalog\/([^/]+)\/check$/, 'POST', (_m, body) => {
+    const ports = ((body as { ports?: Record<string, string> })?.ports ?? {}) as Record<string, string>
+    const busy = Object.entries(ports).filter(([, p]) => p === '6101')
+    return busy.length
+      ? { ok: false, ports_in_use: ['6101'], suggest: Object.fromEntries(busy.map(([k]) => [k, '6102'])) }
+      : { ok: true, ports_in_use: [], suggest: {} }
+  }],
+  [/^\/v2\/icedash\/catalog\/([^/]+)\/install$/, 'POST', () => installJob()],
   [/^\/v2\/icedash\/catalog\/([^/]+)$/, 'GET', async (m) => {
     const c = (await catalog()) as { apps: Record<string, string>[] }
     const app = c.apps.find((a) => a.id === m[1] || a.name === m[1])
@@ -143,7 +180,7 @@ const dynamic: [RegExp, string, (m: RegExpMatchArray) => unknown | Promise<unkno
     return { app, meta }
   }],
   [/^\/v2\/icedash\/apps$/, 'GET', () => ({ items: appInfo })],
-  [/^\/v2\/icedash\/jobs$/, 'GET', () => ({ items: [] })],
+  [/^\/v2\/icedash\/jobs$/, 'GET', () => ({ items: job ? [jobNow()] : [] })],
   [/^\/v2\/icedash\/apps\/([^/]+)\/credentials$/, 'GET', () => creds],
   [/^\/v2\/icedash\/apps\/([^/]+)\/frame$/, 'GET', (m) => frameCheck(m[1]!)],
   [/^\/v2\/icedash\/apps\/([^/]+)\/logs$/, 'GET', (m) => ({ name: m[1], text: 'Server starting\nServer running on port 3000\nScheduling 2 backup jobs\n' })],
@@ -198,7 +235,9 @@ export function mock(): Plugin {
         for (const [re, method, h] of dynamic) {
           const m = path.match(re)
           if (m && req.method === method) {
-            Promise.resolve(h(m)).then(
+            readBody(req)
+              .then((body) => h(m, body))
+              .then(
               (v) => {
                 res.setHeader('Content-Type', 'application/json')
                 res.end(JSON.stringify(v))

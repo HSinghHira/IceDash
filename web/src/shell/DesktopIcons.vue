@@ -2,8 +2,15 @@
 // The desktop shows the installed apps; IceDash's own launchers are in the dock.
 import AppIcon from '../components/AppIcon.vue'
 import type { App } from '../lib/apps'
-import { appInfo, apps, appsLoaded, jobFor, openApp, openMenu } from '../store'
+import { computed } from 'vue'
+import { appInfo, apps, appsLoaded, jobFor, jobs, openApp, openMenu } from '../store'
 import { strings } from '../strings'
+
+/** Apps being installed that ZimaOS doesn't list yet: shown as a placeholder until they arrive. */
+const pending = computed(() =>
+  jobs.value.filter((j) => j.kind === 'install' && j.state === 'running' && !apps.value.some((a) => a.id === j.name)),
+)
+const phaseWord = (p: string) => strings.installPhase[p] ?? strings.installing
 
 const statusWord = { running: strings.running, starting: strings.starting, stopped: strings.stopped }
 
@@ -72,7 +79,18 @@ function cancel() {
         <span class="label">{{ a.name }}</span>
       </div>
     </template>
-    <p v-if="appsLoaded && apps.length === 0" class="empty">{{ strings.noApps }}</p>
+    <div
+      v-for="j in pending"
+      :key="`job-${j.name}`"
+      class="item installing"
+      role="status"
+      :aria-label="strings.appStatus(j.title || j.name, phaseWord(j.phase))"
+      :title="`${j.title || j.name} · ${phaseWord(j.phase)}`"
+    >
+      <span class="tile busy"><AppIcon :src="j.icon" :name="j.title || j.name" :size="50" /></span>
+      <span class="label">{{ j.title || j.name }}</span>
+    </div>
+    <p v-if="appsLoaded && apps.length === 0 && pending.length === 0" class="empty">{{ strings.noApps }}</p>
   </nav>
 </template>
 
@@ -158,6 +176,34 @@ function cancel() {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+.installing {
+  cursor: progress;
+}
+.installing .label {
+  color: var(--ac);
+}
+.installing .tile :deep(*) {
+  animation: fill 1.6s ease-in-out infinite alternate;
+}
+@keyframes fill {
+  from {
+    opacity: 0.45;
+    filter: grayscale(0.8);
+  }
+  to {
+    opacity: 0.9;
+    filter: grayscale(0.2);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tile.busy::after,
+  .installing .tile :deep(*) {
+    animation: none;
+  }
+  .installing .tile :deep(*) {
+    opacity: 0.6;
   }
 }
 .label {

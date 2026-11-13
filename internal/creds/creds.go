@@ -62,6 +62,22 @@ var secretLabel = regexp.MustCompile(`(?i)pass|secret|token|key`)
 // in Documenso's MAIL VIEWER line).
 var urlWithLogin = regexp.MustCompile(`^(https?://\S+)\s+(\S+)\s*/\s*(\S+)$`)
 
+// withSlash ends a folder-like address with "/": "http://box:6142/mail" made
+// the app redirect to "/mail/" on its own inside port (8080, measured with
+// Documenso's mail viewer), which the browser can't reach. Root, files
+// ("/a.html"), queries and fragments are left alone.
+func withSlash(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.RawQuery != "" || u.Fragment != "" || strings.HasSuffix(raw, "?") || strings.HasSuffix(raw, "#") {
+		return raw
+	}
+	p := u.EscapedPath()
+	if p == "" || strings.HasSuffix(p, "/") || strings.Contains(path.Base(p), ".") {
+		return raw
+	}
+	return raw + "/"
+}
+
 // Parse reads the file's lines; anything else is skipped.
 func Parse(b []byte) Creds {
 	c := Creds{Fields: []Field{}, Notes: []string{}}
@@ -77,13 +93,13 @@ func Parse(b []byte) Creds {
 			isURL := strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://")
 			if m := urlWithLogin.FindStringSubmatch(value); m != nil {
 				c.Fields = append(c.Fields,
-					Field{Group: label, Label: "Address", Value: m[1], URL: true},
+					Field{Group: label, Label: "Address", Value: withSlash(m[1]), URL: true},
 					Field{Group: label, Label: "User", Value: m[2]},
 					Field{Group: label, Label: "Password", Value: m[3], Secret: true})
 				continue
 			}
 			if isURL {
-				c.Fields = append(c.Fields, Field{Group: label, Label: "Address", Value: value, URL: true})
+				c.Fields = append(c.Fields, Field{Group: label, Label: "Address", Value: withSlash(value), URL: true})
 				continue
 			}
 			c.Fields = append(c.Fields, Field{Label: label, Value: value, Secret: secretLabel.MatchString(label)})
