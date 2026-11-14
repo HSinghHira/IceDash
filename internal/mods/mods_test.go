@@ -401,3 +401,19 @@ func TestBrokenModsAreListedWithTheirReason(t *testing.T) {
 		t.Error("a folder that isn't a mod is reported")
 	}
 }
+
+func TestFrostIsBuiltIn(t *testing.T) {
+	g := newGitHub(t)
+	officialRepos(g)
+	s := service(t, g)
+	if err := s.SetTheme("hira", Frost); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetTheme("hira", "frosty"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown theme: %v", err)
+	}
+	again := &Service{Dir: s.Dir, State: s.State, Cache: s.Cache}
+	if v := again.List("hira"); v.Prefs.Theme != Frost {
+		t.Fatalf("after a restart: %q", v.Prefs.Theme)
+	}
+}

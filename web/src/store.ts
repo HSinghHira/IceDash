@@ -7,7 +7,7 @@ import * as ice from './api/icedash'
 import * as zima from './api/zimaos'
 import { toApps, type App } from './lib/apps'
 import { host, setHost } from './lib/host'
-import { applyTheme } from './lib/theme'
+import { applyTheme, FROST, FROST_ID } from './lib/theme'
 import { poll, type Poller } from './lib/poll'
 import { pickZone } from './lib/timezone'
 import { strings } from './strings'
@@ -62,6 +62,8 @@ export const appsLoaded = ref(false)
 export const util = ref<zima.Utilization | null>(null)
 export const sys = ref<ice.SystemInfo | null>(null)
 export const zone = ref(pickZone(undefined))
+/** The zone comes from the user's saved setting, not the browser. */
+export const zoneSaved = ref(false)
 export const iceStoreInZimaOS = ref(false)
 
 export const update = ref<ice.UpdateStatus | null>(null)
@@ -72,6 +74,9 @@ export const toasts = ref<Toast[]>([])
 
 export const windows = reactive<Win[]>([])
 export const panelOpen = ref(true)
+/** Phase 5a: the signed-in user's own choices (Settings → Appearance, Dock, Notifications). */
+export const prefs = ref<ice.Prefs>(ice.defaultPrefs())
+export const h24 = computed(() => prefs.value.clock === '24')
 /** The notification centre under the bell. */
 export const notesOpen = ref(false)
 export const searchOpen = ref(false)
@@ -197,7 +202,7 @@ export async function loadNotes() {
     const list = await ice.notifications()
     const fresh = list.items.filter((n) => n.id > lastNoteId && !n.read)
     if (notesLoaded) {
-      for (const n of fresh.reverse()) toast({ ...noteText(n), action: n.action, app: n.app })
+      for (const n of fresh.reverse()) if (popsUp(n.kind)) toast({ ...noteText(n), action: n.action, app: n.app })
     }
     notes.value = list.items
     unread.value = list.unread
@@ -206,6 +211,18 @@ export async function loadNotes() {
   } catch (e) {
     handle(e)
   }
+}
+
+/** Which group a notification kind belongs to, for Settings → Notifications. */
+export function noteGroup(kind: string): ice.NotifyGroup {
+  if (kind === 'app_stopped') return 'stopped'
+  if (kind.startsWith('app_')) return 'apps'
+  return 'updates'
+}
+/** Whether a new notification pops up as a toast: everything still goes to the list. */
+export function popsUp(kind: string): boolean {
+  const n = prefs.value.notify
+  return !n.quiet && !n.off.includes(noteGroup(kind))
 }
 
 export function setNotes(list: ice.NotificationList) {
@@ -357,16 +374,17 @@ export async function loadCatalog(force = false) {
 }
 
 // ---- Phase 4: Settings, themes and widgets ----
-export type SettingsPage = 'mods' | 'widgets' | 'about'
-export const settingsPage = ref<SettingsPage>('mods')
+export type SettingsPage = 'general' | 'appearance' | 'widgets' | 'mods' | 'dock' | 'notifications' | 'users' | 'about'
+export const settingsPage = ref<SettingsPage>('general')
 /** Opens Settings on a page (the dock's Settings, the IceDash menu's About). */
-export function openSettings(page: SettingsPage = 'mods') {
+export function openSettings(page: SettingsPage = 'general') {
   settingsPage.value = page
   openWindow('settings')
 }
 
 export const modsView = ref<modsApi.View>({ mods: [], prefs: { theme: '', panel: [] } })
 export const activeTheme = computed(() => {
+  if (modsView.value.prefs.theme === FROST_ID) return FROST
   const m = modsView.value.mods.find((x) => x.kind === 'theme' && x.id === modsView.value.prefs.theme)
   return m ? modsApi.themeOf(m) : null
 })
@@ -404,6 +422,51 @@ export function applyRememberedTheme() {
   } catch {
     // nothing remembered
   }
+}
+
+// ---- Phase 5a: the user's own choices ----
+
+/** Applies what the choices change outside Vue: the panel and motion. */
+function applyPrefs(p: ice.Prefs) {
+  panelOpen.value = !p.hide_panel
+  document.documentElement.classList.toggle('reduce-motion', p.motion === 'reduce')
+}
+export async function loadPrefs() {
+  try {
+    prefs.value = await ice.getPrefs()
+    applyPrefs(prefs.value)
+  } catch (e) {
+    handle(e)
+  }
+}
+/** Saves part of the choices; the change shows at once and goes back if saving fails. */
+export async function savePrefs(change: Partial<ice.Prefs>): Promise<string | undefined> {
+  const before = prefs.value
+  prefs.value = { ...before, ...change }
+  applyPrefs(prefs.value)
+  try {
+    prefs.value = await ice.savePrefs(change)
+    applyPrefs(prefs.value)
+    return undefined
+  } catch (e) {
+    prefs.value = before
+    applyPrefs(before)
+    handle(e)
+    return e instanceof Error ? e.message : String(e)
+  }
+}
+/** Shows or hides the widget panel, and keeps that for next time. */
+export function togglePanel() {
+  void savePrefs({ hide_panel: panelOpen.value })
+}
+/** The apps kept in the dock, in order, that are still installed. */
+export const pinnedApps = computed(() =>
+  prefs.value.dock.pinned.map((id) => apps.value.find((a) => a.id === id)).filter((a): a is App => !!a),
+)
+export const isPinned = (id: string) => prefs.value.dock.pinned.includes(id)
+export function togglePin(id: string) {
+  const pinned = prefs.value.dock.pinned
+  return savePrefs({ dock: { ...prefs.value.dock, pinned: pinned.includes(id) ? pinned.filter((x) => x !== id) : [...pinned, id] } })
 }
 
 /** The Files window, on a folder or its Trash (the dock's Trash opens that). */
@@ -518,10 +581,16 @@ export async function start() {
   if (host.id === 'casaos') void keepStockVersion()
 
   ice.health().then((h) => (version.value = h.version)).catch(handle)
-  zima.customSystem().then((c) => (zone.value = pickZone(c.timezone))).catch(() => undefined)
+  zima.customSystem()
+    .then((c) => {
+      zone.value = pickZone(c.timezone)
+      zoneSaved.value = zone.value === c.timezone
+    })
+    .catch(() => undefined)
   zima.iceStoreAdded().then((v) => (iceStoreInZimaOS.value = v)).catch(() => undefined)
   ice.getSettings().then((s) => (autoCheck.value = s.auto_check)).catch(() => undefined)
   void loadMods()
+  void loadPrefs()
 
   pollers.push(poll(loadStats, 5000))
   pollers.push(poll(loadApps, 15000))

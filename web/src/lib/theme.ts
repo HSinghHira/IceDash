@@ -72,3 +72,21 @@ export const ICE: ThemeDef = {
     warn: '#f5b84c',
   },
 }
+
+/** Frost, the built-in light theme (PLAN.md 5a.2): Ice's blue on frosted white. */
+export const FROST: ThemeDef = {
+  scheme: 'light',
+  colors: {
+    bg: '#eaf1f7',
+    surface: '#f7fafc',
+    text: '#0b1620',
+    accent: '#0b78b4',
+    accent2: '#0a5f8f',
+    accentDark: '#08669a',
+    ink: '#ffffff',
+    warn: '#9a5b00',
+  },
+}
+
+/** The id the backend keeps for Frost. */
+export const FROST_ID = 'frost'

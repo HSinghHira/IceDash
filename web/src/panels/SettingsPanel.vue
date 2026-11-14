@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// Settings (mock-up 5): Mods & Themes, Widgets and About. Themes and widgets
+// Settings (mock-up 5): General, Appearance, Widgets, Mods & Themes, Dock,
+// Notifications, Users and About. Phase 5a's pages live in SettingsPages.vue. Themes and widgets
 // come from collections: GitHub repos of plain folders, the official ones
 // being IceColors and IceCards. Everyone picks their own theme and panel;
 // adding collections and installing, removing and switching mods is for admins.
@@ -9,11 +10,25 @@ import type { Collection, Installed, Item } from '../api/mods'
 import Icon from '../components/Icon.vue'
 import { dashboardUrl, host } from '../lib/host'
 import { ICE } from '../lib/theme'
-import { modsView, settingsPage, setModsView, toast, user } from '../store'
+import { modsView, settingsPage, setModsView, toast, user, type SettingsPage } from '../store'
+import type { IconName } from '../lib/icons'
 import { strings } from '../strings'
 import AboutPanel from './AboutPanel.vue'
+import SettingsPages from './SettingsPages.vue'
 
 const admin = computed(() => !!user.value?.admin)
+
+/** The sidebar, in mock-up 5's order. */
+const pages: { id: SettingsPage; name: string; icon: IconName }[] = [
+  { id: 'general', name: strings.settingsGeneral, icon: 'sun' },
+  { id: 'appearance', name: strings.settingsAppearance, icon: 'palette' },
+  { id: 'widgets', name: strings.settingsWidgets, icon: 'puzzle' },
+  { id: 'mods', name: strings.settingsMods, icon: 'grid' },
+  { id: 'dock', name: strings.settingsDock, icon: 'dock' },
+  { id: 'notifications', name: strings.settingsNotifications, icon: 'bell' },
+  { id: 'users', name: strings.settingsUsers, icon: 'users' },
+  { id: 'about', name: strings.settingsAbout, icon: 'info' },
+]
 const mods = computed(() => modsView.value.mods)
 const current = computed(() => modsView.value.prefs.theme)
 const installed = (id: string) => mods.value.find((m) => m.id === id)
@@ -179,14 +194,16 @@ const count = (col: Collection, kind: string) => col.items.filter((i) => i.kind 
 <template>
   <div class="settings">
     <nav class="side" :aria-label="strings.settingsTitle">
-      <button type="button" class="item" :class="{ on: settingsPage === 'mods' }" @click="settingsPage = 'mods'">
-        <Icon name="palette" :size="18" /> {{ strings.settingsMods }}
-      </button>
-      <button type="button" class="item" :class="{ on: settingsPage === 'widgets' }" @click="settingsPage = 'widgets'">
-        <Icon name="puzzle" :size="18" /> {{ strings.settingsWidgets }}
-      </button>
-      <button type="button" class="item" :class="{ on: settingsPage === 'about' }" @click="settingsPage = 'about'">
-        <Icon name="info" :size="18" /> {{ strings.settingsAbout }}
+      <button
+        v-for="p in pages"
+        :key="p.id"
+        type="button"
+        class="item"
+        :class="{ on: settingsPage === p.id }"
+        :aria-current="settingsPage === p.id ? 'page' : undefined"
+        @click="settingsPage = p.id"
+      >
+        <Icon :name="p.icon" :size="18" /> {{ p.name }}
       </button>
       <span class="grow" />
       <a class="item stock" :href="dashboardUrl()" target="_blank" rel="noopener">
@@ -355,7 +372,9 @@ const count = (col: Collection, kind: string) => col.items.filter((i) => i.kind 
       </ul>
     </section>
 
-    <section v-else class="page about"><AboutPanel /></section>
+    <section v-else-if="settingsPage === 'about'" class="page about"><AboutPanel /></section>
+
+    <SettingsPages v-else :page="settingsPage" />
 
     <div v-if="offer" class="over" @keydown.esc.stop="offer = null">
       <div class="box" role="alertdialog" :aria-label="strings.modInstallTitle(offer.name)">

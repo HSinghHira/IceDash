@@ -53,6 +53,7 @@ type env struct {
 	h     http.Handler
 	up    *fakeUpdater
 	notes *notify.Store
+	srv   *Server
 }
 
 func newEnv(t *testing.T) env {
@@ -73,7 +74,7 @@ func newEnv(t *testing.T) env {
 		Notes:    notes,
 		Settings: settings.Open(filepath.Join(dir, "settings.json")),
 	}
-	return env{h: s.Handler(), up: up, notes: notes}
+	return env{h: s.Handler(), up: up, notes: notes, srv: s}
 }
 
 func call(h http.Handler, method, path, auth, body string) *httptest.ResponseRecorder {

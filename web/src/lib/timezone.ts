@@ -39,14 +39,15 @@ export interface ClockParts {
   short: string // "Wed 11 Nov 2:06 pm"
 }
 
-export function clockParts(now: Date, zone: string): ClockParts {
+/** The clock's parts; h24 gives "14:06" with no am or pm (Settings → Appearance). */
+export function clockParts(now: Date, zone: string, h24 = false): ClockParts {
   const get = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-NZ', { timeZone: zone, ...o })
-  const tp = get({ hour: 'numeric', minute: '2-digit', hour12: true }).formatToParts(now)
+  const tp = get(h24 ? { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' } : { hour: 'numeric', minute: '2-digit', hour12: true }).formatToParts(now)
   const hour = tp.find((p) => p.type === 'hour')?.value ?? ''
   const minute = tp.find((p) => p.type === 'minute')?.value ?? ''
   const ampm = (tp.find((p) => p.type === 'dayPeriod')?.value ?? '').toLowerCase().replace(/\./g, '')
   const time = `${hour}:${minute}`
   const date = get({ weekday: 'long', day: 'numeric', month: 'long' }).format(now).replace(/,(?= \d)/, ',')
   const shortDate = get({ weekday: 'short', day: 'numeric', month: 'short' }).format(now).replace(/,/g, '')
-  return { time, ampm, date, day: shortDate, short: `${shortDate} ${time} ${ampm}` }
+  return { time, ampm, date, day: shortDate, short: ampm ? `${shortDate} ${time} ${ampm}` : `${shortDate} ${time}` }
 }

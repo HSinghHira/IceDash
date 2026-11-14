@@ -142,6 +142,11 @@ describe('timezone', () => {
     expect(p.ampm).toBe('pm')
     expect(p.date).toContain('Wednesday')
     expect(p.date).toContain('11 November')
+    const h = clockParts(new Date('2026-11-11T01:06:00Z'), 'Pacific/Auckland', true)
+    expect(h.time).toBe('14:06')
+    expect(h.ampm).toBe('')
+    expect(h.short.endsWith('14:06')).toBe(true)
+    expect(clockParts(new Date('2026-11-10T11:05:00Z'), 'Pacific/Auckland', true).time).toBe('00:05')
   })
 })
 

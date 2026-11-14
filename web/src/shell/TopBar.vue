@@ -13,6 +13,8 @@ import {
   openSettings,
   openWindow,
   panelOpen,
+  h24,
+  togglePanel,
   refreshUpdate,
   sys,
   unread,
@@ -28,7 +30,7 @@ import { checkUpdate } from '../api/icedash'
 const props = defineProps<{ now: Date }>()
 const menu = ref<'' | 'icedash' | 'account'>('')
 
-const clock = computed(() => clockParts(props.now, zone.value))
+const clock = computed(() => clockParts(props.now, zone.value, h24.value))
 const cpu = computed(() => (util.value ? `${Math.round(util.value.cpu.percent)}%` : '–'))
 const ram = computed(() => {
   if (!util.value) return '–'
@@ -127,8 +129,8 @@ onBeforeUnmount(() => {
           <button role="menuitem" type="button" @click="signOut">{{ strings.menuSignOut }}</button>
         </div>
       </div>
-      <button class="clock" type="button" :aria-pressed="panelOpen" :title="strings.togglePanel" @click="panelOpen = !panelOpen">
-        <span class="hide-sm">{{ clock.day }}&nbsp;</span>{{ clock.time }}&nbsp;{{ clock.ampm }}
+      <button class="clock" type="button" :aria-pressed="panelOpen" :title="strings.togglePanel" @click="(panelOpen = !panelOpen), togglePanel()">
+        <span class="hide-sm">{{ clock.day }}&nbsp;</span>{{ clock.time }}<template v-if="clock.ampm">&nbsp;{{ clock.ampm }}</template>
       </button>
     </div>
   </header>

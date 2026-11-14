@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"math"
@@ -22,6 +23,7 @@ import (
 	"runtime"
 	"syscall"
 	"time"
+	_ "time/tzdata" // zone names for the night window, whatever the box has
 
 	"github.com/chicohaager/lintux-modkit/auth"
 	"github.com/chicohaager/lintux-modkit/gateway"
@@ -38,6 +40,7 @@ import (
 	"github.com/HSinghHira/IceDash/internal/host"
 	"github.com/HSinghHira/IceDash/internal/mods"
 	"github.com/HSinghHira/IceDash/internal/notify"
+	userprefs "github.com/HSinghHira/IceDash/internal/prefs"
 	"github.com/HSinghHira/IceDash/internal/session"
 	"github.com/HSinghHira/IceDash/internal/settings"
 	"github.com/HSinghHira/IceDash/internal/state"
@@ -171,6 +174,9 @@ func main() {
 			HTTP:     &http.Client{Timeout: 60 * time.Second},
 			AllowURL: mods.AllowedURL,
 		},
+		// Phase 5a: each user's choices, and the accounts for the Users page.
+		Prefs: userprefs.Open(filepath.Join(state.Dir, "prefs.json")),
+		Users: accounts,
 	}
 	if kind == host.CasaOS {
 		srv.StockURL = casa.StockPath
@@ -200,6 +206,8 @@ func main() {
 	// First check 2 minutes after start (the gateway and /DATA come late at
 	// boot), then every 6 hours, while "Check for updates automatically" is on.
 	go upd.Loop(ctx, func() bool { return prefs.Get().AutoCheck }, 2*time.Minute, 6*time.Hour)
+	// Phase 5a: "Install updates at night", 02:00 to 05:00 in the saved zone.
+	go upd.NightLoop(ctx, func() (bool, string) { p := prefs.Get(); return p.AutoInstall, p.Zone }, time.Now)
 
 	dir := staticDir
 	if kind == host.CasaOS {
@@ -333,4 +341,58 @@ func accountEmail(ctx context.Context, token string) string {
 		return ""
 	}
 	return v.Data.Email
+}
+
+// accounts lists the system's users for the Users page: ZimaOS answers
+// GET /v1/users/ (members too); CasaOS has no list (404) and one account,
+// the admin, read from /v1/users/current (HOST-NOTES, Phase 5a).
+func accounts(ctx context.Context, token string) ([]api.Account, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	type user struct {
+		Username string `json:"username"`
+		Role     string `json:"role"`
+	}
+	get := func(path string, out any) (int, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1"+path, nil)
+		if err != nil {
+			return 0, err
+		}
+		req.Header.Set("Authorization", token)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return 0, err
+		}
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusOK {
+			return res.StatusCode, nil
+		}
+		return res.StatusCode, json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(out)
+	}
+	var list struct {
+		Data []user `json:"data"`
+	}
+	code, err := get("/v1/users/", &list)
+	if err != nil {
+		return nil, err
+	}
+	if code == http.StatusNotFound {
+		var one struct {
+			Data user `json:"data"`
+		}
+		if code, err = get("/v1/users/current", &one); err != nil {
+			return nil, err
+		}
+		list.Data = []user{one.Data}
+	}
+	if code != http.StatusOK {
+		return nil, fmt.Errorf("users: %d", code)
+	}
+	out := make([]api.Account, 0, len(list.Data))
+	for _, u := range list.Data {
+		if u.Username != "" {
+			out = append(out, api.Account{Name: u.Username, Admin: u.Role == "admin"})
+		}
+	}
+	return out, nil
 }

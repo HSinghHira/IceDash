@@ -80,7 +80,7 @@ func (s *Service) load() *file {
 			}
 			// …and nobody's theme or panel points at what's gone.
 			for _, p := range f.Users {
-				if _, ok := f.Mods[p.Theme]; !ok {
+				if _, ok := f.Mods[p.Theme]; !ok && p.Theme != Frost {
 					p.Theme = ""
 				}
 				p.Panel = slices.DeleteFunc(p.Panel, func(id string) bool { _, ok := f.Mods[id]; return !ok })
@@ -375,11 +375,14 @@ func (s *Service) prefs(user string) *Prefs {
 	return p
 }
 
-// SetTheme picks a user's theme; "" is Ice.
+// Frost is the built-in light theme (PLAN.md 5a.2); the UI holds its colours.
+const Frost = "frost"
+
+// SetTheme picks a user's theme; "" is Ice, Frost is built in too.
 func (s *Service) SetTheme(user, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if id != "" {
+	if id != "" && id != Frost {
 		m, ok := s.load().Mods[id]
 		if !ok || m.Kind != "theme" {
 			return ErrNotFound

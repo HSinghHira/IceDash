@@ -1,5 +1,6 @@
 // Package settings keeps IceDash's own settings in /DATA/.icedash/settings.json.
-// Phase 1 has one: "Check for updates automatically", on by default.
+// Phase 1: "Check for updates automatically", on by default. Phase 5a:
+// "Install updates at night", off by default, in the zone saved with it.
 package settings
 
 import (
@@ -12,7 +13,9 @@ import (
 
 // Settings are the values the UI shows and an admin changes.
 type Settings struct {
-	AutoCheck bool `json:"auto_check"`
+	AutoCheck   bool   `json:"auto_check"`
+	AutoInstall bool   `json:"auto_install"`
+	Zone        string `json:"zone"` // the clock's zone when auto_install was turned on
 }
 
 // Defaults apply to anything not saved yet.

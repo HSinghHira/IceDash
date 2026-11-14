@@ -19,6 +19,7 @@ import (
 	"github.com/HSinghHira/IceDash/internal/files"
 	"github.com/HSinghHira/IceDash/internal/mods"
 	"github.com/HSinghHira/IceDash/internal/notify"
+	"github.com/HSinghHira/IceDash/internal/prefs"
 	"github.com/HSinghHira/IceDash/internal/session"
 	"github.com/HSinghHira/IceDash/internal/settings"
 	"github.com/HSinghHira/IceDash/internal/system"
@@ -78,6 +79,10 @@ type Server struct {
 
 	// Phase 4: themes and widgets (nil: not offered).
 	Mods *mods.Service
+
+	// Phase 5a: each user's own choices, and the system's accounts.
+	Prefs *prefs.Store
+	Users UsersFunc
 }
 
 // Health is the answer of GET /v2/icedash/health. The updater and the UI poll
@@ -115,6 +120,7 @@ func (s *Server) Handler() http.Handler {
 	s.appRoutes(mux, user, admin)
 	s.fileRoutes(mux, admin)
 	s.modRoutes(mux, user, admin)
+	s.prefsRoutes(mux, user)
 
 	// Anything else under the route still needs a session first, so an
 	// unknown path tells nothing to someone who isn't signed in.
@@ -211,6 +217,14 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) setSettings(w http.ResponseWriter, r *http.Request) {
 	v := s.Settings.Get()
 	if !httpx.Decode(w, r, &v) {
+		return
+	}
+	if v.Zone != "" && !update.ValidZone(v.Zone) {
+		httpx.WriteError(w, http.StatusBadRequest, "bad_zone", "that time zone isn't known")
+		return
+	}
+	if v.AutoInstall && v.Zone == "" {
+		httpx.WriteError(w, http.StatusBadRequest, "bad_zone", "installing at night needs the time zone it counts the night in")
 		return
 	}
 	if err := s.Settings.Set(v); err != nil {

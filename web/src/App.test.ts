@@ -133,18 +133,18 @@ describe('Phase 2 app menu', () => {
     const menu = document.querySelector('.menu')
     expect(menu).not.toBeNull()
     const items = [...menu!.querySelectorAll('[role="menuitem"]')].map((b) => b.textContent?.trim())
-    expect(items).toEqual(['Open', 'Open in new tab', 'Credentials', 'Logs', 'Restart', 'Stop', 'Update to 2', 'Settings', 'Back up data', 'Uninstall'])
+    expect(items).toEqual(['Open', 'Open in new tab', 'Keep in dock', 'Credentials', 'Logs', 'Restart', 'Stop', 'Update to 2', 'Settings', 'Back up data', 'Uninstall'])
     // The update badge shows on the icon.
     expect(w.find('.upd').exists()).toBe(true)
     w.unmount()
   })
 
-  it('gives a member only Open', async () => {
+  it('gives a member only Open and Keep in dock', async () => {
     const w = await desktop(memberToken)
     await w.find('a[href="http://localhost:8123/"]').trigger('contextmenu', { clientX: 100, clientY: 100 })
     await flushPromises()
     const items = [...document.querySelectorAll('.menu [role="menuitem"]')].map((b) => b.textContent?.trim())
-    expect(items).toEqual(['Open', 'Open in new tab'])
+    expect(items).toEqual(['Open', 'Open in new tab', 'Keep in dock'])
     w.unmount()
   })
 })
@@ -235,5 +235,24 @@ describe('Apps in windows', () => {
     expect(opened).toEqual(['http://localhost:8123/'])
     expect(w.find('section.win.app').exists()).toBe(false)
     w.unmount()
+  })
+})
+
+describe('Phase 5a notification choices', () => {
+  it('groups kinds and pops up only what the user keeps', async () => {
+    const { noteGroup, popsUp, prefs } = await import('./store')
+    const { defaultPrefs } = await import('./api/icedash')
+    expect(noteGroup('update_available')).toBe('updates')
+    expect(noteGroup('night_install')).toBe('updates')
+    expect(noteGroup('app_installed')).toBe('apps')
+    expect(noteGroup('app_stopped')).toBe('stopped')
+    prefs.value = defaultPrefs()
+    expect(popsUp('app_installed')).toBe(true)
+    prefs.value = { ...defaultPrefs(), notify: { off: ['apps'], quiet: false } }
+    expect(popsUp('app_installed')).toBe(false)
+    expect(popsUp('updated')).toBe(true)
+    prefs.value = { ...defaultPrefs(), notify: { off: [], quiet: true } }
+    expect(popsUp('updated')).toBe(false)
+    prefs.value = defaultPrefs()
   })
 })

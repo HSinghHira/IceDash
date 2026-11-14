@@ -11,7 +11,7 @@ import { duration, pct, speed, usedOfTotal } from '../lib/format'
 import { dashboardUrl } from '../lib/host'
 import { ICESTORE_SITE } from '../lib/launchers'
 import { cityOf, clockParts } from '../lib/timezone'
-import { appUpdates, apps, iceStoreInZimaOS, modsView, openIceStore, panelWidgets, setModsView, sys, toast, util, zone } from '../store'
+import { appUpdates, apps, iceStoreInZimaOS, modsView, openIceStore, panelWidgets, setModsView, sys, toast, util, zone, h24 } from '../store'
 import { strings } from '../strings'
 
 const props = defineProps<{ now: Date }>()
@@ -51,7 +51,7 @@ function lift(e: DragEvent, id: string) {
 }
 const takeOff = (id: string) => savePanel(modsView.value.prefs.panel.filter((x) => x !== id))
 
-const clock = computed(() => clockParts(props.now, zone.value))
+const clock = computed(() => clockParts(props.now, zone.value, h24.value))
 const city = computed(() => cityOf(zone.value))
 
 const meters = computed(() => {
@@ -109,7 +109,7 @@ const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICEST
   <aside class="panel" aria-label="Widgets" @dragover="over" @dragleave.self="dropping = false" @drop="drop($event)">
     <section class="card clock">
       <p class="time" aria-live="off">
-        <span class="hm">{{ clock.time }}</span><span class="ampm">{{ clock.ampm }}</span>
+        <span class="hm">{{ clock.time }}</span><span v-if="clock.ampm" class="ampm">{{ clock.ampm }}</span>
       </p>
       <p class="date">{{ clock.date }} · {{ city }}</p>
     </section>

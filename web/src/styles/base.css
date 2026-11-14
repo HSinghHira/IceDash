@@ -76,3 +76,13 @@ a {
   outline: 2px solid var(--ac2);
   outline-offset: 2px;
 }
+
+/* Settings → Appearance → Reduce motion (PLAN.md 5a.2); otherwise each part follows the system's setting. */
+:root.reduce-motion *,
+:root.reduce-motion *::before,
+:root.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

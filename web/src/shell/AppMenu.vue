@@ -6,7 +6,7 @@ import * as api from '../api/apps'
 import Icon from '../components/Icon.vue'
 import type { IconName } from '../lib/icons'
 import { dashboardUrl } from '../lib/host'
-import { appInfo, apps, jobFor, menu, openApp, openWindow, refreshApps, toast, trackJob, uninstallFor, user } from '../store'
+import { appInfo, apps, isPinned, jobFor, menu, openApp, openWindow, refreshApps, toast, togglePin, trackJob, uninstallFor, user } from '../store'
 import { strings } from '../strings'
 
 const el = ref<HTMLElement | null>(null)
@@ -34,6 +34,11 @@ const groups = computed<Item[][]>(() => {
     open.push({ id: 'open', label: strings.openApp, icon: 'arrowRight', run: () => openApp(a) })
     open.push({ id: 'tab', label: strings.openInNewTab, icon: 'window', run: () => void window.open(a.url, '_blank', 'noopener') })
   }
+  open.push(
+    isPinned(a.id)
+      ? { id: 'unpin', label: strings.unpinFromDock, icon: 'pin', run: () => void pinIt(a.id) }
+      : { id: 'pin', label: strings.pinToDock, icon: 'pin', run: () => void pinIt(a.id) },
+  )
   if (!admin.value) return [open]
   const look: Item[] = []
   if (info.value?.icestore)
@@ -57,6 +62,11 @@ const groups = computed<Item[][]>(() => {
 
 function close() {
   menu.value = null
+}
+
+async function pinIt(id: string) {
+  const err = await togglePin(id)
+  if (err) toast({ title: strings.settingsDock, body: err })
 }
 
 async function run(i: Item) {

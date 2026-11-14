@@ -7,12 +7,18 @@ import AppIcon from '../components/AppIcon.vue'
 import Icon from '../components/Icon.vue'
 import type { IconName } from '../lib/icons'
 import { desktopLaunchers, dockEnd, openLauncher, type Launcher } from '../lib/launchers'
-import { activeWindow, apps, focusWindow, iceStoreInZimaOS, openFiles, openIceStore, openSettings, openTerminal, toggleMin, user, windows, type Win } from '../store'
+import { activeWindow, apps, focusWindow, iceStoreInZimaOS, openApp, openFiles, openIceStore, openMenu, openSettings, openTerminal, pinnedApps, prefs, toggleMin, user, windows, type Win } from '../store'
 import { strings } from '../strings'
 import SearchBar from './SearchBar.vue'
 
 const admin = computed(() => !!user.value?.admin)
-const launchers = computed(() => desktopLaunchers(location, { admin: admin.value, iceStoreInZimaOS: iceStoreInZimaOS.value }))
+const launchers = computed(() =>
+  desktopLaunchers(location, { admin: admin.value, iceStoreInZimaOS: iceStoreInZimaOS.value }).filter(
+    (l) => !(prefs.value.dock.hidden as string[]).includes(l.id),
+  ),
+)
+/** Pinned apps that have no window open (an open one shows with the windows). */
+const pinned = computed(() => pinnedApps.value.filter((a) => !windows.some((w) => w.kind === 'app' && w.app === a.id)))
 const end = computed(() => dockEnd({ admin: admin.value }))
 
 /** IceStore, Files, Trash and Terminal open IceDash's windows; the others follow their link. */
@@ -63,6 +69,22 @@ function pick(w: Win) {
       <span class="tile"><Icon :name="l.icon" :size="21" /></span>
       <span class="sr">{{ l.name }}</span>
     </a>
+    <template v-if="pinned.length">
+      <span class="divider" aria-hidden="true" />
+      <button
+        v-for="a in pinned"
+        :key="a.id"
+        type="button"
+        class="slot app"
+        :title="a.name"
+        :data-dock-app="a.id"
+        @click="openApp(a)"
+        @contextmenu.prevent="openMenu(a.id, $event)"
+      >
+        <AppIcon :src="a.icon" :name="a.name" :size="44" />
+        <span class="sr">{{ a.name }}</span>
+      </button>
+    </template>
     <template v-if="windows.length">
       <span class="divider" aria-hidden="true" />
       <button

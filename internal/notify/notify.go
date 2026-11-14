@@ -27,6 +27,7 @@ const (
 	KindUpdated         = "updated"
 	KindUpdateFailed    = "update_failed"
 	KindRollbackFailed  = "rollback_failed"
+	KindNightInstall    = "night_install"
 
 	// Phase 2: app events. App names the app (its compose name).
 	KindAppInstalled       = "app_installed"
