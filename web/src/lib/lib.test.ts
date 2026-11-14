@@ -6,6 +6,8 @@ import { desktopLaunchers, dockEnd, openLauncher, terminalUrl } from './launcher
 import { search } from './search'
 import { cityOf, clockParts, pickZone } from './timezone'
 import { clampCrop } from './pictures'
+import { flowLeft, flowRight } from './flow'
+import { drawAvatar } from './avatars'
 import { PRESETS, wallStyle, wallTone } from './wallpaper'
 import { defaultWallpaper, fullPrefs } from '../api/icedash'
 
@@ -227,5 +229,40 @@ describe('wallpapers (5a.8)', () => {
   })
   it('keeps an avatar covering its frame', () => {
     expect(clampCrop({ x: 20, y: -500, w: 300, h: 400 }, 260)).toEqual({ x: 0, y: -140, w: 300, h: 400 })
+  })
+})
+describe('desktop layout without scrolling', () => {
+  const area = { left: 0, right: 1400, top: 50, bottom: 850 }
+  const dock = { left: 500, right: 900, top: 780 }
+  it('starts a new card column to the left, at the top', () => {
+    const { pos, cols } = flowRight([300, 300, 300, 100], area, null, 312, 16)
+    expect(pos).toEqual([{ x: 0, y: 0 }, { x: 0, y: 316 }, { x: 328, y: 0 }, { x: 328, y: 316 }])
+    expect(cols).toBe(2)
+  })
+  it('keeps a column above the dock only where it passes over it', () => {
+    // Columns at x 1088–1400 and 760–1072: the second is over the dock.
+    const { pos } = flowRight([400, 340, 400, 340], area, dock, 312, 16)
+    expect(pos[1]).toEqual({ x: 0, y: 416 }) // reaches 756 < 800: fits beside the dock
+    expect(pos[3]).toEqual({ x: 656, y: 0 }) // 416 + 340 > 714 above the dock
+    expect(flowRight([], area, dock, 312, 16).cols).toBe(0)
+  })
+  it('fills icon columns from the left and skips the room under the dock', () => {
+    const { pos } = flowLeft(30, 90, 86, { left: 480, right: 1000, top: 50, bottom: 850 }, dock, 2)
+    // The first column (480–570) passes over the dock: 8 rows fit above 772.
+    expect(pos[7]).toEqual({ x: 0, y: 616 })
+    expect(pos[8]).toEqual({ x: 90, y: 0 })
+    const free = flowLeft(30, 90, 86, { left: 0, right: 400, top: 50, bottom: 850 }, dock, 2)
+    expect(free.pos[8]).toEqual({ x: 0, y: 704 }) // beside the dock: 9 rows
+  })
+})
+
+describe('drawn avatars', () => {
+  it('draws the same face for the same name, and none for initials', async () => {
+    const a = await drawAvatar('critters', 'Hira')
+    expect(a.startsWith('data:image/svg+xml')).toBe(true)
+    expect(await drawAvatar('critters', 'Hira')).toBe(a)
+    expect(await drawAvatar('critters', 'testmember')).not.toBe(a)
+    expect(await drawAvatar('initials', 'Hira')).toBe('')
+    expect(await drawAvatar('nope', 'Hira')).toBe('')
   })
 })

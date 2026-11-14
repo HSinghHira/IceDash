@@ -7,12 +7,13 @@ import * as ice from '../api/icedash'
 import * as modsApi from '../api/mods'
 import AppIcon from '../components/AppIcon.vue'
 import AvatarEditor from '../components/AvatarEditor.vue'
+import UserAvatar from '../components/UserAvatar.vue'
+import { AVATAR_STYLES, DEFAULT_STYLE, newSeed } from '../lib/avatars'
 import Icon from '../components/Icon.vue'
 import { dashboardUrl, host } from '../lib/host'
 import { desktopLaunchers } from '../lib/launchers'
 import { FROST, FROST_ID, ICE } from '../lib/theme'
 import { cityOf } from '../lib/timezone'
-import { initials } from '../lib/format'
 import { prepareWallpaper } from '../lib/pictures'
 import { PRESETS, SWATCHES, wallStyle } from '../lib/wallpaper'
 import { shuffleWallpaper } from '../menus'
@@ -151,6 +152,13 @@ async function dropAvatar() {
   const err = await setPicture('avatar', null)
   if (err) toast({ title: strings.avatarHeading, body: err })
 }
+/** A drawn avatar instead: picking one takes the picture away. */
+const myStyle = computed(() => prefs.value.avatar_style || DEFAULT_STYLE)
+async function pickStyle(id: string) {
+  if (prefs.value.avatar) await dropAvatar()
+  await save({ avatar_style: id === DEFAULT_STYLE ? '' : id }, strings.avatarHeading)
+}
+const anotherFace = () => save({ avatar_seed: newSeed() }, strings.avatarHeading)
 /** Other people's pictures, as object URLs. */
 const avatars = ref<Record<string, string>>({})
 async function loadAvatars() {
@@ -590,8 +598,7 @@ watch(() => props.page, enter)
     <h3 class="kicker">{{ strings.avatarHeading }}</h3>
     <div class="row me">
       <span class="avatar xl" :aria-label="strings.avatarOf(user?.name ?? '')" role="img">
-        <img v-if="avatarUrl" :src="avatarUrl" alt="" />
-        <template v-else>{{ initials(user?.name ?? '') }}</template>
+        <UserAvatar :name="user?.name ?? ''" :src="avatarUrl" :avatar-style="prefs.avatar_style" :seed="prefs.avatar_seed" />
       </span>
       <div class="who">
         <strong>{{ user?.name }}</strong>
@@ -604,14 +611,54 @@ watch(() => props.page, enter)
       </button>
     </div>
     <AvatarEditor v-if="editing" :file="editing" @save="saveAvatar" @cancel="editing = null" />
+    <p class="mut small drawn-hint">{{ strings.avatarDrawnHint }}</p>
+    <div class="faces" role="radiogroup" :aria-label="strings.avatarDrawn">
+      <button
+        v-for="st in AVATAR_STYLES"
+        :key="st.id"
+        type="button"
+        role="radio"
+        class="face"
+        :class="{ on: !avatarUrl && myStyle === st.id }"
+        :aria-checked="!avatarUrl && myStyle === st.id"
+        :title="st.name"
+        :data-style="st.id"
+        @click="pickStyle(st.id)"
+      >
+        <span class="avatar lg"><UserAvatar :name="user?.name ?? ''" :avatar-style="st.id" :seed="prefs.avatar_seed" /></span>
+        <span class="fname">{{ st.name }}</span>
+      </button>
+      <button
+        type="button"
+        role="radio"
+        class="face"
+        :class="{ on: !avatarUrl && myStyle === 'initials' }"
+        :aria-checked="!avatarUrl && myStyle === 'initials'"
+        :title="strings.avatarInitials"
+        @click="pickStyle('initials')"
+      >
+        <span class="avatar lg"><UserAvatar :name="user?.name ?? ''" avatar-style="initials" /></span>
+        <span class="fname">{{ strings.avatarInitials }}</span>
+      </button>
+    </div>
+    <p class="wactions">
+      <button type="button" class="ghost" :disabled="!!avatarUrl || myStyle === 'initials'" @click="anotherFace">
+        <Icon name="shuffle" :size="15" /> {{ strings.avatarAnother }}
+      </button>
+      <span class="mut small">{{ strings.avatarDrawnBy }}</span>
+    </p>
 
     <h3 class="kicker">{{ strings.settingsUsers }}</h3>
     <p v-if="usersError" class="warnline" role="alert">{{ usersError }}</p>
     <ul v-if="accounts" class="rows">
       <li v-for="a in accounts" :key="a.name" class="row">
         <span class="avatar" aria-hidden="true">
-          <img v-if="avatarFor(a.name)" :src="avatarFor(a.name)" alt="" />
-          <template v-else>{{ initials(a.name) }}</template>
+          <UserAvatar
+            :name="a.name"
+            :src="avatarFor(a.name)"
+            :avatar-style="a.name === user?.name ? prefs.avatar_style : a.avatar_style"
+            :seed="a.name === user?.name ? prefs.avatar_seed : a.avatar_seed"
+          />
         </span>
         <div class="who">
           <strong>
@@ -918,6 +965,43 @@ h2 {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.avatar.lg {
+  width: 48px;
+  height: 48px;
+  font-size: 15px;
+}
+.faces {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.face {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 10px 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.face:hover {
+  background: rgba(var(--fg-rgb), 0.05);
+}
+.face.on {
+  border-color: var(--ac);
+  box-shadow: 0 0 0 1px var(--ac) inset;
+}
+.fname {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.drawn-hint {
+  margin: 14px 0 0;
 }
 .avatar.xl {
   width: 64px;

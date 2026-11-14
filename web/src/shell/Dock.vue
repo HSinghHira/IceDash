@@ -2,13 +2,13 @@
 // The dock: search, IceDash's own launchers (Files, IceStore, App Store,
 // Terminal), the open windows (minimized ones go here), then Settings and
 // Trash. Installed apps live on the desktop.
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
 import Icon from '../components/Icon.vue'
 import type { IconName } from '../lib/icons'
 import { desktopLaunchers, dockEnd, openLauncher, type Launcher } from '../lib/launchers'
 import { dockMenu, launcherMenu, windowMenu } from '../menus'
-import { activeWindow, apps, focusWindow, iceStoreInZimaOS, openApp, openContext, openFiles, openIceStore, openMenu, openSettings, openTerminal, pinnedApps, prefs, toggleMin, user, windows, type Win } from '../store'
+import { activeWindow, apps, dockRect, focusWindow, iceStoreInZimaOS, openApp, openContext, openFiles, openIceStore, openMenu, openSettings, openTerminal, pinnedApps, prefs, toggleMin, user, windows, type Win } from '../store'
 import { strings } from '../strings'
 import SearchBar from './SearchBar.vue'
 
@@ -42,6 +42,27 @@ function runLauncher(l: Launcher) {
 }
 const launcherCtx = (e: MouseEvent, l: Launcher) => openContext(e, l.name, launcherMenu(l, () => runLauncher(l)))
 
+// Tell the desktop where the dock is, whenever it moves or changes size.
+const nav = ref<HTMLElement | null>(null)
+function place() {
+  const r = nav.value?.getBoundingClientRect()
+  if (r && r.width) dockRect.value = { left: r.left, right: r.right, top: r.top }
+}
+let ro: ResizeObserver | undefined
+onMounted(() => {
+  place()
+  if (typeof ResizeObserver !== 'undefined' && nav.value) {
+    ro = new ResizeObserver(place)
+    ro.observe(nav.value)
+  }
+  window.addEventListener('resize', place)
+})
+onBeforeUnmount(() => {
+  ro?.disconnect()
+  window.removeEventListener('resize', place)
+  dockRect.value = null
+})
+
 const kindIcon: Record<string, IconName> = {
   notifications: 'bell',
   icestore: 'snowflake',
@@ -63,7 +84,7 @@ function pick(w: Win) {
 </script>
 
 <template>
-  <nav class="dock" aria-label="Dock" @contextmenu.self="openContext($event, strings.ctxDock, dockMenu())">
+  <nav ref="nav" class="dock" :aria-label="strings.settingsDock" @contextmenu.self="openContext($event, strings.ctxDock, dockMenu())">
     <SearchBar />
     <a
       v-for="l in launchers"

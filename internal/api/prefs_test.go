@@ -111,7 +111,13 @@ func TestPicturesArePerUser(t *testing.T) {
 	if r := call(h, "POST", Route+"/prefs", member, `{"wallpaper":{"kind":"preset","preset":"aurora","dim":20,"blur":4}}`); r.Code != http.StatusOK {
 		t.Fatalf("preset: %d %s", r.Code, r.Body)
 	}
-	for _, bad := range []string{`{"wallpaper":{"kind":"preset","preset":"nope"}}`, `{"wallpaper":{"kind":"color","color":"red"}}`, `{"wallpaper":{"dim":99}}`, `{"wallpaper":{"fit":"stretch"}}`} {
+	if r := call(h, "POST", Route+"/prefs", member, `{"avatar_style":"lorelei","avatar_seed":"tm 2"}`); r.Code != http.StatusOK {
+		t.Fatalf("drawn avatar: %d %s", r.Code, r.Body)
+	}
+	if r := call(h, "GET", Route+"/users", admin, ""); !strings.Contains(r.Body.String(), `"name":"testmember","admin":false,"avatar":true,"avatar_style":"lorelei","avatar_seed":"tm 2"`) {
+		t.Fatalf("users with styles: %s", r.Body)
+	}
+	for _, bad := range []string{`{"avatar_style":"avataaars"}`, `{"avatar_seed":"<x>"}`, `{"wallpaper":{"kind":"preset","preset":"nope"}}`, `{"wallpaper":{"kind":"color","color":"red"}}`, `{"wallpaper":{"dim":99}}`, `{"wallpaper":{"fit":"stretch"}}`} {
 		if r := call(h, "POST", Route+"/prefs", member, bad); r.Code != http.StatusBadRequest {
 			t.Errorf("%s: %d", bad, r.Code)
 		}

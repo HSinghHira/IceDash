@@ -64,7 +64,10 @@ describe('App', () => {
     expect(w.find('nav.dock').text()).toContain('Files')
     expect(w.find('a[href="http://localhost:8123/"]').exists()).toBe(true)
     expect(w.find('.status.stopped').exists()).toBe(true)
-    expect(w.find('.avatar').text()).toBe('HI')
+    // A drawn avatar (Critters, from the name), or the initials while it draws.
+    const av = w.find('button.avatar')
+    expect(av.attributes('aria-label')).toContain('Hira')
+    expect(av.find('img').exists() || av.text() === 'HI').toBe(true)
     w.unmount()
   })
 
@@ -133,7 +136,7 @@ describe('Phase 2 app menu', () => {
     const menu = document.querySelector('.menu')
     expect(menu).not.toBeNull()
     const items = [...menu!.querySelectorAll('[role="menuitem"]')].map((b) => b.textContent?.trim())
-    expect(items).toEqual(['Open', 'Open in new tab', 'Keep in dock', 'Credentials', 'Logs', 'Restart', 'Stop', 'Update to 2', 'Settings', 'Back up data', 'Uninstall'])
+    expect(items).toEqual(['Open', 'Open in new tab', 'Keep in IceDock', 'Credentials', 'Logs', 'Restart', 'Stop', 'Update to 2', 'Settings', 'Back up data', 'Uninstall'])
     // The update badge shows on the icon.
     expect(w.find('.upd').exists()).toBe(true)
     w.unmount()
@@ -144,7 +147,7 @@ describe('Phase 2 app menu', () => {
     await w.find('a[href="http://localhost:8123/"]').trigger('contextmenu', { clientX: 100, clientY: 100 })
     await flushPromises()
     const items = [...document.querySelectorAll('.menu [role="menuitem"]')].map((b) => b.textContent?.trim())
-    expect(items).toEqual(['Open', 'Open in new tab', 'Keep in dock'])
+    expect(items).toEqual(['Open', 'Open in new tab', 'Keep in IceDock'])
     w.unmount()
   })
 })
@@ -294,7 +297,7 @@ describe('IceCards, menus and the top bar', () => {
     expect(document.querySelector('.ctx')?.textContent).toContain('Shuffle wallpaper')
     await w.find('nav.dock a[title="Files"]').trigger('contextmenu', { clientX: 300, clientY: 700 })
     await flushPromises()
-    expect(document.querySelector('.ctx')?.textContent).toContain('Remove from dock')
+    expect(document.querySelector('.ctx')?.textContent).toContain('Remove from IceDock')
     await w.find('button.clock').trigger('contextmenu', { clientX: 1200, clientY: 10 })
     await flushPromises()
     expect(document.querySelector('.ctx [data-ctx="24"]')).not.toBeNull()

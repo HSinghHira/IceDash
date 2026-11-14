@@ -2,24 +2,27 @@
 // The panel (IceCards): IceDash's own cards (Clock, System, Network, Apps)
 // and the user's widgets (Phase 4), each in its sandbox, in the user's order.
 // Every card can be dragged to a new place, taken off, or right-clicked.
-// Cards dragged from Settings → IceCards drop here.
-import { computed, reactive, ref } from 'vue'
+// Cards dragged from Settings → IceCards drop here. When the cards don't fit
+// one column, the next column starts at the top, to the left (lib/flow): the
+// panel never scrolls.
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import WidgetFrame from '../components/WidgetFrame.vue'
 import Icon from '../components/Icon.vue'
 import { counts } from '../lib/apps'
 import { duration, pct, speed, usedOfTotal } from '../lib/format'
 import { dashboardUrl } from '../lib/host'
 import { ICESTORE_SITE } from '../lib/launchers'
+import { flowRight, type Box } from '../lib/flow'
 import { cityOf, clockParts } from '../lib/timezone'
 import { cardMenu, cardTitle, panelMenu } from '../menus'
 import {
   appUpdates,
   apps,
+  dockRect,
   iceStoreInZimaOS,
   modsView,
   openContext,
   openIceStore,
-  openSettings,
   panelCards,
   setPanelCards,
   sys,
@@ -65,6 +68,65 @@ function lift(e: DragEvent, id: string) {
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
 }
 const takeOff = (id: string) => savePanel(modsView.value.prefs.panel.filter((x) => x !== id))
+
+// ---- columns ----
+const COL = 312
+const GAP = 16
+const el = ref<HTMLElement | null>(null)
+const wide = ref(true)
+const box = ref<Box | null>(null)
+const heights = reactive<Record<string, number>>({})
+let ro: ResizeObserver | undefined
+function measure() {
+  wide.value = window.innerWidth > 900
+  const me = el.value
+  const area = me?.parentElement
+  if (!me || !area) return
+  const r = me.getBoundingClientRect()
+  const a = area.getBoundingClientRect()
+  box.value = { left: r.left, right: r.right, top: r.top, bottom: a.bottom - parseFloat(getComputedStyle(area).paddingBottom || '0') }
+}
+function observeCards() {
+  if (!ro || !el.value) return
+  ro.disconnect()
+  if (el.value.parentElement) ro.observe(el.value.parentElement)
+  for (const c of el.value.querySelectorAll<HTMLElement>(':scope > [data-card]')) ro.observe(c)
+}
+onMounted(() => {
+  measure()
+  if (typeof ResizeObserver !== 'undefined') {
+    ro = new ResizeObserver((entries) => {
+      for (const e of entries) {
+        const id = (e.target as HTMLElement).dataset.card
+        if (id) heights[id] = (e.target as HTMLElement).offsetHeight
+      }
+      measure()
+    })
+    observeCards()
+  }
+  window.addEventListener('resize', measure)
+})
+onBeforeUnmount(() => {
+  ro?.disconnect()
+  window.removeEventListener('resize', measure)
+})
+watch(
+  () => panelCards.value.map((c) => c.id).join(),
+  () => nextTick(observeCards),
+)
+const layout = computed(() =>
+  wide.value && box.value ? flowRight(panelCards.value.map((c) => heights[c.id] ?? 0), box.value, dockRect.value, COL, GAP) : null,
+)
+const panelStyle = computed(() => {
+  const l = layout.value
+  if (!l) return undefined
+  const w = l.cols ? l.cols * COL + (l.cols - 1) * GAP : 0
+  return { width: `${Math.max(w, dropping.value ? COL : 0)}px` }
+})
+const cardStyle = (i: number) => {
+  const p = layout.value?.pos[i]
+  return p ? { position: 'absolute' as const, right: `${p.x}px`, top: `${p.y}px`, width: `${COL}px` } : undefined
+}
 
 const clock = computed(() => clockParts(props.now, zone.value, h24.value))
 const city = computed(() => cityOf(zone.value))
@@ -122,7 +184,10 @@ const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICEST
 
 <template>
   <aside
+    ref="el"
     class="panel"
+    :class="{ flow: !!layout }"
+    :style="panelStyle"
     :aria-label="strings.settingsWidgets"
     @dragover="over"
     @dragleave.self="dropping = false"
@@ -135,6 +200,7 @@ const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICEST
       class="card"
       :class="[c.builtin ? `b-${c.id}` : 'wcard']"
       :data-card="c.id"
+      :style="cardStyle(i)"
       draggable="true"
       :aria-label="cardTitle(c)"
       @dragstart="lift($event, c.id)"
@@ -212,13 +278,7 @@ const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICEST
     <WidgetFrame v-else-if="!c.builtin" :key="`${c.id}:${reloads[c.id] ?? 0}`" :mod="c.mod" />
     </section>
 
-    <div v-if="!panelCards.length && !dropping" class="none" @contextmenu.self="openContext($event, strings.ctxPanel, panelMenu())">
-      <p>{{ strings.panelEmpty }}</p>
-      <button type="button" class="store" @click="openSettings('widgets')">
-        <span>{{ strings.panelEmptyAdd }}</span>
-        <span class="go"><Icon name="plus" :size="14" /></span>
-      </button>
-    </div>
+
     <p v-if="dropping" class="dropzone">{{ strings.dropWidget }}</p>
   </aside>
 </template>
@@ -228,6 +288,22 @@ const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICEST
   display: grid;
   gap: 16px;
   align-content: start;
+}
+/* Columns (lib/flow): every card placed by its own top and right. */
+.panel.flow {
+  position: relative;
+  display: block;
+  height: 100%;
+}
+.panel.flow > .card {
+  transition: top 0.25s ease, right 0.25s ease;
+}
+.panel.flow > .dropzone {
+  position: absolute;
+  inset: 0 0 auto auto;
+  width: 312px;
+  z-index: 2;
+  background: rgba(var(--surface-rgb), 0.85);
 }
 .card.wcard {
   padding: 0;
@@ -259,18 +335,6 @@ const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICEST
 }
 .card[draggable='true']:active {
   cursor: grabbing;
-}
-.none {
-  display: grid;
-  gap: 10px;
-  padding: 18px 20px;
-  border: 1px dashed var(--line);
-  border-radius: var(--radius-card);
-  color: var(--mut);
-  font-size: 13.5px;
-}
-.none p {
-  margin: 0;
 }
 .dropzone {
   margin: 0;

@@ -23,9 +23,19 @@ type Prefs struct {
 	Notify    Notify `json:"notify"`
 	// Wallpaper is the user's own desktop background (PLAN.md 5a.8).
 	Wallpaper Wallpaper `json:"wallpaper"`
-	// Avatar changes each time the user sets a picture; 0 is none (initials).
+	// Avatar changes each time the user sets a picture; 0 is none.
 	Avatar int64 `json:"avatar"`
+	// Without a picture, a drawn avatar (DiceBear, drawn in the browser):
+	// its style ("" is Critters, "initials" the letters) and seed ("" is the
+	// user name; another seed gives another face).
+	AvatarStyle string `json:"avatar_style"`
+	AvatarSeed  string `json:"avatar_seed"`
 }
+
+// AvatarStyles are the drawn styles offered: DiceBear's public domain (CC0) ones.
+var AvatarStyles = []string{"", "initials", "critters", "lorelei", "thumbs", "pixel-art", "pixelbot", "voxel-bot", "moods", "sprouts", "clay", "planets", "marbles", "glass", "shapes", "blobs"}
+
+var seedRx = regexp.MustCompile(`^[A-Za-z0-9 ._-]{0,64}$`)
 
 // Wallpaper is what fills the desktop behind the icons.
 type Wallpaper struct {
@@ -85,6 +95,9 @@ func (p *Prefs) Check() error {
 	}
 	if p.Notify.Off, err = only(p.Notify.Off, func(s string) bool { return slices.Contains(Groups, s) }); err != nil {
 		return err
+	}
+	if !slices.Contains(AvatarStyles, p.AvatarStyle) || !seedRx.MatchString(p.AvatarSeed) {
+		return ErrInvalid
 	}
 	return p.Wallpaper.check()
 }

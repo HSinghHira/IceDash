@@ -1,9 +1,12 @@
 <script setup lang="ts">
 // The desktop shows the installed apps; IceDash's own launchers are in the dock.
+// Icons fill columns from the left, top to bottom; a column that would run
+// under the dock stops above it (lib/flow).
 import AppIcon from '../components/AppIcon.vue'
 import type { App } from '../lib/apps'
-import { computed } from 'vue'
-import { appInfo, apps, appsLoaded, jobFor, jobs, openApp, openMenu } from '../store'
+import { flowLeft, type Box } from '../lib/flow'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { appInfo, apps, appsLoaded, dockRect, jobFor, jobs, openApp, openMenu } from '../store'
 import { strings } from '../strings'
 
 /** Apps being installed that ZimaOS doesn't list yet: shown as a placeholder until they arrive. */
@@ -11,6 +14,42 @@ const pending = computed(() =>
   jobs.value.filter((j) => j.kind === 'install' && j.state === 'running' && !apps.value.some((a) => a.id === j.name)),
 )
 const phaseWord = (p: string) => strings.installPhase[p] ?? strings.installing
+
+const W = 90
+const H = 86
+const GAP = 2
+const el = ref<HTMLElement | null>(null)
+const box = ref<Box | null>(null)
+const wide = ref(true)
+function measure() {
+  wide.value = window.innerWidth > 900
+  const me = el.value
+  const area = me?.parentElement
+  if (!me || !area) return
+  const r = me.getBoundingClientRect()
+  const a = area.getBoundingClientRect()
+  box.value = { left: r.left, right: r.right, top: r.top, bottom: a.bottom - parseFloat(getComputedStyle(area).paddingBottom || '0') }
+}
+let ro: ResizeObserver | undefined
+onMounted(() => {
+  measure()
+  if (typeof ResizeObserver !== 'undefined' && el.value?.parentElement) {
+    ro = new ResizeObserver(measure)
+    ro.observe(el.value.parentElement)
+  }
+  window.addEventListener('resize', measure)
+})
+onBeforeUnmount(() => {
+  ro?.disconnect()
+  window.removeEventListener('resize', measure)
+})
+const layout = computed(() =>
+  wide.value && box.value ? flowLeft(apps.value.length + pending.value.length, W, H, box.value, dockRect.value, GAP) : null,
+)
+const at = (i: number) => {
+  const p = layout.value?.pos[i]
+  return p ? { left: `${p.x}px`, top: `${p.y}px` } : undefined
+}
 
 const statusWord = { running: strings.running, starting: strings.starting, stopped: strings.stopped }
 
@@ -39,11 +78,12 @@ function cancel() {
 </script>
 
 <template>
-  <nav class="icons" :aria-label="strings.apps">
-    <template v-for="a in apps" :key="a.id">
+  <nav ref="el" class="icons" :class="{ flow: !!layout }" :aria-label="strings.apps">
+    <template v-for="(a, i) in apps" :key="a.id">
       <a
         v-if="a.url"
         class="item"
+        :style="at(i)"
         :href="a.url"
         target="_blank"
         rel="noopener"
@@ -65,6 +105,7 @@ function cancel() {
       <div
         v-else
         class="item no-link"
+        :style="at(i)"
         :aria-label="strings.appStatus(a.name, statusWord[a.status])"
         role="button"
         tabindex="0"
@@ -80,9 +121,10 @@ function cancel() {
       </div>
     </template>
     <div
-      v-for="j in pending"
+      v-for="(j, k) in pending"
       :key="`job-${j.name}`"
       class="item installing"
+      :style="at(apps.length + k)"
       role="status"
       :aria-label="strings.appStatus(j.title || j.name, phaseWord(j.phase))"
       :title="`${j.title || j.name} · ${phaseWord(j.phase)}`"
@@ -109,6 +151,17 @@ function cancel() {
 }
 .icons::-webkit-scrollbar {
   display: none;
+}
+/* Placed by lib/flow: nothing scrolls. */
+.icons.flow {
+  position: relative;
+  display: block;
+  overflow: hidden;
+}
+.icons.flow > .item {
+  position: absolute;
+  width: 90px;
+  height: 86px;
 }
 .item {
   display: flex;

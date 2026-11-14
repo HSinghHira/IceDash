@@ -96,8 +96,11 @@ export interface Prefs {
   notify: { off: NotifyGroup[]; quiet: boolean }
   /** The user's own desktop background. */
   wallpaper: Wallpaper
-  /** Changes with each new picture; 0 is none (initials). */
+  /** Changes with each new picture; 0 is none. */
   avatar: number
+  /** Without a picture: the drawn style ("" is Critters, "initials" the letters) and its seed ("" is the name). */
+  avatar_style: string
+  avatar_seed: string
 }
 
 export type WallpaperPreset = 'aurora' | 'glacier' | 'nightfall' | 'ember' | 'lagoon' | 'dune' | 'graphite' | 'mist'
@@ -122,12 +125,14 @@ export const defaultPrefs = (): Prefs => ({
   notify: { off: [], quiet: false },
   wallpaper: defaultWallpaper(),
   avatar: 0,
+  avatar_style: '',
+  avatar_seed: '',
 })
 
 /** Fills in what an older backend leaves out. */
 export const fullPrefs = (p: Partial<Prefs>): Prefs => {
   const d = defaultPrefs()
-  return { ...d, ...p, wallpaper: { ...d.wallpaper, ...(p.wallpaper ?? {}) }, avatar: p.avatar ?? 0 }
+  return { ...d, ...p, wallpaper: { ...d.wallpaper, ...(p.wallpaper ?? {}) }, avatar: p.avatar ?? 0, avatar_style: p.avatar_style ?? '', avatar_seed: p.avatar_seed ?? '' }
 }
 export const getPrefs = () => request<Prefs>(`${base}/prefs`).then(fullPrefs)
 export const savePrefs = (p: Partial<Prefs>) => request<Prefs>(`${base}/prefs`, { method: 'POST', body: p }).then(fullPrefs)
@@ -143,5 +148,7 @@ export interface Account {
   name: string
   admin: boolean
   avatar?: boolean
+  avatar_style?: string
+  avatar_seed?: string
 }
 export const accounts = () => request<{ items: Account[] }>(`${base}/users`).then((r) => r.items)

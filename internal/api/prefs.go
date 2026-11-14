@@ -19,6 +19,9 @@ type Account struct {
 	Name   string `json:"name"`
 	Admin  bool   `json:"admin"`
 	Avatar bool   `json:"avatar,omitempty"` // has a picture of their own
+	// Without one, the drawn avatar they chose (prefs.Prefs).
+	Style string `json:"avatar_style,omitempty"`
+	Seed  string `json:"avatar_seed,omitempty"`
 }
 
 // prefsRoutes are Phase 5a's: each user's own choices, and the accounts.
@@ -138,9 +141,13 @@ func (s *Server) users(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, http.StatusBadGateway, "unreachable", "the list of users can't be read right now")
 		return
 	}
-	if s.Media != nil {
-		for i := range list {
+	for i := range list {
+		if s.Media != nil {
 			list[i].Avatar = s.Media.Has(list[i].Name, media.Avatar)
+		}
+		if s.Prefs != nil {
+			p := s.Prefs.Get(list[i].Name)
+			list[i].Style, list[i].Seed = p.AvatarStyle, p.AvatarSeed
 		}
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": list})

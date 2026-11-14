@@ -153,31 +153,24 @@ onBeforeUnmount(() => clearInterval(tick))
   color: var(--warn);
   font-size: 13px;
 }
+/* Icons from the left, cards from the right, both down to the bottom: the
+   room beside the dock is used, the room under it is left free (lib/flow).
+   Nothing scrolls. */
 .area {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: none;
+  overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 312px;
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: minmax(0, 1fr);
   gap: 20px;
-  padding: 16px 20px 100px 16px;
-}
-.area::-webkit-scrollbar {
-  display: none;
+  padding: 16px 20px 14px 16px;
 }
 .area.no-panel {
   grid-template-columns: 1fr;
 }
 .widgets {
-  align-self: start;
-  max-height: 100%;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-.widgets::-webkit-scrollbar {
-  display: none;
+  min-height: 0;
 }
 .bottom {
   position: fixed;
@@ -196,12 +189,10 @@ onBeforeUnmount(() => clearInterval(tick))
 }
 @media (max-width: 900px) {
   .area {
+    overflow-y: auto;
     grid-template-columns: 1fr;
     grid-template-rows: none;
     padding: 14px 14px 100px;
-  }
-  .widgets {
-    max-height: none;
   }
 }
 </style>

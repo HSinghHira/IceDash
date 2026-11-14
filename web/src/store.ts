@@ -81,6 +81,8 @@ export const h24 = computed(() => prefs.value.clock === '24')
 /** The notification centre under the bell. */
 export const notesOpen = ref(false)
 export const searchOpen = ref(false)
+/** Where the dock sits, so icons and cards use the room beside it but not under it. */
+export const dockRect = ref<{ left: number; right: number; top: number } | null>(null)
 
 export const updateWaiting = computed(() => update.value?.state === 'available' || update.value?.state === 'failed' && !!update.value.latest)
 /** The front window that isn't minimized. */

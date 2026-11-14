@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { signOut } from '../api/client'
 import Icon from '../components/Icon.vue'
-import { initials } from '../lib/format'
+import UserAvatar from '../components/UserAvatar.vue'
 import { dashboardUrl, host } from '../lib/host'
 import { clockParts } from '../lib/timezone'
 import { accountMenu, bellMenu, clockMenu, topBarMenu } from '../menus'
@@ -16,6 +16,7 @@ import {
   openSettings,
   openWindow,
   panelOpen,
+  prefs,
   h24,
   togglePanel,
   refreshUpdate,
@@ -115,14 +116,12 @@ onBeforeUnmount(() => {
           @click="toggle('account')"
           @contextmenu="openContext($event, user?.name ?? '', accountMenu())"
         >
-          <img v-if="avatarUrl" :src="avatarUrl" alt="" />
-          <template v-else>{{ initials(user?.name ?? '') }}</template>
+          <UserAvatar :name="user?.name ?? ''" :src="avatarUrl" :avatar-style="prefs.avatar_style" :seed="prefs.avatar_seed" />
         </button>
         <div v-if="menu === 'account'" class="menu end" role="menu">
           <div class="who">
             <span class="big avatar" aria-hidden="true">
-              <img v-if="avatarUrl" :src="avatarUrl" alt="" />
-              <template v-else>{{ initials(user?.name ?? '') }}</template>
+              <UserAvatar :name="user?.name ?? ''" :src="avatarUrl" :avatar-style="prefs.avatar_style" :seed="prefs.avatar_seed" />
             </span>
             <span>
               <strong>{{ user?.name }}</strong>
