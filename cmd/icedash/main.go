@@ -259,6 +259,15 @@ func main() {
 				log.Printf("[icedash] giving / back to CasaOS: %v", err)
 			}
 			cancel()
+		} else if prefs.Get().MainAddress {
+			// Give "/" back to ZimaOS, so a stopped or removed IceDash never
+			// leaves "/" redirecting to files that are gone. The next start
+			// takes it again within 2 s.
+			rctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			if err := (&home.Caddy{}).Remove(rctx); err != nil {
+				log.Printf("[icedash] giving / back to ZimaOS: %v", err)
+			}
+			cancel()
 		}
 		sctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -285,6 +294,12 @@ func uninstall(kind host.Kind, runtimePath string) {
 	}
 	if err := watchdog.Uninstall(watchdog.Options{Service: service, Binary: binary}); err != nil {
 		log.Fatalf("[icedash] removing the boot watchdog: %v", err)
+	}
+	// Stop the service first: while it runs with the main address on, it puts
+	// the "/" route back within 10 s, and after `zpkg remove` that route
+	// would send "/" to files that are gone (a 404 at the server's address).
+	if out, err := exec.Command("systemctl", "stop", service).CombinedOutput(); err != nil {
+		log.Printf("[icedash] stopping %s: %v %s", service, err, strings.TrimSpace(string(out)))
 	}
 	log.Printf("[icedash] boot watchdog removed; now run: zpkg remove icedash")
 	// Phase 5b: give "/" back to ZimaOS (none there is fine).
