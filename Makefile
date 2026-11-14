@@ -8,6 +8,7 @@
 #
 # The image step needs Linux (mksquashfs); everything before it runs anywhere.
 # `make casaos ARCH=arm64` makes one CasaOS package (PLAN.md, Phase 3a).
+# `make site` builds the website into _site/ and serves it at http://localhost:8000.
 
 VERSION ?= 0.0.0-dev
 ARCH    ?= amd64
@@ -21,7 +22,7 @@ LDFLAGS := -s -w -X main.version=$(VERSION:v%=%) $(if $(BROKEN),-X main.broken=1
 
 CASAOS  := build/casaos-$(ARCH)
 
-.PHONY: build check modkit vet test web-deps web-test rootfs binary web image casaos casaos-all preview clean
+.PHONY: build check modkit vet test web-deps web-test rootfs binary web image casaos casaos-all preview site clean
 
 build: check image casaos-all
 
@@ -85,5 +86,8 @@ casaos-all:
 preview: web-deps
 	cd web && npm run mock
 
+site:
+	python site/serve.py
+
 clean:
-	rm -rf build dist
+	rm -rf build dist _site

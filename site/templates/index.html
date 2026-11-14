@@ -1,0 +1,196 @@
+<main id="main" tabindex="-1" data-page="home">
+  <header class="hero">
+    <h1 class="ice-title">
+      <span class="ice-word" data-text="{{site_name}}">{{site_name}}</span><svg class="icicles" viewBox="0 0 600 76"
+        preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="ig" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#fff" stop-opacity=".95" />
+            <stop offset=".55" stop-color="#9fe3fa" stop-opacity=".75" />
+            <stop offset="1" stop-color="#4cc9f0" stop-opacity=".1" />
+          </linearGradient>
+        </defs>
+        <polygon
+          points="0,0 4.0,5 20.0,36 36.0,5 44.0,5 60.0,26 76.0,5 84.0,5 100.0,48 116.0,5 124.0,5 140.0,72 156.0,5 164.0,5 180.0,18 196.0,5 204.0,5 220.0,18 236.0,5 244.0,5 260.0,60 276.0,5 284.0,5 300.0,18 316.0,5 324.0,5 340.0,36 356.0,5 364.0,5 380.0,60 396.0,5 404.0,5 420.0,18 436.0,5 444.0,5 460.0,60 476.0,5 484.0,5 500.0,26 516.0,5 524.0,5 540.0,18 556.0,5 564.0,5 580.0,18 596.0,5 600,0"
+          fill="url(#ig)" />
+      </svg><i class="spark" style="left: -3%; top: -12%; animation-delay: 0s"></i><i class="spark"
+        style="left: 23%; top: -20%; animation-delay: 0.9s"></i><i class="spark"
+        style="left: 47%; top: -24%; animation-delay: 1.7s"></i><i class="spark"
+        style="left: 72%; top: -16%; animation-delay: 0.4s"></i><i class="spark"
+        style="left: 99%; top: -10%; animation-delay: 2.2s"></i><i class="spark"
+        style="left: 60%; top: 118%; animation-delay: 1.3s"></i>
+    </h1>
+    <div><a class="ver" href="{{repo}}/releases/latest"><b>{{version}}</b>Latest release {{icon:arrow-right}}</a></div>
+    <p class="lead"><b>A desktop for your home server</b>Your apps on a desktop and in a dock, widgets, notifications, Files, a Terminal and IceStore built in. For ZimaOS and CasaOS, free and open source.</p>
+    <div class="cta">
+      <a class="btn p" href="#install">{{icon:download}}Install IceDash</a>
+      <a class="btn" href="#tour">{{icon:monitor}}Take the tour</a>
+    </div>
+    <nav class="cta cta2" aria-label="More">
+      <a class="btn g" href="#features">{{icon:grid}}Features</a>
+      <a class="btn g" href="{{icestore_url}}">{{icon:package}}IceStore</a>
+      <a class="btn g" href="{{repo}}">{{icon:github}}GitHub</a>
+    </nav>
+  </header>
+
+  <section class="wrap sec shots" id="tour" aria-labelledby="tour-h">
+    <h2 id="tour-h">Take the tour</h2>
+    <p class="sub">Everything happens on one desktop, in windows, without leaving the page.</p>
+    <div class="stabs">
+      <div class="tabs" role="tablist" aria-label="Choose a screen">
+        {{{shot_tabs}}}
+      </div>
+    </div>
+    {{{shot_panels}}}
+  </section>
+
+  <section class="wrap sec" id="features" aria-labelledby="features-h">
+    <h2 id="features-h">What you get</h2>
+    <p class="sub">The stock dashboard's jobs, and the ones you used to need SSH for.</p>
+    <div class="feats">{{{features}}}</div>
+  </section>
+
+  <section class="wrap sec" id="install" aria-labelledby="install-h">
+    <h2 id="install-h">Install IceDash</h2>
+    <p class="sub">One command over SSH. After that, IceDash updates itself from its own menu.</p>
+    <ul class="reqs">
+      <li><img src="img/os/zimaos.png" alt="" width="16" height="16">ZimaOS 1.8.0+ · amd64</li>
+      <li><img src="img/os/casaos.png" alt="" width="16" height="16">CasaOS 0.4.15+ · amd64, arm64</li>
+    </ul>
+    <div class="stabs">
+      <div class="tabs" role="tablist" aria-label="Choose your system">
+        <button class="tab" type="button" role="tab" id="zimaos" data-hash="zimaos" aria-controls="p-zimaos"><img src="img/os/zimaos.png" alt="" width="20" height="20">ZimaOS</button>
+        <button class="tab" type="button" role="tab" id="casaos" data-hash="casaos" aria-controls="p-casaos"><img src="img/os/casaos.png" alt="" width="20" height="20">CasaOS</button>
+      </div>
+    </div>
+
+    <div class="panel sp" role="tabpanel" id="p-zimaos" aria-labelledby="zimaos">
+      <div class="stores">
+        <article class="store">
+          <header>
+            <img src="img/os/zimaos.png" alt="" width="48" height="48" loading="lazy" />
+            <div>
+              <h3>ZimaOS</h3>
+              <p>Installs as a ZimaOS module, beside the stock dashboard</p>
+            </div>
+          </header>
+          <div class="url">
+            <div><code>http://&lt;your-server&gt;/modules/icedash/</code></div>
+          </div>
+          <ol class="steps">
+            <li><span>Open a terminal on your ZimaOS box (SSH, or the Terminal in Settings).</span></li>
+            <li><span>Run the commands on the right. They download IceDash, check it and install it.</span></li>
+            <li><span>Open the <b>IceDash</b> tile on the ZimaOS dashboard, or the address above.</span></li>
+            <li><span>Sign in with your ZimaOS account. There is nothing else to set up.</span></li>
+          </ol>
+          <div class="fn">
+            {{icon:info}}<span>Want IceDash at <b>http://&lt;your-server&gt;/</b>? Turn on <b>Settings → General → Open IceDash at this server's address</b>. The ZimaOS dashboard stays at <b>/index.html</b></span>
+          </div>
+        </article>
+        <div class="tstack">
+          <div class="term">
+            <header>
+              <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="ttl">user@zimaos: /tmp</span><button class="ic" type="button" data-copy-from="#cmd-zima" aria-label="Copy the ZimaOS install commands">{{icon:copy}}</button>
+            </header>
+            <pre><span class="pr"><span class="u">user@zimaos</span>:<span class="d">~</span>$</span> <code id="cmd-zima">cd /tmp
+curl -fsSLO {{repo}}/releases/latest/download/icedash-amd64.raw
+curl -fsSLO {{repo}}/releases/latest/download/icedash-amd64.raw.sha256
+sha256sum -c icedash-amd64.raw.sha256
+mv icedash-amd64.raw icedash.raw
+sudo zpkg install /tmp/icedash.raw</code>
+<span class="pr"><span class="u">user@zimaos</span>:<span class="d">/tmp</span>$</span> <span class="cur" aria-hidden="true"></span></pre>
+          </div>
+          <div class="tip">
+            <header><span>To remove it</span></header>
+            <ul>
+              <li>Run <code>sudo icedash --uninstall</code>, then <code>sudo zpkg remove icedash</code>.</li>
+              <li>Settings and notifications stay in <code>/DATA/.icedash</code> until you delete that folder.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel sp" role="tabpanel" id="p-casaos" aria-labelledby="casaos" hidden>
+      <div class="stores">
+        <article class="store">
+          <header>
+            <img src="img/os/casaos.png" alt="" width="48" height="48" loading="lazy" />
+            <div>
+              <h3>CasaOS</h3>
+              <p>Becomes the main page, with the stock UI one click away</p>
+            </div>
+          </header>
+          <div class="url">
+            <div><code>http://&lt;your-server&gt;/</code></div>
+          </div>
+          <ol class="steps">
+            <li><span>Open a terminal on your CasaOS box over SSH.</span></li>
+            <li><span>Run the command on the right. Running it again repairs or reinstalls IceDash.</span></li>
+            <li><span>Open your server's address. IceDash is the main page now.</span></li>
+            <li><span>Sign in with your CasaOS account.</span></li>
+          </ol>
+          <div class="fn">
+            {{icon:info}}<span>The stock CasaOS UI stays at <b>http://&lt;your-server&gt;/casaos/</b>, and IceDash links to it from its menu</span>
+          </div>
+        </article>
+        <div class="tstack">
+          <div class="term">
+            <header>
+              <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="ttl">user@casaos: ~</span><button class="ic" type="button" data-copy-from="#cmd-casa" aria-label="Copy the CasaOS install command">{{icon:copy}}</button>
+            </header>
+            <pre><span class="pr"><span class="u">user@casaos</span>:<span class="d">~</span>$</span> <code id="cmd-casa">wget -qO- {{repo}}/releases/latest/download/install-casaos.sh | sudo sh</code>
+<span class="pr"><span class="u">user@casaos</span>:<span class="d">~</span>$</span> <span class="cur" aria-hidden="true"></span></pre>
+          </div>
+          <div class="tip">
+            <header><span>To remove it</span></header>
+            <ul>
+              <li><code>sudo /opt/icedash/current/uninstall.sh</code> puts the stock CasaOS UI back at the main address.</li>
+              <li>Add <code>--purge</code> to delete IceDash's settings too. Apps you installed from IceDash stay in CasaOS either way.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap sec" id="faq" aria-labelledby="faq-h">
+    <h2 id="faq-h">Good to know</h2>
+    <p class="sub">The questions people ask before they install it.</p>
+    <div class="faq">
+      <details>
+        <summary>Does it change ZimaOS or CasaOS?</summary>
+        <div>No system files change. On ZimaOS IceDash is a module beside the stock dashboard. On CasaOS it takes the main address and keeps the stock UI at <code>/casaos/</code>; the uninstall script gives the address back. Apps installed from IceDash are normal apps of your system.</div>
+      </details>
+      <details>
+        <summary>How does it update?</summary>
+        <div>IceDash checks for new versions and shows <b>Update now</b> in its menu. If an update fails to start, the previous version comes back by itself. An admin can also let it install updates at night, between 02:00 and 05:00.</div>
+      </details>
+      <details>
+        <summary>Who can do what?</summary>
+        <div>You sign in with your ZimaOS or CasaOS account. Admins get everything. Members get their own look, dock and notifications and can open apps, but not Files, the Terminal, credentials or app actions.</div>
+      </details>
+      <details>
+        <summary>Are mods safe?</summary>
+        <div>Themes are colours and CSS only. Each widget runs in its own sandbox, never sees your sign-in, and shows the permissions it asks for before you turn it on.</div>
+      </details>
+      <details>
+        <summary>Is it free?</summary>
+        <div>Yes. IceDash is free and open source, and so is <a class="lnk" href="{{icestore_url}}">IceStore</a>, the app store inside it.</div>
+      </details>
+    </div>
+  </section>
+
+  <section class="wrap sec" aria-labelledby="help-h">
+    <div class="help">
+      <div>
+        <h2 id="help-h">Found a bug, or want a feature?</h2>
+        <p class="sub">Open an issue, or browse the code.</p>
+      </div>
+      <div class="cta">
+        <a class="btn p" href="{{repo}}/issues/new">{{icon:plus-circle}}Open an issue</a><a class="btn"
+          href="{{repo}}/releases">{{icon:tag}}Releases</a><a class="btn" href="{{repo}}">{{icon:github}}GitHub</a>
+      </div>
+    </div>
+  </section>
+</main>

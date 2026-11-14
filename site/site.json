@@ -1,0 +1,11 @@
+{
+  "site_name": "IceDash",
+  "tagline": "A desktop-style dashboard for ZimaOS and CasaOS, with IceStore built in",
+  "title": "IceDash – a desktop for your ZimaOS or CasaOS home server",
+  "description": "IceDash gives ZimaOS and CasaOS a desktop: apps on a desktop and in a dock, widgets, notifications, Files, a Terminal and IceStore built in. Free and open source.",
+  "repo": "https://github.com/HSinghHira/IceDash",
+  "icestore_url": "https://icestore.hsinghhira.me/",
+  "base_url": "https://icedash.hsinghhira.me/",
+  "author": "Harman Singh Hira",
+  "author_url": "https://github.com/HSinghHira"
+}

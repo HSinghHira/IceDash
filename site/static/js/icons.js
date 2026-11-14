@@ -1,0 +1,14 @@
+/* Small icon set used by scripts (static icons are inlined in the HTML). */
+(()=>{
+  const ICE=window.ICE=window.ICE||{pages:{}};
+  const P={
+    copy:'<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    check:'<path d="M20 6 9 17l-5-5"/>',
+    monitor:'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+    x:'<path d="M18 6 6 18M6 6l12 12"/>',
+    cookie:'<path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/><path d="M8.5 8.5v.01M16 15.5v.01M12 12v.01M11 17v.01M7 14v.01"/>',
+    'arrow-left':'<path d="M19 12H5M12 19l-7-7 7-7"/>',
+    'arrow-right':'<path d="M5 12h14M12 5l7 7-7 7"/>'
+  };
+  ICE.icon=n=>`<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${P[n]||''}</svg>`;
+})();
