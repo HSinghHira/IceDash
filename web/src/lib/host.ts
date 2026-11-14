@@ -25,5 +25,3 @@ export function setHost(h: { host?: string; host_name?: string; stock_url?: stri
 export const dashboardUrl = () => `${host.stock}#/`
 /** Its sign-in page. */
 export const loginUrl = () => `${host.stock}#/login`
-/** Its Files app: a module page on ZimaOS, a popup on CasaOS's home page. */
-export const filesUrl = () => (host.id === 'casaos' ? dashboardUrl() : '/modules/icewhale_files/index.html#/files')

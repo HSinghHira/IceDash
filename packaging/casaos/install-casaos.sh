@@ -49,7 +49,7 @@ GOT=$(sha256sum "$TMP/$NAME" | cut -d' ' -f1)
 [ "$WANT" = "$GOT" ] || fail "the download doesn't match its checksum."
 
 mkdir -p "$TMP/x"
-tar -xzf "$TMP/$NAME" -C "$TMP/x" --no-same-owner
+tar -xzmf "$TMP/$NAME" -C "$TMP/x" --no-same-owner
 chmod 0755 "$TMP/x/icedash" "$TMP/x/uninstall.sh" 2>/dev/null || true
 [ -x "$TMP/x/icedash" ] && [ -f "$TMP/x/VERSION" ] || fail "the release is incomplete."
 VERSION=$(cat "$TMP/x/VERSION")

@@ -6,19 +6,23 @@ import { computed } from 'vue'
 import AppIcon from '../components/AppIcon.vue'
 import Icon from '../components/Icon.vue'
 import type { IconName } from '../lib/icons'
-import { desktopLaunchers, dockEnd } from '../lib/launchers'
-import { activeWindow, apps, focusWindow, iceStoreInZimaOS, openIceStore, terminalOk, toggleMin, windows, type Win } from '../store'
+import { desktopLaunchers, dockEnd, openLauncher, type Launcher } from '../lib/launchers'
+import { activeWindow, apps, focusWindow, iceStoreInZimaOS, openFiles, openIceStore, openTerminal, toggleMin, user, windows, type Win } from '../store'
 import { strings } from '../strings'
 import SearchBar from './SearchBar.vue'
 
-const launchers = computed(() =>
-  desktopLaunchers(location, { terminal: terminalOk.value, iceStoreInZimaOS: iceStoreInZimaOS.value }),
-)
-const end = dockEnd()
+const admin = computed(() => !!user.value?.admin)
+const launchers = computed(() => desktopLaunchers(location, { admin: admin.value, iceStoreInZimaOS: iceStoreInZimaOS.value }))
+const end = computed(() => dockEnd({ admin: admin.value }))
 
-/** IceStore opens its built-in window; a plain click on the others follows the link. */
-function launch(e: MouseEvent, id: string) {
-  if (id !== 'icestore' || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return
+/** IceStore, Files, Trash and Terminal open IceDash's windows; the others follow their link. */
+function launch(e: MouseEvent, l: Launcher) {
+  if (l.open) {
+    e.preventDefault()
+    openLauncher(l, { files: openFiles, terminal: openTerminal })
+    return
+  }
+  if (l.id !== 'icestore' || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return
   e.preventDefault()
   openIceStore()
 }
@@ -30,6 +34,8 @@ const kindIcon: Record<string, IconName> = {
   logs: 'lines',
   credentials: 'key',
   app: 'app',
+  files: 'folder',
+  terminal: 'terminal',
 }
 const appOf = (w: Win) => apps.value.find((a) => a.id === w.app)
 
@@ -48,11 +54,11 @@ function pick(w: Win) {
       v-for="l in launchers"
       :key="l.id"
       class="slot"
-      :href="l.url"
+      :href="l.url || undefined"
       target="_blank"
       rel="noopener"
       :title="l.name"
-      @click="launch($event, l.id)"
+      @click="launch($event, l)"
     >
       <span class="tile"><Icon :name="l.icon" :size="21" /></span>
       <span class="sr">{{ l.name }}</span>
@@ -76,7 +82,7 @@ function pick(w: Win) {
       </button>
     </template>
     <span class="divider" aria-hidden="true" />
-    <a v-for="l in end" :key="l.id" class="slot" :href="l.url" target="_blank" rel="noopener" :title="l.name">
+    <a v-for="l in end" :key="l.id" class="slot" :href="l.url || undefined" target="_blank" rel="noopener" :title="l.name" @click="launch($event, l)">
       <span class="tile"><Icon :name="l.icon" :size="21" /></span>
       <span class="sr">{{ l.name }}</span>
     </a>

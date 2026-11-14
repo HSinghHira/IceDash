@@ -16,10 +16,12 @@ import (
 
 	"github.com/HSinghHira/IceDash/internal/apps"
 	"github.com/HSinghHira/IceDash/internal/catalog"
+	"github.com/HSinghHira/IceDash/internal/files"
 	"github.com/HSinghHira/IceDash/internal/notify"
 	"github.com/HSinghHira/IceDash/internal/session"
 	"github.com/HSinghHira/IceDash/internal/settings"
 	"github.com/HSinghHira/IceDash/internal/system"
+	"github.com/HSinghHira/IceDash/internal/term"
 	"github.com/HSinghHira/IceDash/internal/update"
 )
 
@@ -68,6 +70,10 @@ type Server struct {
 	HostName  string          // "ZimaOS" or "CasaOS"
 	StockURL  string          // where the stock dashboard is ("/" on ZimaOS, "/casaos/" on CasaOS)
 	SessionOn session.Options // the system's sign-in rules
+
+	// Phase 3c: the Files app and the Terminal (nil: not offered).
+	Files *files.Service
+	Term  *term.Service
 }
 
 // Health is the answer of GET /v2/icedash/health. The updater and the UI poll
@@ -103,6 +109,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST "+Route+"/settings", admin(s.setSettings))
 
 	s.appRoutes(mux, user, admin)
+	s.fileRoutes(mux, admin)
 
 	// Anything else under the route still needs a session first, so an
 	// unknown path tells nothing to someone who isn't signed in.

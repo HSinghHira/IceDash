@@ -16,6 +16,8 @@ const pos = ref({ x: 0, y: 0 })
 let drag: { dx: number; dy: number } | null = null
 
 const isApp = computed(() => props.win.kind === 'app')
+/** Apps, Files and the Terminal fill a tall window edge to edge. */
+const full = computed(() => isApp.value || props.win.kind === 'files' || props.win.kind === 'terminal')
 const appUrl = computed(() => (isApp.value ? apps.value.find((a) => a.id === props.win.app)?.url : undefined))
 
 onMounted(() => {
@@ -68,7 +70,7 @@ function towardDock(node: Element) {
       v-show="!win.min"
       ref="el"
       class="win"
-      :class="{ max: win.max, app: isApp }"
+      :class="{ max: win.max, full, app: isApp }"
       role="dialog"
       :aria-label="win.title"
       tabindex="-1"
@@ -128,7 +130,7 @@ function towardDock(node: Element) {
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.7);
   outline: none;
 }
-.win.app {
+.win.full {
   height: calc(100vh - 168px);
 }
 .win.max {
@@ -199,7 +201,7 @@ h2 {
   padding: 16px 18px 18px;
   overflow-y: auto;
 }
-.app .body {
+.full .body {
   padding: 0;
   overflow: hidden;
 }

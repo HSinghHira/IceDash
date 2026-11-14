@@ -6,7 +6,7 @@ import Icon from '../components/Icon.vue'
 import type { IconName } from '../lib/icons'
 import { desktopLaunchers, dockEnd } from '../lib/launchers'
 import { search } from '../lib/search'
-import { apps, iceStoreInZimaOS, openApp, openIceStore, searchOpen, terminalOk } from '../store'
+import { apps, iceStoreInZimaOS, openApp, openFiles, openIceStore, openTerminal, searchOpen, user } from '../store'
 import { strings } from '../strings'
 
 interface Hit {
@@ -22,13 +22,13 @@ const sel = ref(0)
 const input = ref<HTMLInputElement | null>(null)
 
 const all = computed<Hit[]>(() => [
-  ...desktopLaunchers(location, { terminal: terminalOk.value, iceStoreInZimaOS: iceStoreInZimaOS.value }).map((l) => ({
+  ...desktopLaunchers(location, { admin: !!user.value?.admin, iceStoreInZimaOS: iceStoreInZimaOS.value }).map((l) => ({
     id: 'l:' + l.id,
     name: l.name,
     url: l.url,
     icon: l.icon,
   })),
-  ...dockEnd().map((l) => ({ id: 'l:' + l.id, name: l.name, url: l.url, icon: l.icon })),
+  ...dockEnd({ admin: !!user.value?.admin }).map((l) => ({ id: 'l:' + l.id, name: l.name, url: l.url, icon: l.icon })),
   ...apps.value.filter((a) => a.url).map((a) => ({ id: 'a:' + a.id, name: a.name, url: a.url!, img: a.icon ?? '' })),
 ])
 const hits = computed(() => search(all.value, q.value))
@@ -48,6 +48,9 @@ function go(h: Hit | undefined) {
   const app = h.id.startsWith('a:') ? apps.value.find((a) => 'a:' + a.id === h.id) : undefined
   if (app) openApp(app)
   else if (h.id === 'l:icestore') openIceStore()
+  else if (h.id === 'l:files') openFiles()
+  else if (h.id === 'l:trash') openFiles('trash')
+  else if (h.id === 'l:terminal') openTerminal()
   else window.open(h.url, '_blank', 'noopener')
 }
 function onInputKey(e: KeyboardEvent) {

@@ -5,9 +5,11 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AboutPanel from '../panels/AboutPanel.vue'
 import AppFrame from '../panels/AppFrame.vue'
 import CredentialsPanel from '../panels/CredentialsPanel.vue'
+import FilesPanel from '../panels/FilesPanel.vue'
 import IceStorePanel from '../panels/IceStorePanel.vue'
 import LogsPanel from '../panels/LogsPanel.vue'
 import NotificationsPanel from '../panels/NotificationsPanel.vue'
+import TerminalPanel from '../panels/TerminalPanel.vue'
 import { firstLaunchFor, notesOpen, offline, panelOpen, setupFor, uninstallFor, updating, windows, type WindowKind } from '../store'
 import { strings } from '../strings'
 import AppMenu from './AppMenu.vue'
@@ -21,7 +23,7 @@ import Toasts from './Toasts.vue'
 import TopBar from './TopBar.vue'
 import WidgetPanel from './WidgetPanel.vue'
 
-const widths: Record<WindowKind, number> = { about: 440, notifications: 380, icestore: 920, logs: 700, credentials: 520, app: 1080 }
+const widths: Record<WindowKind, number> = { about: 440, notifications: 380, icestore: 920, logs: 700, credentials: 520, app: 1080, files: 980, terminal: 820 }
 
 /** Something is open: the rest fades so it stands out. */
 const dimmed = computed(() => notesOpen.value || windows.some((w) => !w.min))
@@ -59,6 +61,8 @@ onBeforeUnmount(() => clearInterval(tick))
       <LogsPanel v-else-if="w.kind === 'logs' && w.app" :name="w.app" />
       <CredentialsPanel v-else-if="w.kind === 'credentials' && w.app" :name="w.app" :win-id="w.id" />
       <AppFrame v-else-if="w.kind === 'app' && w.app" :name="w.app" />
+      <FilesPanel v-else-if="w.kind === 'files'" />
+      <TerminalPanel v-else-if="w.kind === 'terminal'" :win-id="w.id" />
     </AppWindow>
     <NotificationsPanel v-if="notesOpen" />
     <AppMenu />

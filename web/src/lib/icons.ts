@@ -33,6 +33,21 @@ export const icons = {
   info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 7.5v.5',
   window: 'M4 5h16v14H4zM4 9h16',
   chevron: 'M9 6l6 6-6 6',
+  file: 'M6 3h8l5 5v13H6zM14 3v5h5',
+  image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15.5 9.5h.01',
+  film: 'M4 5h16v14H4zM8 5v14M16 5v14M4 9h4M4 15h4M16 9h4M16 15h4',
+  music: 'M9 18V6l11-2v12M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
+  doc: 'M6 3h8l5 5v13H6zM14 3v5h5M9 13h6M9 17h6',
+  upload: 'M12 20V9M7 14l5-5 5 5M5 4h14',
+  folderPlus: 'M3 7.5A2.5 2.5 0 0 1 5.5 5h3.6l2 2.2h7.4A2.5 2.5 0 0 1 21 9.7v7.8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5zM12 11v6M9 14h6',
+  list: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01',
+  tiles: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+  lock: 'M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3',
+  home: 'M4 11l8-7 8 7M6 9.5V20h12V9.5',
+  edit: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4',
+  cut: 'M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8.1 7.9 20 20M8.1 16.1 20 4',
+  paste: 'M9 4h6v3H9zM7 5.5H5.5V21h13V5.5H17',
+  restore: 'M3 12a9 9 0 1 0 2.6-6.4M3 4v5h5',
 } as const
 
 export type IconName = keyof typeof icons

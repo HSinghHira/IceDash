@@ -20,7 +20,7 @@ export interface Toast {
   app?: string
 }
 
-export type WindowKind = 'about' | 'notifications' | 'icestore' | 'logs' | 'credentials' | 'app'
+export type WindowKind = 'about' | 'notifications' | 'icestore' | 'logs' | 'credentials' | 'app' | 'files' | 'terminal'
 
 export interface Win {
   /** The kind, or kind:app for windows about one app. */
@@ -60,7 +60,6 @@ export const appsLoaded = ref(false)
 export const util = ref<zima.Utilization | null>(null)
 export const sys = ref<ice.SystemInfo | null>(null)
 export const zone = ref(pickZone(undefined))
-export const terminalOk = ref(false)
 export const iceStoreInZimaOS = ref(false)
 
 export const update = ref<ice.UpdateStatus | null>(null)
@@ -87,6 +86,8 @@ const windowTitles: Record<WindowKind, (app: string) => string> = {
   logs: (a) => strings.logsTitle(a),
   credentials: (a) => `${strings.credentials} · ${a}`,
   app: (a) => a,
+  files: () => strings.filesTitle,
+  terminal: (a) => a,
 }
 /** Opens (or raises) a window; logs and credentials windows are per app. */
 export function openWindow(kind: WindowKind, app?: { name: string; title: string }) {
@@ -353,6 +354,20 @@ export async function loadCatalog(force = false) {
   }
 }
 
+/** The Files window, on a folder or its Trash (the dock's Trash opens that). */
+export const filesView = ref<{ view: 'files' | 'trash'; path: string; seq: number }>({ view: 'files', path: '/', seq: 0 })
+export function openFiles(view: 'files' | 'trash' = 'files', path = '/') {
+  filesView.value = { view, path, seq: filesView.value.seq + 1 }
+  openWindow('files')
+}
+
+/** A new Terminal window each time; each one asks for the password. */
+let terminals = 0
+export function openTerminal() {
+  terminals++
+  openWindow('terminal', { name: String(terminals), title: terminals > 1 ? `${strings.terminal} ${terminals}` : strings.terminal })
+}
+
 export function openIceStore(view = 'all') {
   iceStoreView.value = view
   openWindow('icestore')
@@ -434,16 +449,6 @@ export function refreshApps() {
   void loadAppInfo()
 }
 
-async function probeTerminal() {
-  // ttyd answers on its own port; a no-cors request tells only whether it's there.
-  try {
-    await fetch(`${location.protocol}//${location.hostname}:7681/`, { mode: 'no-cors', cache: 'no-store' })
-    terminalOk.value = true
-  } catch {
-    terminalOk.value = false
-  }
-}
-
 const pollers: Poller[] = []
 
 export async function start() {
@@ -464,7 +469,6 @@ export async function start() {
   zima.customSystem().then((c) => (zone.value = pickZone(c.timezone))).catch(() => undefined)
   zima.iceStoreAdded().then((v) => (iceStoreInZimaOS.value = v)).catch(() => undefined)
   ice.getSettings().then((s) => (autoCheck.value = s.auto_check)).catch(() => undefined)
-  probeTerminal()
 
   pollers.push(poll(loadStats, 5000))
   pollers.push(poll(loadApps, 15000))

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { appUrl, counts, statusOf, toApps, type GridEntry } from './apps'
 import { ago, bytes, duration, initials, pct, speed, usedOfTotal } from './format'
 import { setHost } from './host'
-import { desktopLaunchers, dockEnd, terminalUrl } from './launchers'
+import { desktopLaunchers, dockEnd, openLauncher, terminalUrl } from './launchers'
 import { search } from './search'
 import { cityOf, clockParts, pickZone } from './timezone'
 
@@ -79,25 +79,30 @@ describe('format', () => {
 
 describe('launchers', () => {
   const where = { protocol: 'http:', hostname: '192.168.68.17' }
-  it('uses the measured deep links', () => {
-    const l = desktopLaunchers(where, { terminal: true, iceStoreInZimaOS: false })
+  it('gives admins the Files, Terminal and Trash windows', () => {
+    const l = desktopLaunchers(where, { admin: true, iceStoreInZimaOS: false })
     expect(l.map((x) => x.id)).toEqual(['files', 'icestore', 'appstore', 'terminal'])
-    expect(l[0]!.url).toBe('/modules/icewhale_files/index.html#/files')
+    expect(l.map((x) => x.open)).toEqual(['files', undefined, undefined, 'terminal'])
     expect(l[1]!.url).toBe('https://icestore.hsinghhira.me')
     expect(l[2]!.url).toBe('/#/')
-    expect(l[3]!.url).toBe('http://192.168.68.17:7681/')
+    expect(dockEnd({ admin: true }).map((x) => x.open ?? x.url)).toEqual(['/#/', 'trash'])
+    const seen: string[] = []
+    const open = { files: (v?: string) => seen.push('files:' + v), terminal: () => seen.push('terminal') }
+    for (const x of [...l, ...dockEnd({ admin: true })]) openLauncher(x, open)
+    expect(seen).toEqual(['files:files', 'terminal', 'files:trash'])
   })
-  it('hides the terminal when it does not answer, and opens IceStore in ZimaOS once added', () => {
-    const l = desktopLaunchers(where, { terminal: false, iceStoreInZimaOS: true })
-    expect(l.map((x) => x.id)).toEqual(['files', 'icestore', 'appstore'])
-    expect(l[1]!.url).toBe('/#/')
+  it('gives members no Files, Terminal or Trash, and opens IceStore in ZimaOS once added', () => {
+    const l = desktopLaunchers(where, { admin: false, iceStoreInZimaOS: true })
+    expect(l.map((x) => x.id)).toEqual(['icestore', 'appstore'])
+    expect(l[0]!.url).toBe('/#/')
+    expect(dockEnd({ admin: false }).map((x) => x.id)).toEqual(['settings'])
   })
   it('opens CasaOS pages on its home page at /casaos/', () => {
     setHost({ host: 'casaos', host_name: 'CasaOS', stock_url: '/casaos/' })
     try {
-      const l = desktopLaunchers(where, { terminal: false, iceStoreInZimaOS: true })
-      expect(l.map((x) => x.url)).toEqual(['/casaos/#/', '/casaos/#/', '/casaos/#/'])
-      expect(dockEnd().map((x) => x.url)).toEqual(['/casaos/#/', '/casaos/#/'])
+      const l = desktopLaunchers(where, { admin: true, iceStoreInZimaOS: true })
+      expect(l.filter((x) => !x.open).map((x) => x.url)).toEqual(['/casaos/#/', '/casaos/#/'])
+      expect(dockEnd({ admin: true })[0]!.url).toBe('/casaos/#/')
     } finally {
       setHost({ host: 'zimaos', host_name: 'ZimaOS', stock_url: '/' })
     }

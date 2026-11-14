@@ -1,8 +1,9 @@
-// The system launchers. Each opens a page of the stock dashboard in a new tab
-// (deep links measured on ZimaOS 1.8.0, docs/HOST-NOTES.md item 6; on CasaOS
-// 0.4.15 everything is on its home page).
+// The system launchers. Files, Terminal and Trash open IceDash's own windows
+// for admins (Phase 3c); members don't get them. App Store and Settings open
+// the stock dashboard in a new tab (on CasaOS 0.4.15 everything is on its
+// home page).
 import { strings } from '../strings'
-import { dashboardUrl, filesUrl } from './host'
+import { dashboardUrl } from './host'
 import type { IconName } from './icons'
 
 export interface Launcher {
@@ -10,6 +11,8 @@ export interface Launcher {
   name: string
   icon: IconName
   url: string
+  /** Opens IceDash's own window instead of url. */
+  open?: 'files' | 'trash' | 'terminal'
 }
 
 /** The stock dashboard: App Store and Settings are popups there with no URL of their own. */
@@ -23,9 +26,10 @@ export interface Where {
 }
 
 /** Launchers for the desktop (Files, IceStore, App Store, Terminal). */
-export function desktopLaunchers(where: Where, opts: { terminal: boolean; iceStoreInZimaOS: boolean }): Launcher[] {
-  const list: Launcher[] = [
-    { id: 'files', name: strings.files, icon: 'folder', url: filesUrl() },
+export function desktopLaunchers(_where: Where, opts: { admin: boolean; iceStoreInZimaOS: boolean }): Launcher[] {
+  const list: Launcher[] = []
+  if (opts.admin) list.push({ id: 'files', name: strings.files, icon: 'folder', url: '', open: 'files' })
+  list.push(
     {
       id: 'icestore',
       name: strings.iceStore,
@@ -33,18 +37,25 @@ export function desktopLaunchers(where: Where, opts: { terminal: boolean; iceSto
       url: opts.iceStoreInZimaOS ? dashboardUrl() : ICESTORE_SITE,
     },
     { id: 'appstore', name: strings.appStore, icon: 'grid', url: dashboardUrl() },
-  ]
-  if (opts.terminal) list.push({ id: 'terminal', name: strings.terminal, icon: 'terminal', url: terminalUrl(where) })
+  )
+  if (opts.admin) list.push({ id: 'terminal', name: strings.terminal, icon: 'terminal', url: '', open: 'terminal' })
   return list
 }
 
 /** Settings and Trash, at the end of the dock. */
-export function dockEnd(): Launcher[] {
-  return [
-    { id: 'settings', name: strings.settings, icon: 'settings', url: dashboardUrl() },
-    // TODO(Phase 3): the Files app gets its own Trash view; until then Files opens.
-    { id: 'trash', name: strings.trash, icon: 'trash', url: filesUrl() },
-  ]
+export function dockEnd(opts: { admin: boolean }): Launcher[] {
+  const list: Launcher[] = [{ id: 'settings', name: strings.settings, icon: 'settings', url: dashboardUrl() }]
+  if (opts.admin) list.push({ id: 'trash', name: strings.trash, icon: 'trash', url: '', open: 'trash' })
+  return list
+}
+
+/** Runs a launcher that opens one of IceDash's windows; false: follow its url. */
+export function openLauncher(l: Launcher, open: { files: (view?: 'files' | 'trash') => void; terminal: () => void }): boolean {
+  if (l.open === 'files') open.files('files')
+  else if (l.open === 'trash') open.files('trash')
+  else if (l.open === 'terminal') open.terminal()
+  else return false
+  return true
 }
 
 /** ZimaOS's terminal is ttyd on its own port (7681), same host as the dashboard. */

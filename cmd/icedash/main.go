@@ -12,6 +12,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -33,12 +34,14 @@ import (
 	"github.com/HSinghHira/IceDash/internal/casa"
 	"github.com/HSinghHira/IceDash/internal/catalog"
 	"github.com/HSinghHira/IceDash/internal/creds"
+	"github.com/HSinghHira/IceDash/internal/files"
 	"github.com/HSinghHira/IceDash/internal/host"
 	"github.com/HSinghHira/IceDash/internal/notify"
 	"github.com/HSinghHira/IceDash/internal/session"
 	"github.com/HSinghHira/IceDash/internal/settings"
 	"github.com/HSinghHira/IceDash/internal/state"
 	"github.com/HSinghHira/IceDash/internal/system"
+	"github.com/HSinghHira/IceDash/internal/term"
 	"github.com/HSinghHira/IceDash/internal/update"
 	"github.com/HSinghHira/IceDash/internal/zima"
 )
@@ -156,6 +159,9 @@ func main() {
 		Host:     string(kind),
 		HostName: kind.Name(),
 		StockURL: "/",
+		// Phase 3c: Files under /DATA and the Terminal, admins only.
+		Files: &files.Service{Root: "/DATA"},
+		Term:  &term.Service{Check: term.GatewayPassword("http://127.0.0.1"), Dir: "/DATA"},
 	}
 	if kind == host.CasaOS {
 		srv.StockURL = casa.StockPath
@@ -193,7 +199,17 @@ func main() {
 	if d := os.Getenv("ICEDASH_STATIC_DIR"); d != "" {
 		dir = d
 	}
-	handler := httpx.Logging(service, 1<<20)(httpx.Static("/modules/icedash/", dir, srv.Handler()))
+	inner := httpx.Static("/modules/icedash/", dir, srv.Handler())
+	logged := httpx.Logging(service, 1<<20)(inner)
+	// Uploads are the one body that may be larger than 1 MB.
+	uploads := httpx.Logging(service, math.MaxInt64)(inner)
+	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == api.UploadPath {
+			uploads.ServeHTTP(w, r)
+			return
+		}
+		logged.ServeHTTP(w, r)
+	})
 	if kind == host.CasaOS {
 		// The stock UI's own files pass through unlogged.
 		handler = &casa.Front{RuntimePath: runtimePath, Next: handler}
