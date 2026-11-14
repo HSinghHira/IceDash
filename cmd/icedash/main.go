@@ -163,13 +163,13 @@ func main() {
 		// Phase 3c: Files under /DATA and the Terminal, admins only.
 		Files: &files.Service{Root: "/DATA"},
 		Term:  &term.Service{Check: term.GatewayPassword("http://127.0.0.1"), Dir: "/DATA"},
-		// Phase 4: themes and widgets from IceDash-Mods or GitHub.
+		// Phase 4: themes and widgets from collections on GitHub.
 		Mods: &mods.Service{
 			Dir:      filepath.Join(state.Dir, "mods"),
 			State:    filepath.Join(state.Dir, "mods.json"),
-			Cache:    filepath.Join(state.Dir, "mods-catalog.json"),
+			Cache:    filepath.Join(state.Dir, "mods-collections.json"),
 			HTTP:     &http.Client{Timeout: 60 * time.Second},
-			AllowURL: update.AllowedURL,
+			AllowURL: mods.AllowedURL,
 		},
 	}
 	if kind == host.CasaOS {

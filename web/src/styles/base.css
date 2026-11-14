@@ -33,6 +33,14 @@ body::before {
   mask-image: radial-gradient(55% 45% at 70% 10%, #000, transparent 75%);
 }
 
+/* A theme's wallpaper (Phase 4) fills the desktop instead of the glow. */
+:root.has-wallpaper body {
+  background: var(--wallpaper) center / cover no-repeat fixed, var(--bg);
+}
+:root.has-wallpaper body::before {
+  display: none;
+}
+
 html,
 body {
   overflow: hidden;

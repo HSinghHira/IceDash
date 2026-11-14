@@ -366,9 +366,10 @@ export function openSettings(page: SettingsPage = 'mods') {
 }
 
 export const modsView = ref<modsApi.View>({ mods: [], prefs: { theme: '', panel: [] } })
-export const activeTheme = computed(() =>
-  modsView.value.mods.find((m) => m.kind === 'theme' && m.id === modsView.value.prefs.theme),
-)
+export const activeTheme = computed(() => {
+  const m = modsView.value.mods.find((x) => x.kind === 'theme' && x.id === modsView.value.prefs.theme)
+  return m ? modsApi.themeOf(m) : null
+})
 /** The user's widgets on the panel, top to bottom: installed and switched on. */
 export const panelWidgets = computed(() =>
   modsView.value.prefs.panel
@@ -379,7 +380,7 @@ const THEME_KEY = 'icedash.theme'
 /** Takes a fresh view of the mods and applies the user's theme. */
 export function setModsView(v: modsApi.View) {
   modsView.value = v
-  const t = activeTheme.value?.theme ?? null
+  const t = activeTheme.value
   applyTheme(t)
   try {
     if (t) localStorage.setItem(THEME_KEY, JSON.stringify(t))

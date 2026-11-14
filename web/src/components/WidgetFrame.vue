@@ -23,7 +23,7 @@ function post(icedash: string, data: unknown) {
 }
 
 function sendTheme() {
-  const t = activeTheme.value?.theme ?? ICE
+  const t = activeTheme.value ?? ICE
   post('theme', { scheme: t.scheme, colors: t.colors })
 }
 function sendSystem() {

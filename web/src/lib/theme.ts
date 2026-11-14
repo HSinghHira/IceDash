@@ -1,6 +1,7 @@
 // Applies a theme (PLAN.md, Phase 4, "Themes"): eight colours become every
-// design token; the overlays follow the text colour, so a light theme gets
-// dark overlays by itself. Ice is the built-in default: no overrides.
+// design token (the overlays follow the text colour, so a light theme gets
+// dark overlays by itself), and the wallpaper fills the desktop. Themes have
+// no CSS of their own. Ice is the built-in default: no overrides.
 import type { ThemeDef } from '../api/mods'
 
 /** "#4cc9f0" → "76, 201, 240". */
@@ -35,7 +36,6 @@ export function tokens(t: ThemeDef): Record<string, string> {
   }
 }
 
-const STYLE_ID = 'icedash-theme-css'
 let applied: string[] = []
 
 /** Applies t to the page, or Ice when t is null. */
@@ -43,19 +43,18 @@ export function applyTheme(t: ThemeDef | null) {
   const root = document.documentElement
   for (const k of applied) root.style.removeProperty(k)
   applied = []
-  document.getElementById(STYLE_ID)?.remove()
+  root.classList.remove('has-wallpaper')
   root.style.colorScheme = t?.scheme === 'light' ? 'light' : 'dark'
   if (!t) return
   for (const [k, v] of Object.entries(tokens(t))) {
     root.style.setProperty(k, v)
     applied.push(k)
   }
-  if (t.css) {
-    // Checked on install (no @import, no outside url(), no typed-value selectors).
-    const style = document.createElement('style')
-    style.id = STYLE_ID
-    style.textContent = t.css
-    document.head.append(style)
+  // Only IceDash's own address for an installed theme's wallpaper.
+  if (t.wallpaper && t.wallpaper.startsWith('/v2/icedash/mods/')) {
+    root.style.setProperty('--wallpaper', `url("${t.wallpaper}")`)
+    applied.push('--wallpaper')
+    root.classList.add('has-wallpaper')
   }
 }
 

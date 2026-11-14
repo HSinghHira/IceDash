@@ -1,10 +1,11 @@
 <script setup lang="ts">
-// Settings (mock-up 5): Mods & Themes, Widgets and About. Everyone picks
-// their own theme and arranges their own panel; installing, removing and
-// switching widgets on or off is for admins.
+// Settings (mock-up 5): Mods & Themes, Widgets and About. Themes and widgets
+// come from collections: GitHub repos of plain folders, the official ones
+// being IceColors and IceCards. Everyone picks their own theme and panel;
+// adding collections and installing, removing and switching mods is for admins.
 import { computed, onMounted, ref } from 'vue'
 import * as api from '../api/mods'
-import type { CatalogMod, Installed, Manifest, Offer, ThemeDef } from '../api/mods'
+import type { Collection, Installed, Item } from '../api/mods'
 import Icon from '../components/Icon.vue'
 import { dashboardUrl, host } from '../lib/host'
 import { ICE } from '../lib/theme'
@@ -15,50 +16,52 @@ import AboutPanel from './AboutPanel.vue'
 const admin = computed(() => !!user.value?.admin)
 const mods = computed(() => modsView.value.mods)
 const current = computed(() => modsView.value.prefs.theme)
+const installed = (id: string) => mods.value.find((m) => m.id === id)
 
-// ---- the catalog ----
-const cat = ref<CatalogMod[]>([])
-const catError = ref('')
-async function loadCatalog() {
+// ---- collections ----
+const cols = ref<Collection[]>([])
+const loading = ref(false)
+async function loadCollections(refresh = false) {
+  loading.value = true
   try {
-    const r = await api.catalog()
-    cat.value = r.mods
-    catError.value = r.error ?? ''
+    cols.value = await api.collections(refresh)
   } catch (e) {
-    catError.value = msg(e)
+    toast({ title: strings.tabCollections, body: msg(e) })
+  } finally {
+    loading.value = false
   }
 }
-onMounted(loadCatalog)
-
-const installed = (id: string) => mods.value.find((m) => m.id === id)
-const newer = (m: CatalogMod) => {
-  const i = installed(m.id)
-  return !!i && i.version !== m.version
-}
+onMounted(() => loadCollections())
+const items = computed(() => cols.value.flatMap((c) => c.items))
 
 // ---- tabs ----
-const tab = ref<'themes' | 'widgets' | 'catalog'>('themes')
+const tab = ref<'themes' | 'widgets' | 'collections'>('themes')
 interface Card {
-  m: Manifest
-  theme?: ThemeDef
+  m: Item
   inst?: Installed
-  offer?: CatalogMod
   ice?: boolean
 }
-const themeCards = computed<Card[]>(() => {
-  const list: Card[] = [{ m: { id: '', name: strings.iceName, kind: 'theme', version: '', author: 'IceDash', description: '' }, theme: ICE, ice: true }]
-  for (const i of mods.value.filter((x) => x.kind === 'theme')) list.push({ m: i, theme: i.theme, inst: i })
-  for (const c of cat.value.filter((x) => x.kind === 'theme' && !installed(x.id))) list.push({ m: c, theme: c.preview, offer: c })
+const iceItem: Item = {
+  id: '',
+  collection: '',
+  folder: '',
+  official: true,
+  kind: 'theme',
+  name: strings.iceName,
+  author: 'IceDash',
+  description: '',
+  version: '',
+  scheme: 'dark',
+  colors: ICE.colors,
+}
+function cardsOf(kind: 'theme' | 'widget'): Card[] {
+  const list: Card[] = kind === 'theme' ? [{ m: iceItem, ice: true }] : []
+  for (const i of mods.value.filter((x) => x.kind === kind)) list.push({ m: i, inst: i })
+  for (const it of items.value.filter((x) => x.kind === kind && !installed(x.id))) list.push({ m: it })
   return list
-})
-const widgetCards = computed<Card[]>(() => [
-  ...mods.value.filter((x) => x.kind === 'widget').map((i) => ({ m: i as Manifest, inst: i })),
-  ...cat.value.filter((x) => x.kind === 'widget' && !installed(x.id)).map((c) => ({ m: c as Manifest, offer: c })),
-])
-const catalogCards = computed<Card[]>(() =>
-  cat.value.filter((c) => !installed(c.id) || newer(c)).map((c) => ({ m: c, theme: c.preview, offer: c, inst: installed(c.id) })),
-)
-const cards = computed(() => (tab.value === 'themes' ? themeCards.value : tab.value === 'widgets' ? widgetCards.value : catalogCards.value))
+}
+const themeCards = computed(() => cardsOf('theme'))
+const widgetCards = computed(() => cardsOf('widget'))
 
 // ---- actions ----
 const busy = ref('')
@@ -70,30 +73,17 @@ async function apply(id: string) {
   }
 }
 
-const offer = ref<Offer | null>(null)
-const offerError = ref('')
-const address = ref('')
-async function ask(source: string) {
-  busy.value = source
-  offerError.value = ''
-  try {
-    offer.value = await api.inspect(source)
-  } catch (e) {
-    if (source === address.value) offerError.value = msg(e)
-    else toast({ title: strings.modInstall, body: msg(e) })
-  } finally {
-    busy.value = ''
-  }
-}
+/** Install or update: say what it is and what it may read first. */
+const offer = ref<Item | null>(null)
+const latest = (id: string) => items.value.find((x) => x.id === id)
 async function confirmInstall() {
   const o = offer.value
   if (!o) return
-  busy.value = o.source
+  busy.value = o.id
   try {
-    await api.install(o.source)
+    await api.install(o.id)
     setModsView(await api.list())
     offer.value = null
-    address.value = ''
     if (o.kind === 'theme') await apply(o.id)
   } catch (e) {
     toast({ title: strings.modInstall, body: msg(e) })
@@ -133,6 +123,34 @@ function dragWidget(e: DragEvent, id: string) {
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
 }
 
+// ---- adding a collection ----
+const address = ref('')
+const addError = ref('')
+async function addCollection() {
+  const a = address.value.trim()
+  if (!a) return
+  busy.value = 'add'
+  addError.value = ''
+  try {
+    await api.addCollection(a)
+    address.value = ''
+    await loadCollections()
+    tab.value = 'collections'
+  } catch (e) {
+    addError.value = msg(e)
+  } finally {
+    busy.value = ''
+  }
+}
+async function dropCollection(col: Collection) {
+  try {
+    await api.removeCollection(col.source)
+    await loadCollections()
+  } catch (e) {
+    toast({ title: strings.tabCollections, body: msg(e) })
+  }
+}
+
 // ---- words ----
 function permWords(p?: api.Permissions): string[] {
   if (!p) return []
@@ -145,10 +163,17 @@ function permWords(p?: api.Permissions): string[] {
 }
 function permChips(p?: api.Permissions): string[] {
   if (!p) return []
-  return [p.internet?.length ? strings.chipInternet : '', p.system ? strings.chipSystem : '', p.apps ? strings.chipApps : '', p.location ? strings.chipLocation : ''].filter(Boolean)
+  return [
+    p.internet?.length ? strings.chipInternet : '',
+    p.system ? strings.chipSystem : '',
+    p.apps ? strings.chipApps : '',
+    p.location ? strings.chipLocation : '',
+  ].filter(Boolean)
 }
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e))
-const c = (t: ThemeDef | undefined, k: string) => t?.colors[k] ?? '#000'
+const c = (m: Item, k: string) => m.colors?.[k] ?? '#000'
+const shortSource = (src: string) => src.replace(/^github\.com\//, '')
+const count = (col: Collection, kind: string) => col.items.filter((i) => i.kind === kind).length
 </script>
 
 <template>
@@ -175,17 +200,17 @@ const c = (t: ThemeDef | undefined, k: string) => t?.colors[k] ?? '#000'
           <h2>{{ strings.settingsMods }}</h2>
           <p class="mut">{{ strings.modsSubtitle }}</p>
         </div>
-        <form v-if="admin" class="add" @submit.prevent="address.trim() && ask(address.trim())">
+        <form v-if="admin" class="add" @submit.prevent="addCollection">
           <label class="field">
             <Icon name="github" :size="17" />
-            <input v-model="address" :placeholder="strings.addModPlaceholder" :aria-label="strings.addModPlaceholder" spellcheck="false" />
+            <input v-model="address" :placeholder="strings.addCollectionPlaceholder" :aria-label="strings.addCollectionPlaceholder" spellcheck="false" />
           </label>
           <button class="primary" type="submit" :disabled="!address.trim() || !!busy">
-            <Icon name="plus" :size="16" /> {{ strings.addMod }}
+            <Icon name="plus" :size="16" /> {{ busy === 'add' ? strings.addingCollection : strings.addCollection }}
           </button>
         </form>
       </header>
-      <p v-if="offerError" class="warnline" role="alert">{{ offerError }}</p>
+      <p v-if="addError" class="warnline" role="alert">{{ addError }}</p>
 
       <div class="tabs" role="tablist">
         <button type="button" role="tab" class="tab" :aria-selected="tab === 'themes'" :class="{ on: tab === 'themes' }" @click="tab = 'themes'">
@@ -194,22 +219,30 @@ const c = (t: ThemeDef | undefined, k: string) => t?.colors[k] ?? '#000'
         <button type="button" role="tab" class="tab" :aria-selected="tab === 'widgets'" :class="{ on: tab === 'widgets' }" @click="tab = 'widgets'">
           {{ strings.tabWidgets(widgetCards.length) }}
         </button>
-        <button type="button" role="tab" class="tab" :aria-selected="tab === 'catalog'" :class="{ on: tab === 'catalog' }" @click="tab = 'catalog'">
-          {{ strings.tabCatalog }}
+        <button type="button" role="tab" class="tab" :aria-selected="tab === 'collections'" :class="{ on: tab === 'collections' }" @click="tab = 'collections'">
+          {{ strings.tabCollections }} · {{ cols.length }}
+        </button>
+        <span class="grow" />
+        <button v-if="admin" type="button" class="icon-btn" :title="strings.refresh" :aria-label="strings.refresh" :disabled="loading" @click="loadCollections(true)">
+          <Icon name="refresh" :size="15" />
         </button>
       </div>
-      <p v-if="catError" class="mut small">{{ strings.modsCatalogOffline(catError) }}</p>
-      <p v-if="tab === 'catalog' && !cards.length && !catError" class="mut">{{ strings.catalogNothing }}</p>
 
-      <div class="cards">
-        <article v-for="x in cards" :key="(x.ice ? 'ice' : x.m.id) + (x.offer ? ':o' : '')" class="card" :class="{ active: x.m.kind === 'theme' && (x.ice ? !current : current === x.m.id && !!x.inst) }">
-          <div v-if="x.m.kind === 'theme' && x.theme" class="preview" :style="{ background: `radial-gradient(90% 80% at 70% 20%, ${c(x.theme, 'accent')}33, transparent 60%), ${c(x.theme, 'bg')}` }">
-            <span class="pdot" :style="{ background: c(x.theme, 'accent2') }" />
-            <span class="pdot two" :style="{ background: c(x.theme, 'accent') }" />
-            <span class="pcard" :style="{ background: c(x.theme, 'surface'), borderColor: c(x.theme, 'text') + '22' }" />
-            <span class="pcard two" :style="{ background: c(x.theme, 'surface'), borderColor: c(x.theme, 'text') + '22' }" />
-            <span class="pdock" :style="{ background: c(x.theme, 'surface') }">
-              <i :style="{ background: c(x.theme, 'accent') }" /><i :style="{ background: c(x.theme, 'accent2') }" /><i :style="{ background: c(x.theme, 'accent') }" /><i :style="{ background: c(x.theme, 'accent2') }" />
+      <div v-if="tab !== 'collections'" class="cards">
+        <article
+          v-for="x in tab === 'themes' ? themeCards : widgetCards"
+          :key="x.ice ? 'ice' : x.m.id"
+          class="card"
+          :class="{ active: x.m.kind === 'theme' && (x.ice ? !current : current === x.m.id) }"
+        >
+          <div v-if="x.m.kind === 'theme'" class="preview" :style="{ background: `radial-gradient(90% 80% at 70% 20%, ${c(x.m, 'accent')}33, transparent 60%), ${c(x.m, 'bg')}` }">
+            <img v-if="x.m.wallpaper" class="wall" :src="x.m.wallpaper" alt="" loading="lazy" referrerpolicy="no-referrer" />
+            <span class="pdot" :style="{ background: c(x.m, 'accent2') }" />
+            <span class="pdot two" :style="{ background: c(x.m, 'accent') }" />
+            <span class="pcard" :style="{ background: c(x.m, 'surface'), borderColor: c(x.m, 'text') + '22' }" />
+            <span class="pcard two" :style="{ background: c(x.m, 'surface'), borderColor: c(x.m, 'text') + '22' }" />
+            <span class="pdock" :style="{ background: c(x.m, 'surface') }">
+              <i :style="{ background: c(x.m, 'accent') }" /><i :style="{ background: c(x.m, 'accent2') }" /><i :style="{ background: c(x.m, 'accent') }" /><i :style="{ background: c(x.m, 'accent2') }" />
             </span>
           </div>
           <div v-else class="wpreview">
@@ -223,26 +256,58 @@ const c = (t: ThemeDef | undefined, k: string) => t?.colors[k] ?? '#000'
               <strong>{{ x.m.name }}</strong>
               <span class="mut">
                 {{ x.ice ? strings.builtIn : strings.byAuthor(x.m.author) }}
-                <Icon v-if="x.inst ? x.inst.checked : !!x.offer" name="shield" :size="12" class="ok" :title="strings.modChecked" />
-                <Icon v-else-if="x.inst" name="alert" :size="12" class="tp" :title="strings.modThirdParty" />
+                <Icon v-if="!x.ice && x.m.official" name="shield" :size="12" class="ok" :title="strings.modOfficial" />
+                <Icon v-else-if="!x.ice" name="alert" :size="12" class="tp" :title="strings.modThirdParty" />
               </span>
             </div>
-            <template v-if="x.m.kind === 'theme' && (x.ice || x.inst) && !(x.offer && x.inst)">
+            <template v-if="x.m.kind === 'theme' && (x.ice || x.inst)">
               <span v-if="x.ice ? !current : current === x.m.id" class="state"><Icon name="check" :size="14" /> {{ strings.themeActive }}</span>
               <button v-else type="button" class="ghost" @click="apply(x.ice ? '' : x.m.id)">{{ strings.themeApply }}</button>
             </template>
-            <button v-else-if="x.inst && !x.offer" type="button" class="ghost" :disabled="!x.inst.enabled" @click="togglePanel(x.m.id)">
+            <button v-else-if="x.inst" type="button" class="ghost" :disabled="!x.inst.enabled" @click="togglePanel(x.m.id)">
               {{ panel.includes(x.m.id) ? strings.removeFromPanel : strings.addToPanel }}
             </button>
-            <button v-else-if="admin && x.offer" type="button" class="primary" :disabled="!!busy" @click="ask(x.offer.id)">
-              {{ busy === x.offer.id ? strings.modInstalling : x.inst ? strings.modUpdate(x.offer.version) : strings.modInstall }}
+            <button v-else-if="admin" type="button" class="primary" :disabled="!!busy" @click="offer = x.m">
+              {{ strings.modInstall }}
             </button>
-            <button v-if="admin && x.inst && !x.offer" type="button" class="icon-btn" :title="strings.modRemove" :aria-label="`${strings.modRemove} ${x.m.name}`" @click="removing = x.inst">
+            <button v-if="admin && x.inst?.update && latest(x.m.id)" type="button" class="ghost" :title="strings.modUpdateTitle" @click="offer = latest(x.m.id)!">
+              {{ strings.modUpdateShort }}
+            </button>
+            <button v-if="admin && x.inst" type="button" class="icon-btn" :title="strings.modRemove" :aria-label="`${strings.modRemove} ${x.m.name}`" @click="removing = x.inst">
               <Icon name="trash" :size="15" />
             </button>
           </footer>
         </article>
       </div>
+
+      <ul v-else class="clist">
+        <li v-for="col in cols" :key="col.source" class="crow">
+          <Icon name="github" :size="20" class="cicon" />
+          <div class="who">
+            <strong class="mono">{{ shortSource(col.source) }}</strong>
+            <span class="mut">
+              <template v-if="col.official"><Icon name="shield" :size="12" class="ok" /> {{ strings.modOfficial }}</template>
+              <template v-else><Icon name="alert" :size="12" class="tp" /> {{ strings.modThirdParty }}</template>
+              · {{ strings.collectionCount(count(col, 'theme'), count(col, 'widget')) }}
+            </span>
+            <span v-if="col.error" class="tp small">{{ col.error }}</span>
+          </div>
+          <a class="icon-btn" :href="`https://${col.source}`" target="_blank" rel="noopener" :title="strings.openOnGitHub" :aria-label="strings.openOnGitHub">
+            <Icon name="external" :size="15" />
+          </a>
+          <button
+            v-if="admin && !col.official"
+            type="button"
+            class="icon-btn"
+            :title="strings.removeCollection"
+            :aria-label="`${strings.removeCollection} ${col.source}`"
+            @click="dropCollection(col)"
+          >
+            <Icon name="trash" :size="15" />
+          </button>
+        </li>
+        <li class="mut small hint">{{ strings.collectionsHint }}</li>
+      </ul>
       <p v-if="!admin" class="mut small">{{ strings.modsAdminOnly }}</p>
     </section>
 
@@ -262,7 +327,7 @@ const c = (t: ThemeDef | undefined, k: string) => t?.colors[k] ?? '#000'
             <strong>{{ w.name }}</strong>
             <span class="mut">
               {{ w.author }}
-              <template v-if="!w.checked"> · <span class="tp">{{ strings.modThirdParty }}</span></template>
+              <template v-if="!w.official"> · <span class="tp">{{ strings.modThirdParty }}</span></template>
             </span>
           </div>
           <span class="chips">
@@ -289,14 +354,14 @@ const c = (t: ThemeDef | undefined, k: string) => t?.colors[k] ?? '#000'
 
     <section v-else class="page about"><AboutPanel /></section>
 
-    <!-- install: what it is and what it may read -->
     <div v-if="offer" class="over" @keydown.esc.stop="offer = null">
       <div class="box" role="alertdialog" :aria-label="strings.modInstallTitle(offer.name)">
-        <h3>{{ strings.modInstallTitle(offer.name) }}</h3>
-        <p class="mut">{{ strings.byAuthor(offer.author) }} · v{{ offer.version }} · {{ offer.description }}</p>
-        <p class="mark" :class="offer.checked ? 'ok' : 'tp'">
-          <Icon :name="offer.checked ? 'shield' : 'alert'" :size="15" />
-          {{ offer.checked ? strings.modChecked : strings.modThirdParty }}
+        <h3>{{ installed(offer.id) ? strings.modUpdateTitleOf(offer.name) : strings.modInstallTitle(offer.name) }}</h3>
+        <p class="mut">{{ strings.byAuthor(offer.author) }} · {{ offer.description }}</p>
+        <p class="mut small mono">{{ shortSource(offer.collection) }}/{{ offer.folder }}</p>
+        <p class="mark" :class="offer.official ? 'ok' : 'tp'">
+          <Icon :name="offer.official ? 'shield' : 'alert'" :size="15" />
+          {{ offer.official ? strings.modOfficial : strings.modThirdParty }}
         </p>
         <template v-if="offer.kind === 'widget'">
           <p v-if="permWords(offer.permissions).length">
@@ -308,7 +373,7 @@ const c = (t: ThemeDef | undefined, k: string) => t?.colors[k] ?? '#000'
         <div class="row">
           <button type="button" class="ghost" @click="offer = null">{{ strings.cancel }}</button>
           <button type="button" class="primary" :disabled="!!busy" data-autofocus @click="confirmInstall">
-            {{ busy ? strings.modInstalling : offer.installed ? strings.modUpdate(offer.version) : strings.modInstall }}
+            {{ busy ? strings.modInstalling : installed(offer.id) ? strings.modUpdateShort : strings.modInstall }}
           </button>
         </div>
       </div>
@@ -517,6 +582,39 @@ h2 {
   height: 128px;
   border-radius: 14px;
   overflow: hidden;
+}
+.wall {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tabs .grow {
+  flex: 1;
+}
+.clist {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.crow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+.cicon {
+  color: var(--mut);
+  flex: none;
+}
+.hint {
+  padding: 6px 4px;
 }
 .pdot {
   position: absolute;

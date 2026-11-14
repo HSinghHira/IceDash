@@ -1,9 +1,10 @@
 package api
 
-// Phase 4 routes: themes and widgets (PLAN.md, Phase 4, "Backend API").
-// Everyone signed in chooses their own theme and panel; installing,
-// removing and switching widgets is admin only. A widget's own files need no
-// sign-in: its sandboxed iframe can't carry one, and they hold nothing private.
+// Phase 4 routes: themes and widgets from collections (PLAN.md, Phase 4).
+// Everyone signed in chooses their own theme and panel; adding collections
+// and installing, removing and switching mods is admin only. A widget's own
+// files and a theme's wallpaper need no sign-in: an iframe or a CSS
+// background can't carry one, and they hold nothing private.
 
 import (
 	"context"
@@ -14,6 +15,7 @@ import (
 	"github.com/chicohaager/lintux-modkit/httpx"
 
 	"github.com/HSinghHira/IceDash/internal/mods"
+	"github.com/HSinghHira/IceDash/internal/session"
 )
 
 func (s *Server) modRoutes(mux *http.ServeMux, user, admin func(http.HandlerFunc) http.Handler) {
@@ -21,9 +23,9 @@ func (s *Server) modRoutes(mux *http.ServeMux, user, admin func(http.HandlerFunc
 		return
 	}
 	mux.Handle("GET "+Route+"/mods", user(s.modsList))
-	mux.Handle("GET "+Route+"/mods/catalog", user(s.modsCatalog))
-	mux.Handle("POST "+Route+"/mods/catalog/refresh", admin(s.modsCatalogRefresh))
-	mux.Handle("POST "+Route+"/mods/inspect", admin(s.modsInspect))
+	mux.Handle("GET "+Route+"/mods/collections", user(s.modsCollections))
+	mux.Handle("POST "+Route+"/mods/collections", admin(s.modsAddCollection))
+	mux.Handle("POST "+Route+"/mods/collections/remove", admin(s.modsRemoveCollection))
 	mux.Handle("POST "+Route+"/mods/install", admin(s.modsInstall))
 	mux.Handle("POST "+Route+"/mods/theme", user(s.modsTheme))
 	mux.Handle("POST "+Route+"/mods/panel", user(s.modsPanel))
@@ -32,19 +34,26 @@ func (s *Server) modRoutes(mux *http.ServeMux, user, admin func(http.HandlerFunc
 	mux.HandleFunc("GET "+Route+"/mods/{id}/files/{path...}", func(w http.ResponseWriter, r *http.Request) {
 		s.Mods.ServeFile(w, r, r.PathValue("id"), r.PathValue("path"))
 	})
+	mux.HandleFunc("GET "+Route+"/mods/{id}/wallpaper", func(w http.ResponseWriter, r *http.Request) {
+		s.Mods.ServeWallpaper(w, r, r.PathValue("id"))
+	})
 }
 
 func writeModErr(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, mods.ErrInvalid), errors.Is(err, mods.ErrBadAddress):
+	case errors.Is(err, mods.ErrInvalid), errors.Is(err, mods.ErrBadAddress), errors.Is(err, mods.ErrEmpty), errors.Is(err, mods.ErrOfficial):
 		httpx.WriteError(w, http.StatusBadRequest, "invalid", err.Error())
-	case errors.Is(err, mods.ErrNotFound), errors.Is(err, mods.ErrNoRelease), errors.Is(err, mods.ErrNotWidget):
+	case errors.Is(err, mods.ErrNotFound), errors.Is(err, mods.ErrNoRepo), errors.Is(err, mods.ErrNotWidget):
 		httpx.WriteError(w, http.StatusNotFound, "not_found", err.Error())
-	case errors.Is(err, mods.ErrChecksum):
-		httpx.WriteError(w, http.StatusBadGateway, "checksum", err.Error())
+	case errors.Is(err, mods.ErrTampered):
+		httpx.WriteError(w, http.StatusBadGateway, "tampered", err.Error())
 	case errors.Is(err, mods.ErrUnreachable):
 		httpx.WriteError(w, http.StatusBadGateway, "unreachable", err.Error())
 	default:
+		if err != nil && err.Error() != "" {
+			httpx.WriteError(w, http.StatusBadRequest, "invalid", err.Error())
+			return
+		}
 		httpx.WriteErr(w, err)
 	}
 }
@@ -53,55 +62,55 @@ func (s *Server) modsList(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, s.Mods.List(username(r)))
 }
 
-func (s *Server) modsCatalog(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+func (s *Server) modsCollections(w http.ResponseWriter, r *http.Request) {
+	c, _ := session.FromContext(r.Context())
+	refresh := r.URL.Query().Get("refresh") == "1" && c.Admin()
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
-	c, err := s.Mods.Catalog(ctx, false)
-	resp := map[string]any{"mods": c.Mods}
-	if err != nil {
-		resp["error"] = err.Error() // the cached copy, if any, is still shown
-	}
-	httpx.WriteJSON(w, http.StatusOK, resp)
-}
-
-func (s *Server) modsCatalogRefresh(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
-	c, err := s.Mods.Catalog(ctx, true)
-	if err != nil {
-		writeModErr(w, err)
-		return
-	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"mods": c.Mods})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"collections": s.Mods.Collections(ctx, refresh)})
 }
 
 type sourceBody struct {
 	Source string `json:"source"`
 }
 
-func (s *Server) modsInspect(w http.ResponseWriter, r *http.Request) {
+func (s *Server) modsAddCollection(w http.ResponseWriter, r *http.Request) {
 	var body sourceBody
 	if !httpx.Decode(w, r, &body) {
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
-	o, err := s.Mods.Inspect(ctx, body.Source)
+	c, err := s.Mods.AddCollection(ctx, body.Source)
 	if err != nil {
 		writeModErr(w, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, o)
+	httpx.WriteJSON(w, http.StatusOK, c)
 }
 
-func (s *Server) modsInstall(w http.ResponseWriter, r *http.Request) {
+func (s *Server) modsRemoveCollection(w http.ResponseWriter, r *http.Request) {
 	var body sourceBody
 	if !httpx.Decode(w, r, &body) {
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	if err := s.Mods.RemoveCollection(body.Source); err != nil {
+		writeModErr(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]bool{"removed": true})
+}
+
+func (s *Server) modsInstall(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ID string `json:"id"`
+	}
+	if !httpx.Decode(w, r, &body) {
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
 	defer cancel()
-	in, err := s.Mods.Install(ctx, body.Source)
+	in, err := s.Mods.Install(ctx, body.ID)
 	if err != nil {
 		writeModErr(w, err)
 		return

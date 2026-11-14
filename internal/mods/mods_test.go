@@ -1,334 +1,382 @@
 package mods
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
-	"crypto/sha256"
+	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
 	"testing"
 )
 
-func zipOf(t *testing.T, files map[string]string) []byte {
-	t.Helper()
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
-	for name, body := range files {
-		w, err := zw.Create(name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		io.WriteString(w, body)
-	}
-	zw.Close()
-	return buf.Bytes()
-}
-
-func sum(b []byte) string { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }
-
-const paperTheme = `{"scheme":"light","colors":{"bg":"#eef2f7","surface":"#ffffff","text":"#0d1726","accent":"#2f6fec","accent2":"#1d4ed8","accentDark":"#2459c7","ink":"#ffffff","warn":"#b45309"}}`
-
-func paperZip(t *testing.T) []byte {
-	return zipOf(t, map[string]string{
-		"mod.json":   `{"id":"paper","name":"Paper","kind":"theme","version":"1.0.0","author":"IceDash","description":"Light."}`,
-		"theme.json": paperTheme,
-	})
-}
-
-func weatherZip(t *testing.T, version string) []byte {
-	return zipOf(t, map[string]string{
-		"mod.json":          `{"id":"weather","name":"Weather","kind":"widget","version":"` + version + `","author":"IceDash","description":"Weather.","entry":"index.html","size":"small","permissions":{"internet":["api.open-meteo.com"],"location":true}}`,
-		"index.html":        `<!doctype html><html><head><title>w</title></head><body><script src="icedash-widget.js"></script></body></html>`,
-		"icedash-widget.js": `window.IceDash={}`,
-	})
-}
-
-// fakeGitHub serves the catalog, its zips, and one third-party repo's release.
+// fakeGitHub serves repos the way GitHub does: commits/HEAD, a recursive
+// tree with git hashes, and raw files at a commit.
 type fakeGitHub struct {
-	srv     *httptest.Server
-	files   map[string][]byte
-	catalog Catalog
+	srv    *httptest.Server
+	mu     sync.Mutex
+	repos  map[string]map[string][]byte // owner/repo → path → bytes
+	rev    map[string]int               // bumps the commit
+	tamper map[string][]byte            // raw path → bytes served instead
+	calls  int
 }
 
 func newGitHub(t *testing.T) *fakeGitHub {
-	g := &fakeGitHub{files: map[string][]byte{}}
-	g.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/index.json":
-			json.NewEncoder(w).Encode(g.catalog)
-		case r.URL.Path == "/repos/someone/clock-widget/releases/latest":
-			fmt.Fprintf(w, `{"assets":[{"name":"mod.zip","browser_download_url":"%s/dl/clock.zip"},{"name":"mod.zip.sha256","browser_download_url":"%s/dl/clock.zip.sha256"}]}`, g.srv.URL, g.srv.URL)
-		case r.URL.Path == "/repos/someone/no-release/releases/latest":
-			w.WriteHeader(http.StatusNotFound)
-		default:
-			b, ok := g.files[strings.TrimPrefix(r.URL.Path, "/dl/")]
-			if !ok {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-			w.Write(b)
-		}
-	}))
+	g := &fakeGitHub{repos: map[string]map[string][]byte{}, rev: map[string]int{}, tamper: map[string][]byte{}}
+	g.srv = httptest.NewServer(http.HandlerFunc(g.serve))
 	t.Cleanup(g.srv.Close)
 	return g
 }
 
-func (g *fakeGitHub) publish(file string, data []byte, m Manifest, checksum string) {
-	g.files[file] = data
-	if checksum == "" {
-		checksum = sum(data)
+func (g *fakeGitHub) commit(repo string) string {
+	h := sha1.Sum([]byte(fmt.Sprintf("%s@%d", repo, g.rev[repo])))
+	return hex.EncodeToString(h[:])
+}
+
+func treeHash(files map[string][]byte, folder string) string {
+	var keys []string
+	for k := range files {
+		if strings.HasPrefix(k, folder+"/") {
+			keys = append(keys, k+gitHash(files[k]))
+		}
 	}
-	g.catalog.Mods = append(g.catalog.Mods, CatalogMod{Manifest: m, SHA256: checksum, File: file, URL: g.srv.URL + "/dl/" + file})
+	sort.Strings(keys)
+	h := sha1.Sum([]byte(strings.Join(keys, ",")))
+	return hex.EncodeToString(h[:])
+}
+
+func (g *fakeGitHub) serve(w http.ResponseWriter, r *http.Request) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.calls++
+	p := r.URL.Path
+	if rest, ok := strings.CutPrefix(p, "/repos/"); ok {
+		parts := strings.SplitN(rest, "/", 3)
+		repo := parts[0] + "/" + parts[1]
+		files, ok := g.repos[repo]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		switch {
+		case parts[2] == "commits/HEAD":
+			fmt.Fprintf(w, `{"sha":%q}`, g.commit(repo))
+		case strings.HasPrefix(parts[2], "git/trees/"):
+			var tree []map[string]any
+			folders := map[string]bool{}
+			for path, b := range files {
+				tree = append(tree, map[string]any{"path": path, "type": "blob", "sha": gitHash(b), "size": len(b)})
+				if top, _, ok := strings.Cut(path, "/"); ok {
+					folders[top] = true
+				}
+			}
+			for f := range folders {
+				tree = append(tree, map[string]any{"path": f, "type": "tree", "sha": treeHash(files, f)})
+			}
+			json.NewEncoder(w).Encode(map[string]any{"tree": tree})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+		return
+	}
+	// raw: /owner/repo/<commit>/<path>
+	parts := strings.SplitN(strings.TrimPrefix(p, "/"), "/", 4)
+	if len(parts) < 4 {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	repo := parts[0] + "/" + parts[1]
+	if parts[2] != g.commit(repo) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if b, ok := g.tamper[parts[3]]; ok {
+		w.Write(b)
+		return
+	}
+	b, ok := g.repos[repo][parts[3]]
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	w.Write(b)
+}
+
+var webp = append([]byte("RIFF\x10\x00\x00\x00WEBPVP8 "), make([]byte, 32)...)
+
+const auroraJSON = `{"name":"Aurora","author":"IceDash","description":"Violet.","scheme":"dark","colors":{"bg":"#05040d","surface":"#0e0c1c","text":"#ffffff","accent":"#a78bfa","accent2":"#5eead4","accentDark":"#8b5cf6","ink":"#140a2e","warn":"#f5b84c"}}`
+
+func officialRepos(g *fakeGitHub) {
+	g.repos["HSinghHira/IceColors"] = map[string][]byte{
+		"README.md":             []byte("# IceColors"),
+		"aurora/theme.json":     []byte(auroraJSON),
+		"aurora/wallpaper.webp": webp,
+		"broken/theme.json":     []byte(`{"name":"Broken","author":"x","description":"d","scheme":"dark","colors":{"bg":"red"}}`),
+		"Not_A_Mod/theme.json":  []byte(auroraJSON),
+		"notes/readme.txt":      []byte("not a mod"),
+	}
+	g.repos["HSinghHira/IceCards"] = map[string][]byte{
+		"weather/widget.json": []byte(`{"name":"Weather","author":"IceDash","description":"Weather.","entry":"index.html","size":"small","permissions":{"internet":["api.open-meteo.com"],"location":true}}`),
+		"weather/index.html":  []byte(`<!doctype html><html><head><title>w</title></head><body>weather</body></html>`),
+		"spy/widget.json":     []byte(`{"name":"Spy","author":"x","description":"d","size":"small","permissions":{"internet":["192.168.68.17"]}}`),
+		"spy/index.html":      []byte(`x`),
+	}
 }
 
 func service(t *testing.T, g *fakeGitHub) *Service {
 	dir := t.TempDir()
-	return &Service{
-		Dir: filepath.Join(dir, "mods"), State: filepath.Join(dir, "mods.json"), Cache: filepath.Join(dir, "cat.json"),
-		CatalogURL: g.srv.URL + "/index.json", GitHubAPI: g.srv.URL, HTTP: g.srv.Client(),
-	}
+	return &Service{Dir: filepath.Join(dir, "mods"), State: filepath.Join(dir, "mods.json"), Cache: filepath.Join(dir, "cols.json"),
+		GitHubAPI: g.srv.URL, RawBase: g.srv.URL, HTTP: g.srv.Client()}
 }
 
-func TestManifestRules(t *testing.T) {
-	ok := Manifest{ID: "weather", Name: "W", Kind: "widget", Version: "1.0.0", Author: "a", Description: "d", Entry: "index.html", Size: "small",
-		Permissions: &Permissions{Internet: []string{"api.open-meteo.com"}}}
-	if err := ok.Check(); err != nil {
-		t.Fatal(err)
+func ids(c Collection) []string {
+	var out []string
+	for _, it := range c.Items {
+		out = append(out, it.Folder)
 	}
-	for _, h := range []string{"192.168.68.17", "[::1]", "localhost", "zimaos.local", "nas.lan", "x", "printer.home"} {
-		m := ok
-		m.Permissions = &Permissions{Internet: []string{h}}
-		if err := m.Check(); !errors.Is(err, ErrInvalid) {
-			t.Errorf("host %q allowed", h)
-		}
-	}
-	for _, bad := range []func(*Manifest){
-		func(m *Manifest) { m.ID = "Bad ID" },
-		func(m *Manifest) { m.Version = "1.0" },
-		func(m *Manifest) { m.Kind = "plugin" },
-		func(m *Manifest) { m.Entry = "../x.html" },
-		func(m *Manifest) { m.Size = "huge" },
-	} {
-		m := ok
-		bad(&m)
-		if m.Check() == nil {
-			t.Errorf("accepted %+v", m)
-		}
-	}
-	th := Manifest{ID: "x1", Name: "X", Kind: "theme", Version: "1.0.0", Author: "a", Description: "d", Permissions: &Permissions{System: true}}
-	if th.Check() == nil {
-		t.Error("a theme asked for permissions")
-	}
+	return out
 }
 
-func TestThemeCSSRules(t *testing.T) {
-	for _, css := range []string{
-		"@import 'x.css';",
-		"body{background:url(https://evil.example/x)}",
-		"body{background:url( 'https://evil.example/x' )}",
-		"input[value^=a]{color:red}",
-		`a{background:\75rl(https://x)}`,
-		"a{background:image-set('x.png' 1x)}",
-		"a{x:expression(alert(1))}",
-		"</style><script>",
-	} {
-		if err := CheckCSS(css); err == nil {
-			t.Errorf("allowed %q", css)
-		}
-	}
-	for _, css := range []string{"a{color:red}", "b{background:url(data:image/png;base64,AA)}", `b{background:url( "data:image/svg+xml,x" )}`} {
-		if err := CheckCSS(css); err != nil {
-			t.Errorf("refused %q: %v", css, err)
-		}
-	}
-}
-
-func TestReadZipRefusesTricks(t *testing.T) {
-	for name, files := range map[string]map[string]string{
-		"escape":      {"mod.json": `{}`, "../evil": "x"},
-		"no manifest": {"index.html": "x"},
-		"no entry":    {"mod.json": `{"id":"w1","name":"W","kind":"widget","version":"1.0.0","author":"a","description":"d","entry":"index.html","size":"small"}`},
-	} {
-		if _, _, err := readZip(zipOf(t, files)); err == nil {
-			t.Errorf("%s: accepted", name)
-		}
-	}
-	if _, _, err := readZip([]byte("not a zip")); err == nil {
-		t.Error("not a zip: accepted")
-	}
-}
-
-func TestParseSource(t *testing.T) {
-	for in, want := range map[string]string{
-		"weather":                                 "weather",
-		"github.com/someone/clock-widget":         "github.com/someone/clock-widget",
-		"https://github.com/someone/clock-widget": "github.com/someone/clock-widget",
-		"someone/clock-widget":                    "github.com/someone/clock-widget",
-		"https://github.com/someone/clock.git":    "github.com/someone/clock",
-	} {
-		if got, err := ParseSource(in); err != nil || got != want {
-			t.Errorf("%q: %q %v", in, got, err)
-		}
-	}
-	for _, bad := range []string{"https://evil.example/a/b", "github.com/a/..", "a/b/c/d", ""} {
-		if _, err := ParseSource(bad); err == nil {
-			t.Errorf("%q accepted", bad)
-		}
-	}
-}
-
-func TestInstallFromTheCatalog(t *testing.T) {
+func TestOfficialCollections(t *testing.T) {
 	g := newGitHub(t)
-	p := paperZip(t)
-	g.publish("paper-1.0.0.zip", p, Manifest{ID: "paper", Name: "Paper", Kind: "theme", Version: "1.0.0", Author: "IceDash", Description: "Light."}, "")
-	w := weatherZip(t, "1.0.0")
-	g.publish("weather-1.0.0.zip", w, Manifest{ID: "weather", Name: "Weather", Kind: "widget", Version: "1.0.0", Author: "IceDash", Description: "Weather.", Entry: "index.html", Size: "small"}, "")
+	officialRepos(g)
+	s := service(t, g)
+	cols := s.Collections(context.Background(), false)
+	if len(cols) != 2 || cols[0].Source != OfficialThemes || !cols[0].Official {
+		t.Fatalf("%+v", cols)
+	}
+	// broken colours, a capitalised folder, a folder that isn't a mod, and a
+	// widget asking for an address are all left out.
+	if got := strings.Join(ids(cols[0]), ","); got != "aurora" {
+		t.Fatalf("themes: %s", got)
+	}
+	if got := strings.Join(ids(cols[1]), ","); got != "weather" {
+		t.Fatalf("widgets: %s", got)
+	}
+	a := cols[0].Items[0]
+	if a.ID != "hsinghhira--icecolors--aurora" || a.Colors["accent"] != "#a78bfa" || !strings.Contains(a.Wallpaper, "/aurora/wallpaper.webp") {
+		t.Fatalf("aurora: %+v", a)
+	}
+	// A second look within 6 hours asks GitHub nothing.
+	before := g.calls
+	s.Collections(context.Background(), false)
+	if g.calls != before {
+		t.Fatal("the cache wasn't used")
+	}
+}
+
+func TestInstallThemeAndWidget(t *testing.T) {
+	g := newGitHub(t)
+	officialRepos(g)
 	s := service(t, g)
 	ctx := context.Background()
-
-	c, err := s.Catalog(ctx, false)
-	if err != nil || len(c.Mods) != 2 {
-		t.Fatalf("%+v %v", c, err)
-	}
-	o, err := s.Inspect(ctx, "weather")
-	if err != nil || !o.Checked || o.Permissions == nil || !o.Permissions.Location || o.Permissions.Internet[0] != "api.open-meteo.com" {
-		t.Fatalf("inspect: %+v %v", o, err)
-	}
-	if _, err := s.Install(ctx, "weather"); err != nil {
-		t.Fatal(err)
-	}
-	in, err := s.Install(ctx, "paper")
-	if err != nil || !in.Checked || in.Source != "paper" {
+	in, err := s.Install(ctx, "hsinghhira--icecolors--aurora")
+	if err != nil || !in.Official || in.Commit == "" {
 		t.Fatalf("%+v %v", in, err)
 	}
-	if err := s.SetTheme("Hira", "paper"); err != nil {
+	if _, err := s.Install(ctx, "hsinghhira--icecards--weather"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SetPanel("Hira", []string{"weather", "weather"}); err != nil {
+	if err := s.SetTheme("Hira", in.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SetPanel("Hira", []string{"paper"}); !errors.Is(err, ErrNotWidget) {
-		t.Fatalf("a theme on the panel: %v", err)
+	if err := s.SetPanel("Hira", []string{"hsinghhira--icecards--weather"}); err != nil {
+		t.Fatal(err)
 	}
 	v := s.List("Hira")
-	if v.Prefs.Theme != "paper" || len(v.Prefs.Panel) != 1 || len(v.Mods) != 2 {
-		t.Fatalf("view: %+v", v)
+	if v.Prefs.Theme != in.ID || len(v.Mods) != 2 {
+		t.Fatalf("%+v", v)
 	}
 	for _, m := range v.Mods {
-		if m.ID == "paper" && (m.Theme == nil || m.Theme.Colors["bg"] != "#eef2f7" || m.Theme.Scheme != "light") {
-			t.Fatalf("theme not read back: %+v", m.Theme)
+		if m.Kind == "theme" && m.Wallpaper != FilesPrefix+in.ID+"/wallpaper" {
+			t.Fatalf("wallpaper should be served from the box: %s", m.Wallpaper)
 		}
 	}
-	// Another user keeps Ice.
-	if other := s.List("testmember"); other.Prefs.Theme != "" {
-		t.Fatalf("theme leaked to another user: %+v", other.Prefs)
+	rec := httptest.NewRecorder()
+	s.ServeWallpaper(rec, httptest.NewRequest("GET", "/", nil), in.ID)
+	if rec.Code != 200 || rec.Header().Get("Content-Type") != "image/webp" {
+		t.Fatalf("wallpaper: %d %v", rec.Code, rec.Header())
 	}
-	// Removing the theme puts its user back on Ice.
-	if err := s.Remove("paper"); err != nil {
+	if s.List("testmember").Prefs.Theme != "" {
+		t.Fatal("the theme leaked to another user")
+	}
+	if err := s.Remove(in.ID); err != nil {
 		t.Fatal(err)
 	}
-	if v := s.List("Hira"); v.Prefs.Theme != "" {
-		t.Fatalf("after removal: %+v", v.Prefs)
-	}
-	if _, err := os.Stat(filepath.Join(s.Dir, "paper")); err == nil {
-		t.Fatal("files left after removal")
+	if s.List("Hira").Prefs.Theme != "" {
+		t.Fatal("removing the theme should put its user back on Ice")
 	}
 }
 
-func TestTamperedDownloadIsRefused(t *testing.T) {
+func TestTamperedFileIsRefused(t *testing.T) {
 	g := newGitHub(t)
-	g.publish("paper-1.0.0.zip", paperZip(t), Manifest{ID: "paper", Name: "Paper", Kind: "theme", Version: "1.0.0", Author: "IceDash", Description: "Light."}, strings.Repeat("ab", 32))
+	officialRepos(g)
 	s := service(t, g)
-	if _, err := s.Install(context.Background(), "paper"); !errors.Is(err, ErrChecksum) {
+	s.Collections(context.Background(), false)
+	g.tamper["aurora/wallpaper.webp"] = append(webp, 'x')
+	if _, err := s.Install(context.Background(), "hsinghhira--icecolors--aurora"); !errors.Is(err, ErrTampered) {
 		t.Fatalf("%v", err)
 	}
-	if v := s.List("Hira"); len(v.Mods) != 0 {
-		t.Fatal("installed anyway")
+	if _, err := os.Stat(filepath.Join(s.Dir, "hsinghhira--icecolors--aurora")); err == nil {
+		t.Fatal("files were left behind")
 	}
 }
 
-func TestThirdPartyFromGitHub(t *testing.T) {
+func TestWallpaperMustBeAnImage(t *testing.T) {
 	g := newGitHub(t)
-	clock := zipOf(t, map[string]string{
-		"mod.json":   `{"id":"clock","name":"Clock","kind":"widget","version":"0.1.0","author":"someone","description":"A clock.","entry":"index.html","size":"small","permissions":{"system":true}}`,
-		"index.html": `<p>tick</p>`,
-	})
-	g.files["clock.zip"] = clock
-	g.files["clock.zip.sha256"] = []byte(sum(clock) + "  mod.zip\n")
+	officialRepos(g)
+	g.repos["HSinghHira/IceColors"]["aurora/wallpaper.webp"] = []byte("<script>alert(1)</script>")
 	s := service(t, g)
-	ctx := context.Background()
-	o, err := s.Inspect(ctx, "https://github.com/someone/clock-widget")
-	if err != nil || o.Checked || o.Source != "github.com/someone/clock-widget" || !o.Permissions.System {
-		t.Fatalf("%+v %v", o, err)
-	}
-	in, err := s.Install(ctx, "github.com/someone/clock-widget")
-	if err != nil || in.Checked || in.ID != "clock" {
-		t.Fatalf("%+v %v", in, err)
-	}
-	if _, err := s.Inspect(ctx, "someone/no-release"); !errors.Is(err, ErrNoRelease) {
-		t.Fatalf("no release: %v", err)
-	}
-	g.files["clock.zip.sha256"] = []byte(strings.Repeat("0", 64))
-	s.pending = nil
-	if _, err := s.Install(ctx, "someone/clock-widget"); !errors.Is(err, ErrChecksum) {
-		t.Fatalf("bad sum: %v", err)
+	if _, err := s.Install(context.Background(), "hsinghhira--icecolors--aurora"); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("%v", err)
 	}
 }
 
-func TestServeFileWritesThePolicyFirst(t *testing.T) {
+func TestWidgetPageGetsPolicyAndBridge(t *testing.T) {
 	g := newGitHub(t)
-	w := weatherZip(t, "1.0.0")
-	g.publish("weather-1.0.0.zip", w, Manifest{ID: "weather", Name: "Weather", Kind: "widget", Version: "1.0.0", Author: "IceDash", Description: "Weather.", Entry: "index.html", Size: "small"}, "")
+	officialRepos(g)
 	s := service(t, g)
-	if _, err := s.Install(context.Background(), "weather"); err != nil {
+	id := "hsinghhira--icecards--weather"
+	if _, err := s.Install(context.Background(), id); err != nil {
 		t.Fatal(err)
 	}
 	get := func(p string) *httptest.ResponseRecorder {
-		r := httptest.NewRequest("GET", "http://192.168.68.17"+FilesPrefix+"weather/files/"+p, nil)
 		rec := httptest.NewRecorder()
-		s.ServeFile(rec, r, "weather", p)
+		s.ServeFile(rec, httptest.NewRequest("GET", "http://192.168.68.17"+FilesPrefix+id+"/files/"+p, nil), id, p)
 		return rec
 	}
 	rec := get("index.html")
 	body := rec.Body.String()
-	if rec.Code != 200 || !strings.HasPrefix(body, `<!doctype html><meta http-equiv="Content-Security-Policy"`) {
-		t.Fatalf("%d %s", rec.Code, body)
+	if !strings.HasPrefix(body, `<!doctype html><meta http-equiv="Content-Security-Policy"`) || !strings.Contains(body, `<script src="icedash-widget.js"></script><html>`) {
+		t.Fatalf("page: %s", body)
 	}
 	csp := rec.Header().Get("Content-Security-Policy")
-	for _, want := range []string{"connect-src https://api.open-meteo.com", "script-src http://192.168.68.17/v2/icedash/mods/weather/files/", "sandbox allow-scripts", "default-src 'none'"} {
-		if !strings.Contains(csp, want) {
-			t.Errorf("policy lacks %q: %s", want, csp)
-		}
+	if !strings.Contains(csp, "connect-src https://api.open-meteo.com") || !strings.Contains(csp, "sandbox allow-scripts") || strings.Contains(csp, "'self'") {
+		t.Fatalf("policy: %s", csp)
 	}
-	if strings.Contains(csp, "'self'") {
-		t.Error("'self' would let a widget reach IceDash's and the system's APIs")
+	if rec := get("icedash-widget.js"); rec.Code != 200 || !strings.Contains(rec.Body.String(), "window.IceDash") {
+		t.Fatalf("bridge: %d", rec.Code)
 	}
-	if rec := get("icedash-widget.js"); rec.Code != 200 || rec.Header().Get("Content-Type") != "text/javascript; charset=utf-8" {
-		t.Fatalf("sdk: %d %v", rec.Code, rec.Header())
-	}
-	for _, p := range []string{"../../mods.json", "mod.json/../../x", ".hidden"} {
+	for _, p := range []string{"../../mods.json", "widget.json/../../x", ".git"} {
 		if rec := get(p); rec.Code != 404 {
 			t.Errorf("%s: %d", p, rec.Code)
 		}
 	}
-	s.SetEnabled("weather", false)
+	s.SetEnabled(id, false)
 	if rec := get("index.html"); rec.Code != 404 {
-		t.Fatalf("switched off: %d", rec.Code)
+		t.Fatal("a switched-off widget is still served")
 	}
 }
 
-func TestPolicyWithoutInternet(t *testing.T) {
-	p := Policy("http://box", "clock", &Permissions{System: true})
-	if !strings.Contains(p, "connect-src 'none'") {
-		t.Fatal(p)
+func TestThirdPartyCollection(t *testing.T) {
+	g := newGitHub(t)
+	officialRepos(g)
+	g.repos["someone/my-cards"] = map[string][]byte{
+		"clock/widget.json": []byte(`{"name":"Clock","author":"someone","description":"A clock.","size":"small","permissions":{"system":true}}`),
+		"clock/index.html":  []byte(`<p>tick</p>`),
+	}
+	g.repos["someone/empty"] = map[string][]byte{"README.md": []byte("hi")}
+	s := service(t, g)
+	ctx := context.Background()
+	c, err := s.AddCollection(ctx, "https://github.com/someone/my-cards")
+	if err != nil || c.Official || len(c.Items) != 1 || c.Items[0].Official {
+		t.Fatalf("%+v %v", c, err)
+	}
+	if _, err := s.AddCollection(ctx, "someone/empty"); !errors.Is(err, ErrEmpty) {
+		t.Fatalf("empty: %v", err)
+	}
+	if _, err := s.AddCollection(ctx, "someone/nothing-here"); !errors.Is(err, ErrNoRepo) {
+		t.Fatalf("missing: %v", err)
+	}
+	if len(s.Collections(ctx, false)) != 3 {
+		t.Fatal("the added collection isn't listed")
+	}
+	if _, err := s.Install(ctx, "someone--my-cards--clock"); err != nil {
+		t.Fatal(err)
+	}
+	// An update upstream shows as Update.
+	g.repos["someone/my-cards"]["clock/index.html"] = []byte(`<p>tock</p>`)
+	g.rev["someone/my-cards"]++
+	s.Collections(ctx, true)
+	for _, m := range s.List("Hira").Mods {
+		if m.ID == "someone--my-cards--clock" && !m.Update {
+			t.Fatal("no update shown")
+		}
+	}
+	if err := s.RemoveCollection(OfficialWidgets); !errors.Is(err, ErrOfficial) {
+		t.Fatalf("official: %v", err)
+	}
+	if err := s.RemoveCollection("github.com/someone/my-cards"); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Collections(ctx, false)) != 2 {
+		t.Fatal("still listed")
+	}
+}
+
+func TestAddressesAndIDs(t *testing.T) {
+	for in, want := range map[string]string{
+		"github.com/someone/my-cards":          "github.com/someone/my-cards",
+		"https://github.com/someone/my-cards/": "github.com/someone/my-cards",
+		"someone/my-cards":                     "github.com/someone/my-cards",
+	} {
+		if got, err := ParseCollection(in); err != nil || got != want {
+			t.Errorf("%q: %q %v", in, got, err)
+		}
+	}
+	for _, bad := range []string{"https://evil.example/a/b", "github.com/a/..", "a/b/c/d", "weather"} {
+		if _, err := ParseCollection(bad); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+	if id := ModID("github.com/Some_One/My.Cards", "clock"); id != "some-one--my-cards--clock" || !ValidID(id) {
+		t.Fatalf("id %q", id)
+	}
+	for _, h := range []string{"192.168.68.17", "[::1]", "localhost", "box.local", "nas.lan"} {
+		w := WidgetFile{Name: "n", Author: "a", Description: "d", Size: "small", Permissions: Permissions{Internet: []string{h}}}
+		if w.Check() == nil {
+			t.Errorf("host %q allowed", h)
+		}
+	}
+	if ImageType([]byte("\x89PNG\r\n\x1a\nxxxx")) != "image/png" || ImageType([]byte{0xFF, 0xD8, 0xFF, 0}) != "image/jpeg" || ImageType([]byte("<svg")) != "" {
+		t.Fatal("image types")
+	}
+}
+
+func TestModsFromV070AreDropped(t *testing.T) {
+	dir := t.TempDir()
+	old := `{"mods":{"paper":{"id":"paper","kind":"theme"},"weather":{"id":"weather","kind":"widget"}},"users":{"casaos":{"theme":"paper","panel":["weather"]}}}`
+	os.MkdirAll(filepath.Join(dir, "mods", "paper", "1.0.0"), 0o700)
+	os.WriteFile(filepath.Join(dir, "mods.json"), []byte(old), 0o600)
+	s := &Service{Dir: filepath.Join(dir, "mods"), State: filepath.Join(dir, "mods.json"), Cache: filepath.Join(dir, "c.json")}
+	v := s.List("casaos")
+	if len(v.Mods) != 0 || v.Prefs.Theme != "" || len(v.Prefs.Panel) != 0 {
+		t.Fatalf("%+v", v)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "mods", "paper")); err == nil {
+		t.Fatal("old files left")
+	}
+	if err := s.SetPanel("casaos", nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAllowedURL(t *testing.T) {
+	for _, ok := range []string{"https://api.github.com/repos/a/b/commits/HEAD", "https://raw.githubusercontent.com/a/b/c/d"} {
+		if AllowedURL(ok) != nil {
+			t.Errorf("%s refused", ok)
+		}
+	}
+	for _, no := range []string{"http://api.github.com/x", "https://evil.example/x", "https://192.168.68.17/v1/users", "https://github.com.evil.example/x"} {
+		if AllowedURL(no) == nil {
+			t.Errorf("%s allowed", no)
+		}
 	}
 }

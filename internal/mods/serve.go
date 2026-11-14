@@ -2,6 +2,7 @@ package mods
 
 import (
 	"bytes"
+	_ "embed"
 	"mime"
 	"net/http"
 	"os"
@@ -12,6 +13,13 @@ import (
 
 // FilesPrefix is where a widget's files are served: <prefix><id>/files/<path>.
 const FilesPrefix = "/v2/icedash/mods/"
+
+// SDKName is the bridge every widget page gets (PLAN.md 4.4), served from
+// the widget's own folder so its policy allows it.
+const SDKName = "icedash-widget.js"
+
+//go:embed sdk/icedash-widget.js
+var sdk []byte
 
 // Policy is a widget page's Content-Security-Policy: its own files from its
 // own folder, the internet hosts it declared, and nothing else: not IceDash's
@@ -66,6 +74,16 @@ func (s *Service) ServeFile(w http.ResponseWriter, r *http.Request, id, rel stri
 		http.NotFound(w, r)
 		return
 	}
+	csp := Policy(origin(r), id, m.Permissions)
+	if rel == SDKName {
+		h := w.Header()
+		h.Set("Content-Security-Policy", csp+"; sandbox allow-scripts")
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Content-Type", "text/javascript; charset=utf-8")
+		h.Set("Cache-Control", "no-cache")
+		_, _ = w.Write(sdk)
+		return
+	}
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		http.NotFound(w, r)
@@ -83,7 +101,6 @@ func (s *Service) ServeFile(w http.ResponseWriter, r *http.Request, id, rel stri
 		http.NotFound(w, r)
 		return
 	}
-	csp := Policy(origin(r), id, m.Permissions)
 	h := w.Header()
 	h.Set("Content-Security-Policy", csp+"; sandbox allow-scripts")
 	h.Set("X-Content-Type-Options", "nosniff")
@@ -113,7 +130,7 @@ func (s *Service) ServeFile(w http.ResponseWriter, r *http.Request, id, rel stri
 		http.ServeContent(w, r, rel, info.ModTime(), f)
 		return
 	}
-	body, err := readAll(f, MaxZip)
+	body, err := readAll(f, MaxFolder)
 	if err != nil {
 		http.Error(w, "the widget can't be read", http.StatusInternalServerError)
 		return
@@ -144,11 +161,12 @@ func (l *limited) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// withPolicy writes the policy as the page's very first element, right
-// after a doctype: the parser puts it in the head before any of the widget's
+// withPolicy writes the policy, then the bridge, as the page's very first
+// elements, right after a doctype: the parser puts it in the head before any of the widget's
 // own markup or scripts, wherever its <head> is.
 func withPolicy(page []byte, csp string) []byte {
-	meta := []byte(`<meta http-equiv="Content-Security-Policy" content="` + strings.ReplaceAll(csp, `"`, "&quot;") + `">`)
+	meta := []byte(`<meta http-equiv="Content-Security-Policy" content="` + strings.ReplaceAll(csp, `"`, "&quot;") + `">` +
+		`<script src="` + SDKName + `"></script>`)
 	trimmed := bytes.TrimLeft(page, " \t\r\n\ufeff")
 	lead := len(page) - len(trimmed)
 	if bytes.HasPrefix(bytes.ToLower(trimmed), []byte("<!doctype")) {
@@ -158,4 +176,38 @@ func withPolicy(page []byte, csp string) []byte {
 		}
 	}
 	return append(append([]byte("<!doctype html>"), meta...), page[lead:]...)
+}
+
+// ServeWallpaper serves an installed theme's wallpaper. It needs no sign-in
+// (a CSS background can't carry one; it's only a picture), and it is only
+// served as the image type its first bytes show.
+func (s *Service) ServeWallpaper(w http.ResponseWriter, r *http.Request, id string) {
+	dir, m, ok := s.installed(id)
+	if !ok || m.Kind != "theme" {
+		http.NotFound(w, r)
+		return
+	}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer root.Close()
+	for _, name := range WallpaperNames {
+		b, err := root.ReadFile(name)
+		if err != nil {
+			continue
+		}
+		t := ImageType(b)
+		if t == "" || t != wallpaperType(name) {
+			break
+		}
+		w.Header().Set("Content-Type", t)
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Cache-Control", "private, max-age=86400")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
+		_, _ = w.Write(b)
+		return
+	}
+	http.NotFound(w, r)
 }

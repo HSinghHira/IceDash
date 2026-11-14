@@ -1,13 +1,14 @@
 // Package mods is Phase 4: themes and widgets (PLAN.md, "Phase 4: mods").
 //
-// A mod is a zip with a mod.json at its root: a theme (theme.json, maybe
-// theme.css) or a widget (an HTML page and its files, run in a sandboxed
-// iframe). The rules here are the catalog's own (IceDash-Mods,
-// tools/build.py): a mod is checked again on install, wherever it came from.
+// Mods come from collections: GitHub repos whose top-level folders are
+// themes (theme.json and maybe a wallpaper) or widgets (widget.json and an
+// HTML page). There is nothing to build or publish: IceDash reads a repo at
+// its latest commit and checks every file against its git hash. The
+// official collections are HSinghHira/IceColors and HSinghHira/IceCards.
 package mods
 
 import (
-	"encoding/json"
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
@@ -15,18 +16,11 @@ import (
 	"strings"
 )
 
-// Manifest is mod.json.
-type Manifest struct {
-	ID          string       `json:"id"`
-	Name        string       `json:"name"`
-	Kind        string       `json:"kind"` // theme, widget
-	Version     string       `json:"version"`
-	Author      string       `json:"author"`
-	Description string       `json:"description"`
-	Entry       string       `json:"entry,omitempty"` // widgets
-	Size        string       `json:"size,omitempty"`  // widgets: small, medium, large
-	Permissions *Permissions `json:"permissions,omitempty"`
-	Preview     *Theme       `json:"preview,omitempty"` // in the catalog: the theme's colours
+// ErrInvalid wraps every reason a mod is refused.
+var ErrInvalid = errors.New("this mod can't be installed")
+
+func bad(format string, a ...any) error {
+	return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
 }
 
 // Permissions are what a widget asks to read.
@@ -37,123 +31,95 @@ type Permissions struct {
 	Location bool     `json:"location,omitempty"`
 }
 
-// Theme is theme.json, plus its CSS once read.
-type Theme struct {
-	Scheme string            `json:"scheme"` // dark, light
-	Colors map[string]string `json:"colors"`
-	CSS    string            `json:"css,omitempty"`
+// ThemeFile is theme.json.
+type ThemeFile struct {
+	Name        string            `json:"name"`
+	Author      string            `json:"author"`
+	Description string            `json:"description"`
+	Scheme      string            `json:"scheme"` // dark, light
+	Colors      map[string]string `json:"colors"`
+}
+
+// WidgetFile is widget.json.
+type WidgetFile struct {
+	Name        string      `json:"name"`
+	Author      string      `json:"author"`
+	Description string      `json:"description"`
+	Entry       string      `json:"entry"`
+	Size        string      `json:"size"` // small, medium, large
+	Permissions Permissions `json:"permissions"`
 }
 
 // ThemeColors are the colours every theme gives; IceDash works out the rest.
 var ThemeColors = []string{"bg", "surface", "text", "accent", "accent2", "accentDark", "ink", "warn"}
 
 const (
-	maxCSS = 64 << 10
-	// MaxZip caps a mod's download and what it unpacks to.
-	MaxZip = 5 << 20
+	// MaxFolder caps what one mod may bring, files and wallpaper together.
+	MaxFolder = 10 << 20
+	// MaxWallpaper caps a wallpaper.
+	MaxWallpaper = 5 << 20
+	maxFiles     = 200
 )
 
 var (
-	idRx      = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,39}$`)
-	versionRx = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
-	hexRx     = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
-	hostRx    = regexp.MustCompile(`^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`)
+	folderRx = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,39}$`)
+	hexRx    = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+	hostRx   = regexp.MustCompile(`^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`)
 )
 
-// cssBanned: theme CSS may restyle IceDash but never load anything or read
-// what is typed (a selector on input values can send it out letter by letter).
-var cssBanned = []struct {
-	rx   *regexp.Regexp
-	what string
-}{
-	{regexp.MustCompile(`(?i)@import`), "@import"},
-	{regexp.MustCompile(`(?i)(input|textarea)[^{]*\[\s*value`), "a selector on typed values"},
-	{regexp.MustCompile(`(?i)expression\s*\(`), "expression()"},
-	{regexp.MustCompile(`(?i)behavior\s*:`), "behavior:"},
-	{regexp.MustCompile(`(?i)-moz-binding`), "-moz-binding"},
-	{regexp.MustCompile(`(?i)</style`), "</style"},
-}
+// WallpaperNames are the files a theme's wallpaper may be.
+var WallpaperNames = []string{"wallpaper.webp", "wallpaper.jpg", "wallpaper.png"}
 
-// ErrInvalid wraps every reason a mod is refused.
-var ErrInvalid = errors.New("this mod can't be installed")
-
-func bad(format string, a ...any) error {
-	return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
-}
-
-// CheckCSS refuses theme CSS that could load or leak anything.
-func CheckCSS(css string) error {
-	if len(css) > maxCSS {
-		return bad("theme.css is over 64 KB")
-	}
-	for _, b := range cssBanned {
-		if b.rx.MatchString(css) {
-			return bad("theme.css uses %s, which themes may not", b.what)
-		}
-	}
-	// Every url( must hold a data: URI. A CSS escape (\75rl) could hide one,
-	// so backslashes are refused altogether.
-	low := strings.ToLower(css)
-	if strings.Contains(low, `\`) {
-		return bad("theme.css uses escapes, which themes may not")
-	}
-	for i := strings.Index(low, "url("); i >= 0; {
-		rest := strings.TrimLeft(low[i+4:], " \t\r\n\"'")
-		if !strings.HasPrefix(rest, "data:") {
-			return bad("theme.css uses url() other than data:, which themes may not")
-		}
-		next := strings.Index(low[i+4:], "url(")
-		if next < 0 {
-			break
-		}
-		i += 4 + next
-	}
-	if strings.Contains(low, "image-set(") || strings.Contains(low, "src(") {
-		return bad("theme.css uses image-set() or src(), which themes may not")
-	}
-	return nil
-}
-
-// ValidID reports whether id can name a mod.
-func ValidID(id string) bool { return idRx.MatchString(id) }
-
-// Check validates a manifest, and for themes their theme.json.
-func (m *Manifest) Check() error {
-	if !idRx.MatchString(m.ID) {
-		return bad("its id must be lowercase letters, digits and dashes")
-	}
-	for k, v := range map[string]string{"name": m.Name, "author": m.Author, "description": m.Description} {
+func checkWords(name, author, desc string) error {
+	for k, v := range map[string]string{"name": name, "author": author, "description": desc} {
 		if strings.TrimSpace(v) == "" || len(v) > 200 {
 			return bad("its %s is missing or too long", k)
 		}
 	}
-	if !versionRx.MatchString(m.Version) {
-		return bad("its version must be x.y.z")
+	return nil
+}
+
+// Check validates a theme.
+func (t *ThemeFile) Check() error {
+	if err := checkWords(t.Name, t.Author, t.Description); err != nil {
+		return err
 	}
-	switch m.Kind {
-	case "theme":
-		if m.Permissions != nil && (len(m.Permissions.Internet) > 0 || m.Permissions.System || m.Permissions.Apps || m.Permissions.Location) {
-			return bad("a theme can't ask for permissions")
+	if t.Scheme != "dark" && t.Scheme != "light" {
+		return bad("theme.json's scheme must be dark or light")
+	}
+	for _, k := range ThemeColors {
+		if !hexRx.MatchString(t.Colors[k]) {
+			return bad("theme.json's colors.%s must be #rrggbb", k)
 		}
-	case "widget":
-		switch m.Size {
-		case "small", "medium", "large":
-		default:
-			return bad("a widget's size must be small, medium or large")
+	}
+	for k := range t.Colors {
+		if !strings.Contains(" "+strings.Join(ThemeColors, " ")+" ", " "+k+" ") {
+			return bad("theme.json has an unknown colour %q", k)
 		}
-		if !strings.HasSuffix(m.Entry, ".html") || strings.ContainsAny(m.Entry, `/\`) || strings.HasPrefix(m.Entry, ".") {
-			return bad("a widget's entry must be an .html file at the top of the mod")
-		}
-		if m.Permissions == nil {
-			m.Permissions = &Permissions{}
-		}
-		for _, h := range m.Permissions.Internet {
-			if err := checkHost(h); err != nil {
-				return err
-			}
-		}
+	}
+	return nil
+}
+
+// Check validates a widget.
+func (w *WidgetFile) Check() error {
+	if err := checkWords(w.Name, w.Author, w.Description); err != nil {
+		return err
+	}
+	if w.Entry == "" {
+		w.Entry = "index.html"
+	}
+	switch w.Size {
+	case "small", "medium", "large":
 	default:
-		return bad("its kind must be theme or widget")
+		return bad("widget.json's size must be small, medium or large")
+	}
+	if !strings.HasSuffix(w.Entry, ".html") || strings.ContainsAny(w.Entry, `/\`) || strings.HasPrefix(w.Entry, ".") {
+		return bad("widget.json's entry must be an .html file in the widget's folder")
+	}
+	for _, h := range w.Permissions.Internet {
+		if err := checkHost(h); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -175,25 +141,28 @@ func checkHost(h string) error {
 	return nil
 }
 
-// CheckTheme validates theme.json's colours.
-func (t *Theme) Check() error {
-	if t.Scheme != "dark" && t.Scheme != "light" {
-		return bad("theme.json's scheme must be dark or light")
+// ImageType tells a wallpaper's real type from its first bytes, or "".
+func ImageType(b []byte) string {
+	switch {
+	case len(b) >= 12 && bytes.Equal(b[:4], []byte("RIFF")) && bytes.Equal(b[8:12], []byte("WEBP")):
+		return "image/webp"
+	case len(b) >= 8 && bytes.Equal(b[:8], []byte("\x89PNG\r\n\x1a\n")):
+		return "image/png"
+	case len(b) >= 3 && bytes.Equal(b[:3], []byte{0xFF, 0xD8, 0xFF}):
+		return "image/jpeg"
 	}
-	for _, k := range ThemeColors {
-		if !hexRx.MatchString(t.Colors[k]) {
-			return bad("theme.json's colors.%s must be #rrggbb", k)
-		}
-	}
-	for k := range t.Colors {
-		if !strings.Contains(" "+strings.Join(ThemeColors, " ")+" ", " "+k+" ") {
-			return bad("theme.json has an unknown colour %q", k)
-		}
-	}
-	return CheckCSS(t.CSS)
+	return ""
 }
 
-func decode(b []byte, v any) error {
-	d := json.NewDecoder(strings.NewReader(string(b)))
-	return d.Decode(v)
+// wallpaperType is the type a wallpaper's name promises.
+func wallpaperType(name string) string {
+	switch name {
+	case "wallpaper.webp":
+		return "image/webp"
+	case "wallpaper.png":
+		return "image/png"
+	case "wallpaper.jpg":
+		return "image/jpeg"
+	}
+	return ""
 }
