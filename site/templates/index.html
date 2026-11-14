@@ -22,9 +22,14 @@
     </h1>
     <div><a class="ver" href="{{repo}}/releases/latest"><b>{{version}}</b>Latest release {{icon:arrow-right}}</a></div>
     <p class="lead"><b>A desktop for your home server</b>Your apps on a desktop and in a dock, widgets, notifications, Files, a Terminal and IceStore built in. For ZimaOS and CasaOS, free and open source.</p>
+    <div class="term hcmd" id="install">
+      <header>
+        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="ttl">ZimaOS or CasaOS, over SSH</span><button class="ic" type="button" data-copy-from="#cmd-install" aria-label="Copy the install command">{{icon:copy}}</button>
+      </header>
+      <pre><span class="pr">$ </span><code id="cmd-install">curl -fsSL {{repo}}/<wbr>releases/<wbr>latest/<wbr>download/<wbr>install.sh | sudo sh</code></pre>
+    </div>
     <div class="cta">
-      <a class="btn p" href="#install">{{icon:download}}Install IceDash</a>
-      <a class="btn" href="#tour">{{icon:monitor}}Take the tour</a>
+      <a class="btn p" href="#tour">{{icon:monitor}}Take the tour</a>
     </div>
     <nav class="cta cta2" aria-label="More">
       <a class="btn g" href="#features">{{icon:grid}}Features</a>
@@ -50,105 +55,6 @@
     <div class="feats">{{{features}}}</div>
   </section>
 
-  <section class="wrap sec" id="install" aria-labelledby="install-h">
-    <h2 id="install-h">Install IceDash</h2>
-    <p class="sub">One command over SSH. After that, IceDash updates itself from its own menu.</p>
-    <ul class="reqs">
-      <li><img src="img/os/zimaos.png" alt="" width="16" height="16">ZimaOS 1.8.0+ · amd64</li>
-      <li><img src="img/os/casaos.png" alt="" width="16" height="16">CasaOS 0.4.15+ · amd64, arm64</li>
-    </ul>
-    <div class="stabs">
-      <div class="tabs" role="tablist" aria-label="Choose your system">
-        <button class="tab" type="button" role="tab" id="zimaos" data-hash="zimaos" aria-controls="p-zimaos"><img src="img/os/zimaos.png" alt="" width="20" height="20">ZimaOS</button>
-        <button class="tab" type="button" role="tab" id="casaos" data-hash="casaos" aria-controls="p-casaos"><img src="img/os/casaos.png" alt="" width="20" height="20">CasaOS</button>
-      </div>
-    </div>
-
-    <div class="panel sp" role="tabpanel" id="p-zimaos" aria-labelledby="zimaos">
-      <div class="stores">
-        <article class="store">
-          <header>
-            <img src="img/os/zimaos.png" alt="" width="48" height="48" loading="lazy" />
-            <div>
-              <h3>ZimaOS</h3>
-              <p>Installs as a ZimaOS module, beside the stock dashboard</p>
-            </div>
-          </header>
-          <div class="url">
-            <div><code>http://&lt;your-server&gt;/modules/icedash/</code></div>
-          </div>
-          <ol class="steps">
-            <li><span>Open a terminal on your ZimaOS box (SSH, or the Terminal in Settings).</span></li>
-            <li><span>Run the command on the right. It downloads IceDash, checks it and installs it. Running it again repairs or reinstalls IceDash.</span></li>
-            <li><span>Open the <b>IceDash</b> tile on the ZimaOS dashboard, or the address above.</span></li>
-            <li><span>Sign in with your ZimaOS account. There is nothing else to set up.</span></li>
-          </ol>
-          <div class="fn">
-            {{icon:info}}<span>Want IceDash at <b>http://&lt;your-server&gt;/</b>? Turn on <b>Settings → General → Open IceDash at this server's address</b>. The ZimaOS dashboard stays at <b>/index.html</b></span>
-          </div>
-        </article>
-        <div class="tstack">
-          <div class="term">
-            <header>
-              <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="ttl">user@zimaos: ~</span><button class="ic" type="button" data-copy-from="#cmd-zima" aria-label="Copy the ZimaOS install command">{{icon:copy}}</button>
-            </header>
-            <pre><span class="pr"><span class="u">user@zimaos</span>:<span class="d">~</span>$</span> <code id="cmd-zima">curl -fsSL {{repo}}/releases/latest/download/install.sh | sudo sh</code>
-<span class="pr"><span class="u">user@zimaos</span>:<span class="d">~</span>$</span> <span class="cur" aria-hidden="true"></span></pre>
-          </div>
-          <div class="tip">
-            <header><span>To remove it</span></header>
-            <ul>
-              <li>Run <code>curl -fsSL {{repo}}/releases/latest/download/uninstall.sh | sudo sh</code>. It gives the server's address back to the ZimaOS dashboard.</li>
-              <li>Settings and notifications stay in <code>/DATA/.icedash</code>; add <code>-s -- --purge</code> after <code>sh</code> to delete them too.</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel sp" role="tabpanel" id="p-casaos" aria-labelledby="casaos" hidden>
-      <div class="stores">
-        <article class="store">
-          <header>
-            <img src="img/os/casaos.png" alt="" width="48" height="48" loading="lazy" />
-            <div>
-              <h3>CasaOS</h3>
-              <p>Becomes the main page, with the stock UI one click away</p>
-            </div>
-          </header>
-          <div class="url">
-            <div><code>http://&lt;your-server&gt;/</code></div>
-          </div>
-          <ol class="steps">
-            <li><span>Open a terminal on your CasaOS box over SSH.</span></li>
-            <li><span>Run the command on the right. Running it again repairs or reinstalls IceDash.</span></li>
-            <li><span>Open your server's address. IceDash is the main page now.</span></li>
-            <li><span>Sign in with your CasaOS account.</span></li>
-          </ol>
-          <div class="fn">
-            {{icon:info}}<span>The stock CasaOS UI stays at <b>http://&lt;your-server&gt;/casaos/</b>, and IceDash links to it from its menu</span>
-          </div>
-        </article>
-        <div class="tstack">
-          <div class="term">
-            <header>
-              <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="ttl">user@casaos: ~</span><button class="ic" type="button" data-copy-from="#cmd-casa" aria-label="Copy the CasaOS install command">{{icon:copy}}</button>
-            </header>
-            <pre><span class="pr"><span class="u">user@casaos</span>:<span class="d">~</span>$</span> <code id="cmd-casa">curl -fsSL {{repo}}/releases/latest/download/install.sh | sudo sh</code>
-<span class="pr"><span class="u">user@casaos</span>:<span class="d">~</span>$</span> <span class="cur" aria-hidden="true"></span></pre>
-          </div>
-          <div class="tip">
-            <header><span>To remove it</span></header>
-            <ul>
-              <li>Run <code>curl -fsSL {{repo}}/releases/latest/download/uninstall.sh | sudo sh</code>. It puts the stock CasaOS UI back at the main address.</li>
-              <li>Add <code>-s -- --purge</code> after <code>sh</code> to delete IceDash's settings too. Apps you installed from IceDash stay in CasaOS either way.</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
   <section class="wrap sec" id="faq" aria-labelledby="faq-h">
     <h2 id="faq-h">Good to know</h2>
     <p class="sub">The questions people ask before they install it.</p>
@@ -156,6 +62,10 @@
       <details>
         <summary>Does it change ZimaOS or CasaOS?</summary>
         <div>No system files change. On ZimaOS IceDash is a module beside the stock dashboard. On CasaOS it takes the main address and keeps the stock UI at <code>/casaos/</code>; the uninstall script gives the address back. Apps installed from IceDash are normal apps of your system.</div>
+      </details>
+      <details>
+        <summary>Where do I open it, and how do I remove it?</summary>
+        <div>On ZimaOS, open the <b>IceDash</b> tile or <code>http://&lt;your-server&gt;/modules/icedash/</code>; an admin can make it open at the server's address in <b>Settings → General</b>. On CasaOS it's at <code>http://&lt;your-server&gt;/</code>, with the stock UI at <code>/casaos/</code>. Sign in with your ZimaOS or CasaOS account. To remove it, run <code>curl -fsSL {{repo}}/releases/latest/download/uninstall.sh | sudo sh</code>; it gives the address back to the stock dashboard and keeps your settings in <code>/DATA/.icedash</code> (add <code>-s -- --purge</code> after <code>sh</code> to delete them too).</div>
       </details>
       <details>
         <summary>How does it update?</summary>
