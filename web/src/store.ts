@@ -2,10 +2,12 @@
 import { computed, reactive, ref } from 'vue'
 import { ApiError, keepStockVersion, token } from './api/client'
 import * as appsApi from './api/apps'
+import * as modsApi from './api/mods'
 import * as ice from './api/icedash'
 import * as zima from './api/zimaos'
 import { toApps, type App } from './lib/apps'
 import { host, setHost } from './lib/host'
+import { applyTheme } from './lib/theme'
 import { poll, type Poller } from './lib/poll'
 import { pickZone } from './lib/timezone'
 import { strings } from './strings'
@@ -20,7 +22,7 @@ export interface Toast {
   app?: string
 }
 
-export type WindowKind = 'about' | 'notifications' | 'icestore' | 'logs' | 'credentials' | 'app' | 'files' | 'terminal'
+export type WindowKind = 'settings' | 'notifications' | 'icestore' | 'logs' | 'credentials' | 'app' | 'files' | 'terminal'
 
 export interface Win {
   /** The kind, or kind:app for windows about one app. */
@@ -80,7 +82,7 @@ export const activeWindow = computed(() => [...windows].filter((w) => !w.min).so
 
 let topZ = 10
 const windowTitles: Record<WindowKind, (app: string) => string> = {
-  about: () => strings.aboutTitle,
+  settings: () => strings.settingsTitle,
   notifications: () => strings.notifications,
   icestore: () => strings.iceStoreTitle,
   logs: (a) => strings.logsTitle(a),
@@ -270,7 +272,7 @@ export async function refreshUpdate() {
  * restarts, reloads on the new version. Returns an error message to show, if any.
  */
 export async function startUpdate(): Promise<string | undefined> {
-  openWindow('about')
+  openSettings('about')
   if (!user.value?.admin) return strings.adminOnly
   const from = update.value?.current ?? version.value
   const before = await ice.health().catch(() => undefined)
@@ -351,6 +353,55 @@ export async function loadCatalog(force = false) {
   } catch (e) {
     catalogError.value = e instanceof Error ? e.message : String(e)
     handle(e)
+  }
+}
+
+// ---- Phase 4: Settings, themes and widgets ----
+export type SettingsPage = 'mods' | 'widgets' | 'about'
+export const settingsPage = ref<SettingsPage>('mods')
+/** Opens Settings on a page (the dock's Settings, the IceDash menu's About). */
+export function openSettings(page: SettingsPage = 'mods') {
+  settingsPage.value = page
+  openWindow('settings')
+}
+
+export const modsView = ref<modsApi.View>({ mods: [], prefs: { theme: '', panel: [] } })
+export const activeTheme = computed(() =>
+  modsView.value.mods.find((m) => m.kind === 'theme' && m.id === modsView.value.prefs.theme),
+)
+/** The user's widgets on the panel, top to bottom: installed and switched on. */
+export const panelWidgets = computed(() =>
+  modsView.value.prefs.panel
+    .map((id) => modsView.value.mods.find((m) => m.id === id && m.kind === 'widget' && m.enabled))
+    .filter((m): m is modsApi.Installed => !!m),
+)
+const THEME_KEY = 'icedash.theme'
+/** Takes a fresh view of the mods and applies the user's theme. */
+export function setModsView(v: modsApi.View) {
+  modsView.value = v
+  const t = activeTheme.value?.theme ?? null
+  applyTheme(t)
+  try {
+    if (t) localStorage.setItem(THEME_KEY, JSON.stringify(t))
+    else localStorage.removeItem(THEME_KEY)
+  } catch {
+    // no storage: the theme still applies once the mods load
+  }
+}
+export async function loadMods() {
+  try {
+    setModsView(await modsApi.list())
+  } catch (e) {
+    handle(e)
+  }
+}
+/** The last theme, applied before anything loads so a reload doesn't flash Ice. */
+export function applyRememberedTheme() {
+  try {
+    const raw = localStorage.getItem(THEME_KEY)
+    if (raw) applyTheme(JSON.parse(raw))
+  } catch {
+    // nothing remembered
   }
 }
 
@@ -469,6 +520,7 @@ export async function start() {
   zima.customSystem().then((c) => (zone.value = pickZone(c.timezone))).catch(() => undefined)
   zima.iceStoreAdded().then((v) => (iceStoreInZimaOS.value = v)).catch(() => undefined)
   ice.getSettings().then((s) => (autoCheck.value = s.auto_check)).catch(() => undefined)
+  void loadMods()
 
   pollers.push(poll(loadStats, 5000))
   pollers.push(poll(loadApps, 15000))

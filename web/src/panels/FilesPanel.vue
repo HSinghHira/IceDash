@@ -818,10 +818,10 @@ onBeforeUnmount(() => {
   color: var(--mut);
 }
 .place:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.05);
 }
 .place.on {
-  background: rgba(76, 201, 240, 0.12);
+  background: rgba(var(--ac-rgb), 0.12);
   color: var(--ac2);
 }
 .main {
@@ -850,7 +850,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 .ic:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(var(--fg-rgb), 0.07);
   color: var(--text);
 }
 .ic.on {
@@ -888,7 +888,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 .crumb:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.06);
 }
 .sep {
   color: var(--mut);
@@ -933,7 +933,7 @@ th {
   position: sticky;
   top: 0;
   padding: 7px 10px;
-  background: rgba(12, 16, 20, 0.96);
+  background: rgba(var(--surface-rgb), 0.96);
   color: var(--mut);
   font-size: 11.5px;
   font-weight: 600;
@@ -941,17 +941,17 @@ th {
 }
 td {
   padding: 6px 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid rgba(var(--fg-rgb), 0.04);
 }
 tbody tr {
   cursor: default;
 }
 tbody tr:hover {
-  background: rgba(255, 255, 255, 0.035);
+  background: rgba(var(--fg-rgb), 0.035);
 }
 tr.sel,
 tr.sel:hover {
-  background: rgba(76, 201, 240, 0.14);
+  background: rgba(var(--ac-rgb), 0.14);
 }
 tr.dim,
 .tile.dim {
@@ -1027,10 +1027,10 @@ tr.cut {
   min-width: 0;
 }
 .tile:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
 }
 .tile.sel {
-  background: rgba(76, 201, 240, 0.14);
+  background: rgba(var(--ac-rgb), 0.14);
 }
 .tile .label {
   max-width: 100%;
@@ -1041,7 +1041,7 @@ tr.cut {
   width: 56px;
   height: 56px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
 }
 .status {
   display: flex;
@@ -1060,7 +1060,7 @@ tr.cut {
   gap: 8px;
   border: 2px dashed var(--ac);
   border-radius: 14px;
-  background: rgba(7, 12, 16, 0.85);
+  background: rgba(var(--surface-rgb), 0.85);
   color: var(--ac2);
   font-size: 14px;
   pointer-events: none;
@@ -1081,7 +1081,7 @@ tr.cut {
 .bar {
   height: 5px;
   border-radius: 99px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.08);
   overflow: hidden;
 }
 .bar span {
@@ -1109,7 +1109,7 @@ tr.cut {
   padding: 6px 13px;
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
   color: var(--text);
   font: inherit;
   font-size: 13px;
@@ -1126,7 +1126,7 @@ tr.cut {
   font-weight: 600;
 }
 .pill.warn {
-  border-color: rgba(245, 184, 76, 0.4);
+  border-color: rgba(var(--warn-rgb), 0.4);
   color: var(--warn);
 }
 .menu {
@@ -1138,7 +1138,7 @@ tr.cut {
   list-style: none;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: rgba(16, 20, 24, 0.98);
+  background: rgba(var(--surface-rgb), 0.98);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
 }
 .menu button {
@@ -1157,7 +1157,7 @@ tr.cut {
   cursor: pointer;
 }
 .menu button:hover:not(:disabled) {
-  background: rgba(76, 201, 240, 0.12);
+  background: rgba(var(--ac-rgb), 0.12);
 }
 .menu button:disabled {
   opacity: 0.4;
@@ -1186,7 +1186,7 @@ tr.cut {
   padding: 18px;
   border-radius: 16px;
   border: 1px solid var(--line);
-  background: rgba(16, 20, 24, 0.98);
+  background: rgba(var(--surface-rgb), 0.98);
 }
 .box h3 {
   margin: 0;
@@ -1200,7 +1200,7 @@ tr.cut {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   color: var(--text);
   font: inherit;
 }

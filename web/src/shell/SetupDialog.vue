@@ -320,7 +320,7 @@ input {
   min-width: 0;
   padding: 10px 13px;
   border-radius: 11px;
-  border: 1px solid rgba(76, 201, 240, 0.35);
+  border: 1px solid rgba(var(--ac-rgb), 0.35);
   background: rgba(0, 0, 0, 0.35);
   color: var(--text);
   font-size: 13.5px;
@@ -332,7 +332,7 @@ input {
 input:focus {
   outline: none;
   border-color: var(--ac);
-  box-shadow: 0 0 0 3px rgba(76, 201, 240, 0.18);
+  box-shadow: 0 0 0 3px rgba(var(--ac-rgb), 0.18);
 }
 .mono {
   font-family: var(--font-mono);
@@ -361,13 +361,13 @@ input:focus {
   white-space: nowrap;
 }
 .chip.ok {
-  border-color: rgba(76, 201, 240, 0.45);
-  background: rgba(76, 201, 240, 0.1);
+  border-color: rgba(var(--ac-rgb), 0.45);
+  background: rgba(var(--ac-rgb), 0.1);
   color: var(--ac2);
 }
 .chip.need {
-  border-color: rgba(245, 184, 76, 0.5);
-  background: rgba(245, 184, 76, 0.1);
+  border-color: rgba(var(--warn-rgb), 0.5);
+  background: rgba(var(--warn-rgb), 0.1);
   color: var(--warn);
 }
 .with-btn {
@@ -381,7 +381,7 @@ input:focus {
   width: 40px;
   border-radius: 11px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   color: var(--text);
   cursor: pointer;
 }
@@ -398,7 +398,7 @@ input:focus {
   padding: 9px 13px;
   border-radius: 13px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.025);
+  background: rgba(var(--fg-rgb), 0.025);
 }
 .cell label,
 .cell-label {
@@ -443,7 +443,7 @@ input:focus {
 }
 .switch:hover,
 .switch:focus-visible {
-  background: rgba(76, 201, 240, 0.12);
+  background: rgba(var(--ac-rgb), 0.12);
 }
 .access {
   display: grid;
@@ -452,8 +452,8 @@ input:focus {
   padding: 9px 13px;
   list-style: none;
   border-radius: 12px;
-  background: rgba(245, 184, 76, 0.08);
-  border: 1px solid rgba(245, 184, 76, 0.3);
+  background: rgba(var(--warn-rgb), 0.08);
+  border: 1px solid rgba(var(--warn-rgb), 0.3);
   color: var(--warn);
   font-size: 12.5px;
 }
@@ -522,7 +522,7 @@ input:focus {
 }
 .btn.ghost {
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   color: var(--text);
 }
 .btn.primary {

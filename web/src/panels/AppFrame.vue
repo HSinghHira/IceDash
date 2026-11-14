@@ -55,7 +55,7 @@ iframe {
   display: grid;
   place-items: center;
   margin: 0;
-  background: rgba(12, 16, 20, 0.96);
+  background: rgba(var(--surface-rgb), 0.96);
   color: var(--mut);
   font-size: 13px;
   pointer-events: none;

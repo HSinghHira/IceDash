@@ -192,8 +192,8 @@ h4.kicker {
   color: var(--mut);
 }
 .chip.ok {
-  border-color: rgba(76, 201, 240, 0.45);
-  background: rgba(76, 201, 240, 0.1);
+  border-color: rgba(var(--ac-rgb), 0.45);
+  background: rgba(var(--ac-rgb), 0.1);
   color: var(--ac2);
 }
 .box {
@@ -203,7 +203,7 @@ h4.kicker {
   padding: 8px 8px 8px 13px;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
   min-width: 0;
 }
 .val {
@@ -231,12 +231,12 @@ h4.kicker {
   height: 32px;
   border-radius: 9px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   color: var(--text);
   cursor: pointer;
 }
 .sq:hover {
-  background: rgba(255, 255, 255, 0.09);
+  background: rgba(var(--fg-rgb), 0.09);
 }
 .group {
   display: grid;
@@ -254,8 +254,8 @@ h4.kicker {
   margin: 0;
   padding: 10px 13px;
   border-radius: 12px;
-  background: rgba(76, 201, 240, 0.08);
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(var(--ac-rgb), 0.08);
+  color: rgba(var(--fg-rgb), 0.9);
   font-size: 13px;
   line-height: 1.45;
 }

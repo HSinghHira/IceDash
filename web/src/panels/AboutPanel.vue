@@ -197,7 +197,7 @@ h3 {
   display: grid;
   gap: 8px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   font-size: 13px;
 }
 .steps li {
@@ -258,7 +258,7 @@ h3 {
   color: var(--text);
 }
 .ghost:hover:not(:disabled) {
-  border-color: rgba(76, 201, 240, 0.4);
+  border-color: rgba(var(--ac-rgb), 0.4);
 }
 button:disabled {
   opacity: 0.5;
@@ -284,7 +284,7 @@ button:disabled {
   height: 22px;
   margin-top: 1px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(var(--fg-rgb), 0.14);
   position: relative;
   transition: background 0.15s;
 }

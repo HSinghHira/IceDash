@@ -11,6 +11,17 @@
   --acd: #2fb4dc;
   --ink: #031219;
   --warn: #f5b84c;
+  /* The same colours as r, g, b, for rgba(var(--x-rgb), alpha). Overlays use
+     the text colour, so a light theme gets dark overlays by itself. */
+  --fg-rgb: 255, 255, 255;
+  --ac-rgb: 76, 201, 240;
+  --ac2-rgb: 165, 232, 255;
+  --warn-rgb: 245, 184, 76;
+  /* Windows, menus and the dock. */
+  --surface-rgb: 12, 16, 20;
+  /* The top bar, and the dimming behind open windows. */
+  --bar-rgb: 0, 0, 0;
+  --dim: rgba(0, 0, 0, 0.5);
   /* Window dots: close, minimize, maximize. */
   --dot-close: #ff6b6b;
   --dot-min: #f5b84c;
@@ -24,5 +35,5 @@
   --radius-tile: 16px;
   --radius-pill: 99px;
   --blur: blur(20px);
-  --glow: 0 0 30px rgba(76, 201, 240, 0.35);
+  --glow: 0 0 30px rgba(var(--ac-rgb), 0.35);
 }

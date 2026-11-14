@@ -153,7 +153,7 @@ onBeforeUnmount(() => teardown())
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  background: rgba(76, 201, 240, 0.12);
+  background: rgba(var(--ac-rgb), 0.12);
   color: var(--ac);
 }
 h3 {
@@ -171,7 +171,7 @@ input {
   padding: 11px 13px;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   color: var(--text);
   font: inherit;
 }

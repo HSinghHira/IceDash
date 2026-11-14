@@ -33,13 +33,13 @@ watch(
   display: block;
   object-fit: cover;
   border-radius: var(--radius-tile);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.06);
 }
 .app-letter {
   display: grid;
   place-items: center;
   border-radius: var(--radius-tile);
-  background: linear-gradient(145deg, rgba(76, 201, 240, 0.28), rgba(76, 201, 240, 0.08));
+  background: linear-gradient(145deg, rgba(var(--ac-rgb), 0.28), rgba(var(--ac-rgb), 0.08));
   border: 1px solid var(--line);
   color: var(--ac2);
   font-family: var(--font-display);

@@ -10,6 +10,7 @@ import {
   appUpdates,
   notesOpen,
   openIceStore,
+  openSettings,
   openWindow,
   panelOpen,
   refreshUpdate,
@@ -45,7 +46,7 @@ function close() {
 }
 async function checkForUpdates() {
   close()
-  openWindow('about')
+  openSettings('about')
   if (user.value?.admin) {
     await checkUpdate().catch(() => undefined)
     await refreshUpdate()
@@ -83,7 +84,7 @@ onBeforeUnmount(() => {
           <span>{{ strings.appName }}</span>
         </button>
         <div v-if="menu === 'icedash'" class="menu" role="menu">
-          <button role="menuitem" type="button" @click="(close(), openWindow('about'))">{{ strings.menuAbout }}</button>
+          <button role="menuitem" type="button" @click="(close(), openSettings('about'))">{{ strings.menuAbout }}</button>
           <button role="menuitem" type="button" @click="checkForUpdates">{{ strings.menuCheck }}</button>
           <a role="menuitem" :href="dashboardUrl()" target="_blank" rel="noopener" @click="close">{{ strings.menuDashboard(host.name) }}</a>
           <hr />
@@ -101,7 +102,7 @@ onBeforeUnmount(() => {
         v-if="updateCount"
         class="badge mono"
         type="button"
-        @click="updateWaiting || !appUpdates.length ? openWindow('about') : openIceStore('updates')"
+        @click="updateWaiting || !appUpdates.length ? openSettings('about') : openIceStore('updates')"
       >
         <Icon name="refresh" :size="15" />
         <span class="hide-sm">{{ strings.updatesBadge(updateCount) }}</span>
@@ -144,7 +145,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 12px;
   padding: 0 12px;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(var(--bar-rgb), 0.55);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
   border-bottom: 1px solid var(--line);
@@ -183,7 +184,7 @@ button {
 }
 .brand:hover,
 .brand[aria-expanded='true'] {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(var(--fg-rgb), 0.07);
 }
 .active {
   font-weight: 600;
@@ -213,7 +214,7 @@ button {
   padding: 3px 8px;
 }
 .badge:hover {
-  background: rgba(76, 201, 240, 0.12);
+  background: rgba(var(--ac-rgb), 0.12);
 }
 .bell {
   position: relative;
@@ -224,7 +225,7 @@ button {
   border-radius: 8px;
 }
 .bell:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(var(--fg-rgb), 0.07);
 }
 .dot {
   position: absolute;
@@ -252,7 +253,7 @@ button {
   padding: 4px 6px;
 }
 .clock:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(var(--fg-rgb), 0.07);
 }
 .menu-wrap {
   position: relative;
@@ -264,7 +265,7 @@ button {
   min-width: 230px;
   padding: 6px;
   display: grid;
-  background: rgba(14, 18, 22, 0.92);
+  background: rgba(var(--surface-rgb), 0.92);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
   border: 1px solid var(--line);
@@ -288,7 +289,7 @@ button {
 .menu a:hover,
 .menu button:focus-visible,
 .menu a:focus-visible {
-  background: rgba(76, 201, 240, 0.14);
+  background: rgba(var(--ac-rgb), 0.14);
 }
 .menu hr {
   border: 0;

@@ -5,6 +5,10 @@ import '@fontsource-variable/inter/wght.css'
 import '@fontsource/unbounded/latin-800.css'
 import './styles/tokens.css'
 import './styles/base.css'
+import { applyRememberedTheme } from './store'
+
+// The last theme first, so a reload doesn't flash Ice.
+applyRememberedTheme()
 
 createApp(App).mount('#app')
 

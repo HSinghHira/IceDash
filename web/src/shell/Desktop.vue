@@ -2,13 +2,13 @@
 // Mock-up screen 1: top bar, desktop icons on the left, the widget panel on
 // the right, search and dock at the bottom, and IceDash's own windows on top.
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import AboutPanel from '../panels/AboutPanel.vue'
 import AppFrame from '../panels/AppFrame.vue'
 import CredentialsPanel from '../panels/CredentialsPanel.vue'
 import FilesPanel from '../panels/FilesPanel.vue'
 import IceStorePanel from '../panels/IceStorePanel.vue'
 import LogsPanel from '../panels/LogsPanel.vue'
 import NotificationsPanel from '../panels/NotificationsPanel.vue'
+import SettingsPanel from '../panels/SettingsPanel.vue'
 import TerminalPanel from '../panels/TerminalPanel.vue'
 import { firstLaunchFor, notesOpen, offline, panelOpen, setupFor, uninstallFor, updating, windows, type WindowKind } from '../store'
 import { strings } from '../strings'
@@ -23,7 +23,7 @@ import Toasts from './Toasts.vue'
 import TopBar from './TopBar.vue'
 import WidgetPanel from './WidgetPanel.vue'
 
-const widths: Record<WindowKind, number> = { about: 440, notifications: 380, icestore: 920, logs: 700, credentials: 520, app: 1080, files: 980, terminal: 820 }
+const widths: Record<WindowKind, number> = { settings: 1040, notifications: 380, icestore: 920, logs: 700, credentials: 520, app: 1080, files: 980, terminal: 820 }
 
 /** Something is open: the rest fades so it stands out. */
 const dimmed = computed(() => notesOpen.value || windows.some((w) => !w.min))
@@ -56,7 +56,7 @@ onBeforeUnmount(() => clearInterval(tick))
       <div v-if="dimmed" class="dim" :class="{ over: notesOpen }" aria-hidden="true" />
     </Transition>
     <AppWindow v-for="(w, i) in windows" :key="w.id" :win="w" :index="i" :width="widths[w.kind]">
-      <AboutPanel v-if="w.kind === 'about'" />
+      <SettingsPanel v-if="w.kind === 'settings'" />
       <IceStorePanel v-else-if="w.kind === 'icestore'" />
       <LogsPanel v-else-if="w.kind === 'logs' && w.app" :name="w.app" />
       <CredentialsPanel v-else-if="w.kind === 'credentials' && w.app" :name="w.app" :win-id="w.id" />
@@ -87,7 +87,7 @@ onBeforeUnmount(() => clearInterval(tick))
   position: fixed;
   inset: 0;
   z-index: 10;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--dim);
   backdrop-filter: blur(2px) saturate(0.7);
   -webkit-backdrop-filter: blur(2px) saturate(0.7);
   pointer-events: none;
@@ -107,7 +107,7 @@ onBeforeUnmount(() => clearInterval(tick))
   margin: 8px auto 0;
   padding: 6px 14px;
   border-radius: var(--radius-pill);
-  background: rgba(245, 184, 76, 0.14);
+  background: rgba(var(--warn-rgb), 0.14);
   color: var(--warn);
   font-size: 13px;
 }

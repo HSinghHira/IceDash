@@ -6,7 +6,7 @@ import Icon from '../components/Icon.vue'
 import type { IconName } from '../lib/icons'
 import { desktopLaunchers, dockEnd } from '../lib/launchers'
 import { search } from '../lib/search'
-import { apps, iceStoreInZimaOS, openApp, openFiles, openIceStore, openTerminal, searchOpen, user } from '../store'
+import { apps, iceStoreInZimaOS, openApp, openFiles, openIceStore, openSettings, openTerminal, searchOpen, user } from '../store'
 import { strings } from '../strings'
 
 interface Hit {
@@ -51,6 +51,7 @@ function go(h: Hit | undefined) {
   else if (h.id === 'l:files') openFiles()
   else if (h.id === 'l:trash') openFiles('trash')
   else if (h.id === 'l:terminal') openTerminal()
+  else if (h.id === 'l:settings') openSettings()
   else window.open(h.url, '_blank', 'noopener')
 }
 function onInputKey(e: KeyboardEvent) {
@@ -161,11 +162,11 @@ kbd {
 .box {
   width: min(560px, 100%);
   border-radius: 20px;
-  background: rgba(14, 18, 22, 0.94);
+  background: rgba(var(--surface-rgb), 0.94);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
   border: 1px solid var(--line);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(76, 201, 240, 0.08);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(var(--ac-rgb), 0.08);
   overflow: hidden;
 }
 .field {
@@ -202,7 +203,7 @@ kbd {
   cursor: pointer;
 }
 .results li.on {
-  background: rgba(76, 201, 240, 0.14);
+  background: rgba(var(--ac-rgb), 0.14);
 }
 .results .ic {
   display: grid;
@@ -211,7 +212,7 @@ kbd {
   height: 30px;
   border-radius: 9px;
   color: var(--ac2);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.06);
 }
 .results .ext {
   margin-left: auto;

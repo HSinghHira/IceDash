@@ -105,7 +105,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   border-radius: 18px;
-  background: rgba(14, 18, 22, 0.95);
+  background: rgba(var(--surface-rgb), 0.95);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
   border: 1px solid var(--line);
@@ -137,7 +137,7 @@ h2 {
 .count {
   padding: 1px 8px;
   border-radius: var(--radius-pill);
-  background: rgba(76, 201, 240, 0.15);
+  background: rgba(var(--ac-rgb), 0.15);
   color: var(--ac2);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -160,7 +160,7 @@ h2 {
   cursor: pointer;
 }
 .tools button:hover:not(:disabled) {
-  background: rgba(76, 201, 240, 0.12);
+  background: rgba(var(--ac-rgb), 0.12);
   color: var(--ac2);
 }
 .tools button:disabled {
@@ -181,10 +181,10 @@ h2 {
 li {
   position: relative;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.035);
+  background: rgba(var(--fg-rgb), 0.035);
 }
 li.unread {
-  background: rgba(76, 201, 240, 0.07);
+  background: rgba(var(--ac-rgb), 0.07);
 }
 li.unread::before {
   content: '';

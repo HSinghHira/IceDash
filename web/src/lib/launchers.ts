@@ -12,7 +12,7 @@ export interface Launcher {
   icon: IconName
   url: string
   /** Opens IceDash's own window instead of url. */
-  open?: 'files' | 'trash' | 'terminal'
+  open?: 'files' | 'trash' | 'terminal' | 'settings'
 }
 
 /** The stock dashboard: App Store and Settings are popups there with no URL of their own. */
@@ -44,14 +44,19 @@ export function desktopLaunchers(_where: Where, opts: { admin: boolean; iceStore
 
 /** Settings and Trash, at the end of the dock. */
 export function dockEnd(opts: { admin: boolean }): Launcher[] {
-  const list: Launcher[] = [{ id: 'settings', name: strings.settings, icon: 'settings', url: dashboardUrl() }]
+  // IceDash's own Settings (Phase 4); the stock settings are one click away inside it.
+  const list: Launcher[] = [{ id: 'settings', name: strings.settings, icon: 'settings', url: '', open: 'settings' }]
   if (opts.admin) list.push({ id: 'trash', name: strings.trash, icon: 'trash', url: '', open: 'trash' })
   return list
 }
 
 /** Runs a launcher that opens one of IceDash's windows; false: follow its url. */
-export function openLauncher(l: Launcher, open: { files: (view?: 'files' | 'trash') => void; terminal: () => void }): boolean {
-  if (l.open === 'files') open.files('files')
+export function openLauncher(
+  l: Launcher,
+  open: { files: (view?: 'files' | 'trash') => void; terminal: () => void; settings: () => void },
+): boolean {
+  if (l.open === 'settings') open.settings()
+  else if (l.open === 'files') open.files('files')
   else if (l.open === 'trash') open.files('trash')
   else if (l.open === 'terminal') open.terminal()
   else return false

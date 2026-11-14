@@ -44,10 +44,10 @@ async function act(id: number, kind: string, app?: string) {
   gap: 12px;
   padding: 14px 12px 14px 16px;
   border-radius: 18px;
-  background: rgba(14, 18, 22, 0.94);
+  background: rgba(var(--surface-rgb), 0.94);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
-  border: 1px solid rgba(76, 201, 240, 0.3);
+  border: 1px solid rgba(var(--ac-rgb), 0.3);
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
   animation: rise 0.25s ease;
 }
@@ -85,7 +85,7 @@ async function act(id: number, kind: string, app?: string) {
   cursor: pointer;
 }
 .x:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.08);
 }
 @keyframes rise {
   from {

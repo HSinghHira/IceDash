@@ -1,6 +1,6 @@
 // Dev only: opens a Phase 2 screen once the desktop has loaded (see main.ts).
 import { install } from './api/apps'
-import { apps, firstLaunchFor, menu, notesOpen, openIceStore, openWindow, setupFor, trackJob } from './store'
+import { apps, firstLaunchFor, menu, notesOpen, openIceStore, openSettings, openWindow, setupFor, trackJob } from './store'
 
 export function run(demo: string) {
   const wait = setInterval(() => {
@@ -18,10 +18,10 @@ export function run(demo: string) {
     if (demo === 'creds') openWindow('credentials', { name: 'appflowy', title: 'AppFlowy' })
     if (demo === 'first') firstLaunchFor.value = 'yuvomi'
     if (demo === 'notes') notesOpen.value = true
-    if (demo === 'about') openWindow('about')
+    if (demo === 'about') openSettings('about')
     if (demo === 'app') {
       openWindow('app', { name: 'homeassistant', title: 'Home Assistant' })
-      openWindow('about')
+      openSettings('about')
     }
   }, 200)
 }

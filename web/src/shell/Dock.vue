@@ -7,7 +7,7 @@ import AppIcon from '../components/AppIcon.vue'
 import Icon from '../components/Icon.vue'
 import type { IconName } from '../lib/icons'
 import { desktopLaunchers, dockEnd, openLauncher, type Launcher } from '../lib/launchers'
-import { activeWindow, apps, focusWindow, iceStoreInZimaOS, openFiles, openIceStore, openTerminal, toggleMin, user, windows, type Win } from '../store'
+import { activeWindow, apps, focusWindow, iceStoreInZimaOS, openFiles, openIceStore, openSettings, openTerminal, toggleMin, user, windows, type Win } from '../store'
 import { strings } from '../strings'
 import SearchBar from './SearchBar.vue'
 
@@ -19,7 +19,7 @@ const end = computed(() => dockEnd({ admin: admin.value }))
 function launch(e: MouseEvent, l: Launcher) {
   if (l.open) {
     e.preventDefault()
-    openLauncher(l, { files: openFiles, terminal: openTerminal })
+    openLauncher(l, { files: openFiles, terminal: openTerminal, settings: () => openSettings() })
     return
   }
   if (l.id !== 'icestore' || e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return
@@ -28,7 +28,6 @@ function launch(e: MouseEvent, l: Launcher) {
 }
 
 const kindIcon: Record<string, IconName> = {
-  about: 'info',
   notifications: 'bell',
   icestore: 'snowflake',
   logs: 'lines',
@@ -36,6 +35,7 @@ const kindIcon: Record<string, IconName> = {
   app: 'app',
   files: 'folder',
   terminal: 'terminal',
+  settings: 'settings',
 }
 const appOf = (w: Win) => apps.value.find((a) => a.id === w.app)
 
@@ -98,7 +98,7 @@ function pick(w: Win) {
   overflow-x: auto;
   padding: 9px 11px 11px;
   border-radius: 20px;
-  background: rgba(16, 20, 24, 0.6);
+  background: rgba(var(--surface-rgb), 0.6);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
   border: 1px solid var(--line);
@@ -131,7 +131,7 @@ function pick(w: Win) {
   width: 44px;
   height: 44px;
   border-radius: 13px;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  background: linear-gradient(160deg, rgba(var(--fg-rgb), 0.07), rgba(var(--fg-rgb), 0.02));
   border: 1px solid var(--line);
   color: var(--ac2);
 }

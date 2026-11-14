@@ -85,11 +85,11 @@ describe('launchers', () => {
     expect(l.map((x) => x.open)).toEqual(['files', undefined, undefined, 'terminal'])
     expect(l[1]!.url).toBe('https://icestore.hsinghhira.me')
     expect(l[2]!.url).toBe('/#/')
-    expect(dockEnd({ admin: true }).map((x) => x.open ?? x.url)).toEqual(['/#/', 'trash'])
+    expect(dockEnd({ admin: true }).map((x) => x.open)).toEqual(['settings', 'trash'])
     const seen: string[] = []
-    const open = { files: (v?: string) => seen.push('files:' + v), terminal: () => seen.push('terminal') }
+    const open = { files: (v?: string) => seen.push('files:' + v), terminal: () => seen.push('terminal'), settings: () => seen.push('settings') }
     for (const x of [...l, ...dockEnd({ admin: true })]) openLauncher(x, open)
-    expect(seen).toEqual(['files:files', 'terminal', 'files:trash'])
+    expect(seen).toEqual(['files:files', 'terminal', 'settings', 'files:trash'])
   })
   it('gives members no Files, Terminal or Trash, and opens IceStore in ZimaOS once added', () => {
     const l = desktopLaunchers(where, { admin: false, iceStoreInZimaOS: true })
@@ -102,7 +102,7 @@ describe('launchers', () => {
     try {
       const l = desktopLaunchers(where, { admin: true, iceStoreInZimaOS: true })
       expect(l.filter((x) => !x.open).map((x) => x.url)).toEqual(['/casaos/#/', '/casaos/#/'])
-      expect(dockEnd({ admin: true })[0]!.url).toBe('/casaos/#/')
+      expect(dockEnd({ admin: true })[0]!.open).toBe('settings')
     } finally {
       setHost({ host: 'zimaos', host_name: 'ZimaOS', stock_url: '/' })
     }
@@ -168,5 +168,20 @@ describe('setup helpers', () => {
     expect(html).toContain('<a href="https://x.y/?a=1&amp;b=2"')
     expect(html).not.toContain('href="javascript')
     expect(html).toContain('<ol><li>one</li><li>two</li></ol>')
+  })
+})
+
+describe('themes', () => {
+  it('turns eight colours into every token, with overlays from the text colour', async () => {
+    const { tokens, rgb } = await import('./theme')
+    expect(rgb('#4cc9f0')).toBe('76, 201, 240')
+    const paper = tokens({
+      scheme: 'light',
+      colors: { bg: '#eef2f7', surface: '#ffffff', text: '#0d1726', accent: '#2f6fec', accent2: '#1d4ed8', accentDark: '#2459c7', ink: '#ffffff', warn: '#b45309' },
+    })
+    expect(paper['--fg-rgb']).toBe('13, 23, 38') // dark overlays on a light theme
+    expect(paper['--surface-rgb']).toBe('255, 255, 255')
+    expect(paper['--ac-rgb']).toBe('47, 111, 236')
+    expect(paper['--mut']).toBe('rgba(13, 23, 38, 0.6)')
   })
 })

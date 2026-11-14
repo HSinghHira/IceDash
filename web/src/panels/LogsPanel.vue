@@ -85,7 +85,7 @@ async function copyAll() {
   padding: 7px 14px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   color: var(--text);
   font: inherit;
   font-size: 13px;
@@ -104,7 +104,7 @@ async function copyAll() {
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(var(--fg-rgb), 0.85);
 }
 .err {
   margin: 0;

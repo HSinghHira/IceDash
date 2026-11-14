@@ -17,7 +17,7 @@ let drag: { dx: number; dy: number } | null = null
 
 const isApp = computed(() => props.win.kind === 'app')
 /** Apps, Files and the Terminal fill a tall window edge to edge. */
-const full = computed(() => isApp.value || props.win.kind === 'files' || props.win.kind === 'terminal')
+const full = computed(() => isApp.value || props.win.kind === 'files' || props.win.kind === 'terminal' || props.win.kind === 'settings')
 const appUrl = computed(() => (isApp.value ? apps.value.find((a) => a.id === props.win.app)?.url : undefined))
 
 onMounted(() => {
@@ -122,8 +122,8 @@ function towardDock(node: Element) {
   flex-direction: column;
   border-radius: 18px;
   background:
-    radial-gradient(120% 60% at 100% 0%, rgba(76, 201, 240, 0.12), transparent 55%),
-    rgba(12, 16, 20, 0.92);
+    radial-gradient(120% 60% at 100% 0%, rgba(var(--ac-rgb), 0.12), transparent 55%),
+    rgba(var(--surface-rgb), 0.92);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--line);
@@ -192,7 +192,7 @@ h2 {
   color: var(--mut);
 }
 .tab:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.08);
   color: var(--text);
 }
 .body {

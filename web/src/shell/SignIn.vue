@@ -102,7 +102,7 @@ input {
   padding: 11px 13px;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   color: var(--text);
   font: inherit;
   font-size: 15px;

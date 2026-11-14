@@ -114,7 +114,7 @@ async function finish(open: boolean) {
 }
 .logo {
   justify-self: center;
-  box-shadow: 0 0 60px rgba(76, 201, 240, 0.18);
+  box-shadow: 0 0 60px rgba(var(--ac-rgb), 0.18);
 }
 .kicker {
   margin: 0;
@@ -158,7 +158,7 @@ h2 {
   padding: 8px 8px 8px 13px;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
   min-width: 0;
 }
 .val {
@@ -186,7 +186,7 @@ h2 {
   height: 32px;
   border-radius: 9px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   color: var(--text);
   cursor: pointer;
 }
@@ -197,7 +197,7 @@ h2 {
   margin: 0;
   padding: 10px 13px;
   border-radius: 12px;
-  background: rgba(76, 201, 240, 0.08);
+  background: rgba(var(--ac-rgb), 0.08);
   text-align: left;
   font-size: 13px;
   line-height: 1.45;
@@ -237,7 +237,7 @@ li {
   width: 23px;
   height: 23px;
   border-radius: 50%;
-  background: rgba(76, 201, 240, 0.12);
+  background: rgba(var(--ac-rgb), 0.12);
   color: var(--ac2);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -279,7 +279,7 @@ li {
 }
 .btn.ghost {
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
   color: var(--text);
 }
 .btn.primary {

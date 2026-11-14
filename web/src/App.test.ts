@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App.vue'
-import { openWindow, stop, update, updating, waitForNewVersion } from './store'
+import { openSettings, stop, update, updating, waitForNewVersion } from './store'
 
 const enc = (o: object) => btoa(JSON.stringify(o)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_')
 const adminToken = `${enc({ alg: 'ES256' })}.${enc({ username: 'Hira', role: 'admin', id: 1 })}.sig`
@@ -182,12 +182,12 @@ describe('Desktop layout', () => {
     stubFetch()
     const w = mount(App, { attachTo: document.body })
     await flushPromises()
-    openWindow('about')
+    openSettings('about')
     await flushPromises()
     const win = () => w.find('section.win')
     await win().find('.dot.min').trigger('click')
     expect(win().isVisible()).toBe(false)
-    await w.find('[data-dock-win="about"]').trigger('click')
+    await w.find('[data-dock-win="settings"]').trigger('click')
     expect(win().isVisible()).toBe(true)
     await win().find('.dot.max').trigger('click')
     expect(win().classes()).toContain('max')

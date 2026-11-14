@@ -17,6 +17,7 @@ import (
 	"github.com/HSinghHira/IceDash/internal/apps"
 	"github.com/HSinghHira/IceDash/internal/catalog"
 	"github.com/HSinghHira/IceDash/internal/files"
+	"github.com/HSinghHira/IceDash/internal/mods"
 	"github.com/HSinghHira/IceDash/internal/notify"
 	"github.com/HSinghHira/IceDash/internal/session"
 	"github.com/HSinghHira/IceDash/internal/settings"
@@ -74,6 +75,9 @@ type Server struct {
 	// Phase 3c: the Files app and the Terminal (nil: not offered).
 	Files *files.Service
 	Term  *term.Service
+
+	// Phase 4: themes and widgets (nil: not offered).
+	Mods *mods.Service
 }
 
 // Health is the answer of GET /v2/icedash/health. The updater and the UI poll
@@ -110,6 +114,7 @@ func (s *Server) Handler() http.Handler {
 
 	s.appRoutes(mux, user, admin)
 	s.fileRoutes(mux, admin)
+	s.modRoutes(mux, user, admin)
 
 	// Anything else under the route still needs a session first, so an
 	// unknown path tells nothing to someone who isn't signed in.

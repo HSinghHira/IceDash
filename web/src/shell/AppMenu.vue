@@ -179,7 +179,7 @@ onBeforeUnmount(() => {
   min-width: 200px;
   padding: 6px;
   border-radius: 14px;
-  background: rgba(14, 18, 22, 0.97);
+  background: rgba(var(--surface-rgb), 0.97);
   border: 1px solid var(--line);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7);
   backdrop-filter: var(--blur);
@@ -249,12 +249,12 @@ onBeforeUnmount(() => {
 .item:hover,
 .item:focus-visible {
   outline: none;
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--fg-rgb), 0.06);
 }
 .item.accent:hover,
 .item.accent:focus-visible {
-  border-color: rgba(76, 201, 240, 0.45);
-  background: rgba(76, 201, 240, 0.12);
+  border-color: rgba(var(--ac-rgb), 0.45);
+  background: rgba(var(--ac-rgb), 0.12);
 }
 .more {
   margin-left: auto;

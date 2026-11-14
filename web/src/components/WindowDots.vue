@@ -73,7 +73,7 @@ const emit = defineEmits<{ close: []; min: []; max: [] }>()
   background: var(--dot-max);
 }
 .dot:disabled {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(var(--fg-rgb), 0.18);
   cursor: default;
 }
 </style>

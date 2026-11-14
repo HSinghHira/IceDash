@@ -63,8 +63,8 @@ function backdrop(e: MouseEvent) {
   padding: 38px 24px 20px;
   border-radius: 20px;
   background:
-    radial-gradient(110% 55% at 100% 0%, rgba(76, 201, 240, 0.12), transparent 55%),
-    rgba(12, 16, 20, 0.96);
+    radial-gradient(110% 55% at 100% 0%, rgba(var(--ac-rgb), 0.12), transparent 55%),
+    rgba(var(--surface-rgb), 0.96);
   border: 1px solid var(--line);
   box-shadow: 0 40px 120px rgba(0, 0, 0, 0.75);
   outline: none;

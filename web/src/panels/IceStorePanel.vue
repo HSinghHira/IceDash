@@ -255,11 +255,11 @@ const views = computed(() => [
 }
 .cat:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
 }
 .cat.on {
   color: var(--text);
-  background: rgba(76, 201, 240, 0.12);
+  background: rgba(var(--ac-rgb), 0.12);
 }
 .n {
   font-family: var(--font-mono);
@@ -293,7 +293,7 @@ const views = computed(() => [
   padding: 0 16px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
   color: var(--mut);
 }
 .search input {
@@ -314,7 +314,7 @@ const views = computed(() => [
   padding: 0 12px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(var(--fg-rgb), 0.03);
   color: var(--text);
   font: inherit;
   font-size: 12.5px;
@@ -356,8 +356,8 @@ const views = computed(() => [
   transition: border-color 0.15s, background 0.15s;
 }
 .card:hover {
-  border-color: rgba(76, 201, 240, 0.35);
-  background: rgba(76, 201, 240, 0.04);
+  border-color: rgba(var(--ac-rgb), 0.35);
+  background: rgba(var(--ac-rgb), 0.04);
 }
 .card-hit {
   position: absolute;
@@ -423,7 +423,7 @@ const views = computed(() => [
   padding: 6px 16px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--fg-rgb), 0.05);
   color: var(--text);
   font: inherit;
   font-size: 12.5px;
@@ -497,7 +497,7 @@ h4 {
   flex: none;
 }
 .md {
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(var(--fg-rgb), 0.82);
   font-size: 13.5px;
   line-height: 1.6;
 }
@@ -509,7 +509,7 @@ h4 {
   font-size: 0.9em;
   padding: 1px 5px;
   border-radius: 5px;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(var(--fg-rgb), 0.07);
 }
 .md :deep(ul),
 .md :deep(ol) {

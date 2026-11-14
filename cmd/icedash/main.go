@@ -36,6 +36,7 @@ import (
 	"github.com/HSinghHira/IceDash/internal/creds"
 	"github.com/HSinghHira/IceDash/internal/files"
 	"github.com/HSinghHira/IceDash/internal/host"
+	"github.com/HSinghHira/IceDash/internal/mods"
 	"github.com/HSinghHira/IceDash/internal/notify"
 	"github.com/HSinghHira/IceDash/internal/session"
 	"github.com/HSinghHira/IceDash/internal/settings"
@@ -162,6 +163,14 @@ func main() {
 		// Phase 3c: Files under /DATA and the Terminal, admins only.
 		Files: &files.Service{Root: "/DATA"},
 		Term:  &term.Service{Check: term.GatewayPassword("http://127.0.0.1"), Dir: "/DATA"},
+		// Phase 4: themes and widgets from IceDash-Mods or GitHub.
+		Mods: &mods.Service{
+			Dir:      filepath.Join(state.Dir, "mods"),
+			State:    filepath.Join(state.Dir, "mods.json"),
+			Cache:    filepath.Join(state.Dir, "mods-catalog.json"),
+			HTTP:     &http.Client{Timeout: 60 * time.Second},
+			AllowURL: update.AllowedURL,
+		},
 	}
 	if kind == host.CasaOS {
 		srv.StockURL = casa.StockPath

@@ -123,7 +123,7 @@ function cancel() {
 .item:hover .tile,
 .item:focus-visible .tile {
   transform: translateY(-2px);
-  box-shadow: 0 10px 28px rgba(76, 201, 240, 0.18);
+  box-shadow: 0 10px 28px rgba(var(--ac-rgb), 0.18);
 }
 .item:focus-visible {
   outline-offset: 0;

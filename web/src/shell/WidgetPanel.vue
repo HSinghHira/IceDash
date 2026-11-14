@@ -1,17 +1,55 @@
 <script setup lang="ts">
-// The four built-in widgets (PLAN.md): Clock, System, Network and Apps.
-// Not configurable in Phase 1; Phase 4 turns them into widgets of the SDK.
-import { computed } from 'vue'
+// The four built-in widgets (PLAN.md): Clock, System, Network and Apps, then
+// the user's own widgets (Phase 4), each in its sandbox. Widgets dragged from
+// Settings drop here; they can be reordered and taken off.
+import { computed, ref } from 'vue'
+import { setPanel } from '../api/mods'
+import WidgetFrame from '../components/WidgetFrame.vue'
 import Icon from '../components/Icon.vue'
 import { counts } from '../lib/apps'
 import { duration, pct, speed, usedOfTotal } from '../lib/format'
 import { dashboardUrl } from '../lib/host'
 import { ICESTORE_SITE } from '../lib/launchers'
 import { cityOf, clockParts } from '../lib/timezone'
-import { appUpdates, apps, iceStoreInZimaOS, openIceStore, sys, util, zone } from '../store'
+import { appUpdates, apps, iceStoreInZimaOS, modsView, openIceStore, panelWidgets, setModsView, sys, toast, util, zone } from '../store'
 import { strings } from '../strings'
 
 const props = defineProps<{ now: Date }>()
+
+// ---- the user's widgets ----
+const ADD = 'application/x-icedash-widget'
+const MOVE = 'application/x-icedash-panel'
+const dropping = ref(false)
+const accepts = (e: DragEvent) => !!e.dataTransfer && (e.dataTransfer.types.includes(ADD) || e.dataTransfer.types.includes(MOVE))
+async function savePanel(ids: string[]) {
+  try {
+    setModsView(await setPanel(ids))
+  } catch (e) {
+    toast({ title: strings.settingsWidgets, body: e instanceof Error ? e.message : String(e) })
+  }
+}
+function over(e: DragEvent) {
+  if (!accepts(e)) return
+  e.preventDefault()
+  dropping.value = true
+}
+function drop(e: DragEvent, before?: string) {
+  dropping.value = false
+  if (!accepts(e)) return
+  e.preventDefault()
+  const id = e.dataTransfer!.getData(ADD) || e.dataTransfer!.getData(MOVE)
+  if (!id) return
+  const ids = modsView.value.prefs.panel.filter((x) => x !== id)
+  const at = before ? ids.indexOf(before) : -1
+  if (at >= 0) ids.splice(at, 0, id)
+  else ids.push(id)
+  void savePanel(ids)
+}
+function lift(e: DragEvent, id: string) {
+  e.dataTransfer?.setData(MOVE, id)
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+}
+const takeOff = (id: string) => savePanel(modsView.value.prefs.panel.filter((x) => x !== id))
 
 const clock = computed(() => clockParts(props.now, zone.value))
 const city = computed(() => cityOf(zone.value))
@@ -68,7 +106,7 @@ const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICEST
 </script>
 
 <template>
-  <aside class="panel" aria-label="Widgets">
+  <aside class="panel" aria-label="Widgets" @dragover="over" @dragleave.self="dropping = false" @drop="drop($event)">
     <section class="card clock">
       <p class="time" aria-live="off">
         <span class="hm">{{ clock.time }}</span><span class="ampm">{{ clock.ampm }}</span>
@@ -132,6 +170,22 @@ const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICEST
         <span class="go">{{ strings.open }}</span>
       </a>
     </section>
+
+    <section
+      v-for="w in panelWidgets"
+      :key="w.id"
+      class="card wcard"
+      draggable="true"
+      :aria-label="w.name"
+      @dragstart="lift($event, w.id)"
+      @drop.stop="drop($event, w.id)"
+    >
+      <button type="button" class="off" :title="strings.removeFromPanel" :aria-label="`${strings.removeFromPanel}: ${w.name}`" @click="takeOff(w.id)">
+        <Icon name="close" :size="13" />
+      </button>
+      <WidgetFrame :mod="w" />
+    </section>
+    <p v-if="dropping" class="dropzone">{{ strings.dropWidget }}</p>
   </aside>
 </template>
 
@@ -141,15 +195,49 @@ const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICEST
   gap: 16px;
   align-content: start;
 }
+.card.wcard {
+  padding: 0;
+  overflow: hidden;
+}
+.off {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 7px;
+  background: rgba(var(--surface-rgb), 0.85);
+  color: var(--mut);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.wcard:hover .off,
+.off:focus-visible {
+  opacity: 1;
+}
+.dropzone {
+  margin: 0;
+  padding: 18px;
+  border: 2px dashed var(--ac);
+  border-radius: var(--radius-card);
+  color: var(--ac2);
+  text-align: center;
+  font-size: 13.5px;
+}
 .card {
   position: relative;
   padding: 18px 20px;
   border-radius: var(--radius-card);
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  background: linear-gradient(160deg, rgba(var(--fg-rgb), 0.05), rgba(var(--fg-rgb), 0.02));
   border: 1px solid var(--line);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 1px 0 rgba(var(--fg-rgb), 0.04);
 }
 header {
   display: flex;
@@ -214,7 +302,7 @@ header {
 .bar {
   height: 5px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--fg-rgb), 0.08);
   overflow: hidden;
 }
 .bar span {
@@ -222,7 +310,7 @@ header {
   height: 100%;
   border-radius: inherit;
   background: var(--ac);
-  box-shadow: 0 0 10px rgba(76, 201, 240, 0.5);
+  box-shadow: 0 0 10px rgba(var(--ac-rgb), 0.5);
   transition: width 0.6s ease;
 }
 .speeds {
@@ -246,7 +334,7 @@ header {
   stroke: var(--ac);
 }
 .spark .up {
-  stroke: rgba(165, 232, 255, 0.35);
+  stroke: rgba(var(--ac2-rgb), 0.35);
 }
 .counts {
   display: grid;
@@ -259,7 +347,7 @@ header {
   gap: 2px;
   padding: 10px 4px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(var(--fg-rgb), 0.04);
 }
 .count strong {
   font-family: var(--font-display);
@@ -272,13 +360,13 @@ header {
   color: var(--mut);
 }
 .count.run {
-  background: rgba(76, 201, 240, 0.09);
+  background: rgba(var(--ac-rgb), 0.09);
 }
 .count.run strong {
   color: var(--ac2);
 }
 .count.start {
-  background: rgba(245, 184, 76, 0.09);
+  background: rgba(var(--warn-rgb), 0.09);
 }
 .count.start strong {
   color: var(--warn);
@@ -290,7 +378,7 @@ header {
   margin-top: 12px;
   padding: 10px 14px;
   border-radius: 14px;
-  border: 1px solid rgba(76, 201, 240, 0.35);
+  border: 1px solid rgba(var(--ac-rgb), 0.35);
   background: none;
   color: var(--text);
   font: inherit;
@@ -303,7 +391,7 @@ button.store span:first-child {
   text-decoration: underline;
 }
 .store:hover {
-  background: rgba(76, 201, 240, 0.08);
+  background: rgba(var(--ac-rgb), 0.08);
 }
 .go {
   color: var(--ac2);
