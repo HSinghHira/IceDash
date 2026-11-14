@@ -16,7 +16,7 @@ stack into one picture:
   readme/hero.svg       pill, wordmark with icicles and sparkles, tagline
   readme/screens.svg    "Take the tour": the five screens taking turns
   readme/features.svg   "What you get": one card per feature
-  readme/install.svg    "Install IceDash": ZimaOS and CasaOS taking turns
+  readme/install.svg    "Install IceDash": the one-line install command
   readme/help.svg       "Found a bug?" panel and footer, linked to a new issue
 
 The content (screens, features) comes from site/build.py, so the site and the
@@ -410,112 +410,29 @@ def features():
     return svg(W, top + rows * (ch + G) + 20, body)
 
 
-SYSTEMS = [  # name, logo, note, address, steps, footnote, terminal lines ($ = prompt); mirrors site/templates/index.html
-    ("ZimaOS", "img/os/zimaos.png", "Installs as a ZimaOS module, beside the stock dashboard.",
-     "http://<your-server>/modules/icedash/",
-     ["Open a terminal on your ZimaOS box over SSH.", "Run the commands on the right.",
-      "Open the **IceDash** tile, or the address above.", "Sign in with your ZimaOS account."],
-     "Settings → General can open IceDash at your server's address.",
-     ["$cd /tmp", "$R=github.com/HSinghHira/IceDash/releases/latest/download",
-      "$curl -fsSLO https://$R/icedash-amd64.raw", "$curl -fsSLO https://$R/icedash-amd64.raw.sha256",
-      "$sha256sum -c icedash-amd64.raw.sha256", "$mv icedash-amd64.raw icedash.raw",
-      "$sudo zpkg install /tmp/icedash.raw"]),
-    ("CasaOS", "img/os/casaos.png", "Becomes the main page, with the stock UI one click away.",
-     "http://<your-server>/",
-     ["Open a terminal on your CasaOS box over SSH.", "Run the command on the right.",
-      "Open your server's address: IceDash is the main page.", "Sign in with your CasaOS account."],
-     "The stock CasaOS UI stays at /casaos/.",
-     ["$R=github.com/HSinghHira/IceDash/releases/latest/download", "$wget -qO- https://$R/install-casaos.sh \\",
-      "    | sudo sh"]),
-]
-
-
-def rich(s, size, x, y, max_w, lh):
-    """Text with **bold** runs, wrapped to max_w. Returns (svg, number of lines)."""
-    styles = {"r": ("regular", "rgba(255,255,255,.82)"), "b": ("semi", "#fff")}
-    words, pending = [], False
-    for part in re.split(r"(\*\*.+?\*\*)", s):
-        st = "b" if part.startswith("**") else "r"
-        inner = part[2:-2] if st == "b" else part
-        for m in re.finditer(r"(\s*)(\S+)", inner):
-            words.append((st, m.group(2), bool(m.group(1)) or pending))
-            pending = False
-        pending = pending or inner[-1:].isspace()
-    out, cx, line = "", 0, 0
-    for st, word, space in words:
-        font, color = styles[st]
-        gap = face("regular").width(" ", size) if space and cx else 0
-        w = face(font).width(word, size)
-        if cx and cx + gap + w > max_w:
-            line, cx, gap = line + 1, 0, 0
-        out += text(font, word, size, x + cx + gap, y + line * lh, color)
-        cx += gap + w
-    return out, line + 1
+SYSTEMS = [("ZimaOS", "img/os/zimaos.png"), ("CasaOS", "img/os/casaos.png")]
 
 
 def install(cfg):
-    """"Install IceDash": the site's ZimaOS and CasaOS tabs, taking turns."""
-    logos = [picture((SITE / "static" / s[1]).read_bytes(), 96) for s in SYSTEMS]
-    body = title(f'Install {cfg["site_name"]}', "One command over SSH. After that, IceDash updates itself from its own menu.")
-    body += tab_bar([s[0] for s in SYSTEMS], 150, logos)
-    y0, lw, rw, pad = 240, 420, 500, 28
-    lx, rx = P, W - P - rw
-    panels, h = "", 0
-    for j, (name, _, note, addr, steps, foot, term) in enumerate(SYSTEMS):
-        x = lx
-        p = (app_icon(name, logos[j], x + pad, y0 + pad, 48, f"s{j}")
-             + text("semi", name, 20, x + pad + 62, y0 + pad + 21, track=-.01)
-             + text("regular", note, fit("regular", note, 13.5, lw - 2 * pad - 62), x + pad + 62, y0 + pad + 42, MUT))
-        uy = y0 + pad + 48 + 22
-        p += (rect(x + pad, uy, lw - 2 * pad, 60, 16, "rgba(76,201,240,.07)", "rgba(76,201,240,.35)")
-              + text("mono-bold", "OPENS AT", 11, x + pad + 16, uy + 23, AC, track=.07)
-              + text("mono", addr, fit("mono", addr, 12.5, lw - 2 * pad - 32), x + pad + 16, uy + 44, AC2))
-        sy = uy + 60 + 24
-        for k, step in enumerate(steps):
-            s, lines = rich(step, 15, x + pad + 38, sy + 18, lw - 2 * pad - 38, 22.5)
-            p += (f'<circle cx="{x + pad + 13}" cy="{num(sy + 13)}" r="12.5" fill="rgba(76,201,240,.14)" stroke="rgba(76,201,240,.3)"/>'
-                  + text("semi", str(k + 1), 13, x + pad + 13, sy + 17.7, AC2, "middle") + s)
-            sy += max(26, lines * 22.5) + 14
-        sy += 4
-        p += (rect(x + pad, sy, lw - 2 * pad, 1, fill=LINE) + icon("info", x + pad, sy + 19, 16, AC2)
-              + text("regular", foot, fit("regular", foot, 13, lw - 2 * pad - 26), x + pad + 26, sy + 32, MUT))
-        ch = sy + 32 + pad - y0
-        p = rect(x + .5, y0 + .5, lw - 1, ch - 1, R, CARD, LINE) + rect(x + .5, y0 + .5, lw - 1, ch - 1, R, "url(#t)") + p
-
-        host = name.lower()
-        prompt = f"user@{host}:~$ "
-        longest = max(face("mono").width((prompt if ln[0] == "$" else "") + ln.lstrip("$"), 1) for ln in term)
-        fs = min(12.5, (rw - 36) / longest)
-        p += (f'<clipPath id="tw{j}"><rect x="{rx}" y="{y0}" width="{rw}" height="{num(ch)}" rx="20"/></clipPath>'
-              + rect(rx + .5, y0 + .5, rw - 1, ch - 1, 20, CARD, LINE) + rect(rx + .5, y0 + .5, rw - 1, ch - 1, 20, "url(#tt)")
-              + f'<g clip-path="url(#tw{j})">' + rect(rx, y0, rw, 42, fill="rgba(255,255,255,.03)") + "</g>"
-              + rect(rx, y0 + 42, rw, 1, fill=LINE)
-              + f'<circle cx="{rx + 21.5}" cy="{y0 + 21}" r="5.5" fill="{AC}"/>'
-              + f'<circle cx="{rx + 40.5}" cy="{y0 + 21}" r="5.5" fill="{AC2}" fill-opacity=".7"/>'
-              + f'<circle cx="{rx + 59.5}" cy="{y0 + 21}" r="5.5" fill="rgba(255,255,255,.22)"/>'
-              + text("mono", f"user@{host}: ~", 12.5, rx + rw / 2, y0 + 25.5, MUT, "middle"))
-        ly, lh = y0 + 42 + 18 + fs * 1.2, fs * 1.75
-        for ln in term + ["$"]:
-            cx = rx + 18
-            if ln.startswith("$"):
-                for part, font, color in ((f"user@{host}", "mono-bold", AC), (":", "mono", MUT), ("~", "mono-bold", AC2), ("$ ", "mono", MUT)):
-                    p += text(font, part, fs, cx, ly, color)
-                    cx += face(font).width(part, fs)
-                ln = ln[1:]
-            if ln:
-                p += text("mono", ln, fs, cx, ly, "rgba(255,255,255,.85)")
-            else:  # the blinking cursor on the last prompt
-                p += rect(cx, ly - fs * .95, fs * .6, fs * 1.15, fill=AC, extra=' class="cur"')
-            ly += lh
-        panels += f'<g class="pn pn{j}">{p}</g>'
-        h = max(h, y0 + ch + 30)
-
-    defs = ('<radialGradient id="t" cx="0" cy="0" r="1" gradientTransform="scale(1.2,.7)">'
-            f'<stop stop-color="{AC}" stop-opacity=".12"/><stop offset=".6" stop-color="{AC}" stop-opacity="0"/></radialGradient>'
-            '<radialGradient id="tt" cx="0" cy="0" r="1" gradientTransform="translate(1,0) scale(1.2,.8)">'
-            f'<stop stop-color="{AC}" stop-opacity=".1"/><stop offset=".6" stop-color="{AC}" stop-opacity="0"/></radialGradient>')
-    style = cycle_style(len(SYSTEMS)) + ".cur{animation:bl 1.1s steps(1) infinite}@keyframes bl{50%{opacity:0}}"
-    return svg(W, h, body + panels, style, defs)
+    """"Install IceDash": the site's one-line command bar, with the two logos and a copy button."""
+    cmd = f'curl -fsSL {cfg["base_url"]}install.sh | sudo sh'
+    body = title(f'Install {cfg["site_name"]}', "One command over SSH, on ZimaOS or CasaOS. After that, IceDash updates itself.")
+    x, y, w, h = P, 150, W - 2 * P, 68
+    body += rect(x + .5, y + .5, w - 1, h - 1, 16, "#0b0f14", LINE) + rect(x + .5, y + .5, w - 1, h - 1, 16, "url(#t)")
+    lx, s = x + 18, 32
+    for j, (name, path) in enumerate(SYSTEMS):
+        body += app_icon(name, picture((SITE / "static" / path).read_bytes(), 96), lx, y + (h - s) / 2, s, f"os{j}")
+        lx += s + 8
+    body += rect(lx + 8, y + 16, 1, h - 32, fill=LINE)
+    cx = lx + 26
+    bw = 44  # the copy button
+    bx = x + w - 12 - bw
+    body += text("mono", cmd, fit("mono", cmd, 17, bx - cx - 16), cx, y + h / 2 + 6, "rgba(255,255,255,.9)")
+    body += (rect(bx + .5, y + (h - bw) / 2 + .5, bw - 1, bw - 1, 10, "rgba(255,255,255,.04)", LINE)
+             + icon("copy", bx + (bw - 20) / 2, y + (h - 20) / 2, 20, MUT))
+    defs = ('<radialGradient id="t" cx="0" cy="0" r="1" gradientTransform="scale(.6,1.6)">'
+            f'<stop stop-color="{AC}" stop-opacity=".14"/><stop offset="1" stop-color="{AC}" stop-opacity="0"/></radialGradient>')
+    return svg(W, y + h + 40, body, defs=defs)
 
 
 def help_panel(cfg):

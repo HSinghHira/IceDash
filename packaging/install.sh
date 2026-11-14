@@ -2,10 +2,10 @@
 # Installs IceDash on ZimaOS or CasaOS; it finds out which by itself.
 # Run it again to repair or reinstall.
 #
-#   curl -fsSL https://github.com/HSinghHira/IceDash/releases/latest/download/install.sh | sudo sh
+#   curl -fsSL https://icedash.hsinghhira.me/install.sh | sudo sh
 #
 # To remove it:
-#   curl -fsSL https://github.com/HSinghHira/IceDash/releases/latest/download/uninstall.sh | sudo sh
+#   curl -fsSL https://icedash.hsinghhira.me/uninstall.sh | sudo sh
 set -eu
 
 # All in one function, so `curl ... | sh` reads the whole script before running it.
@@ -72,7 +72,7 @@ if grep -q '^ID=zimaos' /etc/os-release 2>/dev/null || command -v zpkg >/dev/nul
     say "IceDash is running."
   fi
   say "  Open:      http://${IP:-this-server}/modules/icedash/"
-  say "  Remove it: curl -fsSL $BASE/uninstall.sh | sudo sh"
+  say "  Remove it: curl -fsSL https://icedash.hsinghhira.me/uninstall.sh | sudo sh"
   exit 0
 fi
 

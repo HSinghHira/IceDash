@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from urllib.parse import urlparse
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -161,6 +162,13 @@ def main():
     if out.exists():
         shutil.rmtree(out)
     shutil.copytree(HERE / "static", out)
+    # The one-line install and uninstall scripts, at <base_url>install.sh and
+    # uninstall.sh. The Pages workflow replaces them with the latest
+    # release's copies, so what people run changes only with a release.
+    for name in ("install.sh", "uninstall.sh"):
+        shutil.copyfile(ROOT / "packaging" / name, out / name)
+    # GitHub Pages' custom domain.
+    (out / "CNAME").write_text(urlparse(cfg["base_url"]).hostname + "\n", encoding="utf-8")
     css_js = b"".join(p.read_bytes() for p in sorted((HERE / "static").rglob("*")) if p.suffix in (".css", ".js"))
     cfg["asset_v"] = hashlib.sha256(css_js).hexdigest()[:10]
 

@@ -4,8 +4,8 @@
 # Settings and notifications in /DATA/.icedash stay unless you add --purge.
 # Apps you installed stay either way.
 #
-#   curl -fsSL https://github.com/HSinghHira/IceDash/releases/latest/download/uninstall.sh | sudo sh
-#   curl -fsSL https://github.com/HSinghHira/IceDash/releases/latest/download/uninstall.sh | sudo sh -s -- --purge
+#   curl -fsSL https://icedash.hsinghhira.me/uninstall.sh | sudo sh
+#   curl -fsSL https://icedash.hsinghhira.me/uninstall.sh | sudo sh -s -- --purge
 set -eu
 
 # All in one function, so `curl ... | sh` reads the whole script before running it.

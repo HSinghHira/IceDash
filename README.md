@@ -32,7 +32,7 @@ A desktop-style dashboard for [ZimaOS](https://www.zimaspace.com/ZimaOS) and [Ca
 Over SSH on your ZimaOS or CasaOS box, one command (it finds out which system it's on):
 
 ```sh
-curl -fsSL https://github.com/HSinghHira/IceDash/releases/latest/download/install.sh | sudo sh
+curl -fsSL https://icedash.hsinghhira.me/install.sh | sudo sh
 ```
 
 Running it again repairs or reinstalls IceDash.
@@ -46,13 +46,13 @@ Running it again repairs or reinstalls IceDash.
 One command on either system. It gives this server's address back to the stock dashboard, whichever IceDash version you had:
 
 ```sh
-curl -fsSL https://github.com/HSinghHira/IceDash/releases/latest/download/uninstall.sh | sudo sh
+curl -fsSL https://icedash.hsinghhira.me/uninstall.sh | sudo sh
 ```
 
 IceDash's notifications and settings stay in `/DATA/.icedash`. To remove those too:
 
 ```sh
-curl -fsSL https://github.com/HSinghHira/IceDash/releases/latest/download/uninstall.sh | sudo sh -s -- --purge
+curl -fsSL https://icedash.hsinghhira.me/uninstall.sh | sudo sh -s -- --purge
 ```
 
 Apps you installed from IceDash stay in ZimaOS or CasaOS either way.
