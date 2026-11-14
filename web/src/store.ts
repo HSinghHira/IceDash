@@ -11,7 +11,7 @@ import type { IconName } from './lib/icons'
 import { applyTheme, FROST, FROST_ID } from './lib/theme'
 import { poll, type Poller } from './lib/poll'
 import { pickZone } from './lib/timezone'
-import { strings } from './strings'
+import { langOf, rememberLang, strings, uiLang, type Lang } from './strings'
 
 export type SessionState = 'loading' | 'ok' | 'signin' | 'ended'
 
@@ -315,8 +315,10 @@ export const appInfo = ref<Record<string, appsApi.AppInfo>>({})
 export const jobs = ref<appsApi.Job[]>([])
 export const catalogList = ref<appsApi.CatalogList | null>(null)
 export const catalogError = ref('')
-/** The IceStore window's current list: all, installed, updates, or a category. */
+/** The IceStore window's current list: all, installed, updates, bundles, or a category. */
 export const iceStoreView = ref<string>('all')
+/** An app whose page IceStore opens on (search, Phase 5b). */
+export const iceStoreFocus = ref<string | null>(null)
 /** Open popups: setup (a catalog id), first launch and uninstall (app names). */
 export const setupFor = ref<string | null>(null)
 export const firstLaunchFor = ref<string | null>(null)
@@ -463,6 +465,27 @@ export function applyRememberedTheme() {
 
 export const prefsLoaded = ref(false)
 
+// ---- Phase 5b: the UI's language ----
+/** The system's own UI language (ZimaOS's saved choice), when IceDash has it. */
+export const systemLang = ref<Lang | null>(null)
+/** The language the user wants: theirs, else the system's, else the browser's. */
+export function wantedLang(): Lang {
+  return langOf(prefs.value.lang) ?? systemLang.value ?? langOf(navigator.language) ?? 'en'
+}
+/** Once the choices are known: keep the language, and reload if the page is in another. */
+export function settleLanguage() {
+  const want = wantedLang()
+  rememberLang(want)
+  if (want !== uiLang()) location.reload()
+}
+/** Settings → Appearance → Language: saved for the user, then a reload in it. */
+export async function setLanguage(lang: ice.Prefs['lang']) {
+  const err = await savePrefs({ lang })
+  if (err) return err
+  settleLanguage()
+  return undefined
+}
+
 // ---- each user's pictures: fetched with the sign-in, shown as object URLs ----
 export const wallpaperUrl = ref('')
 export const avatarUrl = ref('')
@@ -574,9 +597,10 @@ export function togglePin(id: string) {
 }
 
 /** The Files window, on a folder or its Trash (the dock's Trash opens that). */
-export const filesView = ref<{ view: 'files' | 'trash'; path: string; seq: number }>({ view: 'files', path: '/', seq: 0 })
-export function openFiles(view: 'files' | 'trash' = 'files', path = '/') {
-  filesView.value = { view, path, seq: filesView.value.seq + 1 }
+export const filesView = ref<{ view: 'files' | 'trash'; path: string; seq: number; select?: string }>({ view: 'files', path: '/', seq: 0 })
+/** Opens Files on a folder (or its Trash); select, a path in it, is picked out (Phase 5b search). */
+export function openFiles(view: 'files' | 'trash' = 'files', path = '/', select?: string) {
+  filesView.value = { view, path, seq: filesView.value.seq + 1, select }
   openWindow('files')
 }
 
@@ -585,6 +609,39 @@ let terminals = 0
 export function openTerminal() {
   terminals++
   openWindow('terminal', { name: String(terminals), title: terminals > 1 ? `${strings.terminal} ${terminals}` : strings.terminal })
+}
+
+// ---- Phase 5b: app bundles, set up one app after the other ----
+export const bundleRun = ref<{ id: string; queue: string[]; total: number; done: number } | null>(null)
+/** Starts a bundle: the setup of its first app not installed yet. */
+export function startBundle(id: string, storeIds: string[]) {
+  const have = new Set(Object.values(appInfo.value).map((a) => a.store_id))
+  const todo = storeIds.filter((s) => !have.has(s))
+  if (!todo.length) return
+  bundleRun.value = { id, queue: todo.slice(1), total: todo.length, done: 0 }
+  setupFor.value = todo[0]!
+}
+/** After an app of the bundle (installed or skipped): the next one's setup, or the end. */
+export function nextInBundle(installed: boolean) {
+  const b = bundleRun.value
+  if (!b) {
+    setupFor.value = null
+    return
+  }
+  if (installed) b.done++
+  const [next, ...rest] = b.queue
+  if (!next) {
+    bundleRun.value = null
+    setupFor.value = null
+    if (b.done) toast({ title: strings.bundles[b.id]?.name ?? strings.tabBundles, body: strings.bundleDone(b.done) })
+    return
+  }
+  b.queue = rest
+  setupFor.value = next
+}
+export function stopBundle() {
+  bundleRun.value = null
+  setupFor.value = null
 }
 
 export function openIceStore(view = 'all') {
@@ -680,16 +737,18 @@ export async function start() {
   if (host.id === 'casaos') void keepStockVersion()
 
   ice.health().then((h) => (version.value = h.version)).catch(handle)
-  zima.customSystem()
+  const sysDone = zima.customSystem()
     .then((c) => {
       zone.value = pickZone(c.timezone)
       zoneSaved.value = zone.value === c.timezone
+      systemLang.value = langOf(c.lang)
     })
     .catch(() => undefined)
   zima.iceStoreAdded().then((v) => (iceStoreInZimaOS.value = v)).catch(() => undefined)
   ice.getSettings().then((s) => (autoCheck.value = s.auto_check)).catch(() => undefined)
   void loadMods()
-  void loadPrefs()
+  // The language waits for both the user's choice and the system's.
+  void Promise.all([loadPrefs(), sysDone]).then(() => prefsLoaded.value && settleLanguage())
 
   pollers.push(poll(loadStats, 5000))
   pollers.push(poll(loadApps, 15000))

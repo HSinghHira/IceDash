@@ -69,9 +69,11 @@ type Server struct {
 	Email func(ctx context.Context, token string) string
 
 	// Phase 3a: the system IceDash runs on.
-	Host      string          // "zimaos" or "casaos"
-	HostName  string          // "ZimaOS" or "CasaOS"
-	StockURL  string          // where the stock dashboard is ("/" on ZimaOS, "/casaos/" on CasaOS)
+	Host     string // "zimaos" or "casaos"
+	HostName string // "ZimaOS" or "CasaOS"
+	StockURL string // where the stock dashboard is ("/" on ZimaOS, "/casaos/" on CasaOS)
+	// StockNow, when set, says where it is right now (ZimaOS with the main address on: /zimaos/).
+	StockNow  func() string
 	SessionOn session.Options // the system's sign-in rules
 
 	// Phase 3c: the Files app and the Terminal (nil: not offered).
@@ -135,6 +137,9 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	h := Health{Version: s.Version, Arch: s.Arch, Started: s.Started, Host: s.Host, HostName: s.HostName, StockURL: s.StockURL}
 	if h.Host == "" {
 		h.Host, h.HostName, h.StockURL = "zimaos", "ZimaOS", "/"
+	}
+	if s.StockNow != nil {
+		h.StockURL = s.StockNow()
 	}
 	httpx.WriteJSON(w, http.StatusOK, h)
 }
@@ -214,7 +219,11 @@ func (s *Server) updateApply(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
-	httpx.WriteJSON(w, http.StatusOK, s.Settings.Get())
+	v := s.Settings.Get()
+	if s.Host == "casaos" {
+		v.MainAddress = true
+	}
+	httpx.WriteJSON(w, http.StatusOK, v)
 }
 
 func (s *Server) setSettings(w http.ResponseWriter, r *http.Request) {
@@ -225,6 +234,9 @@ func (s *Server) setSettings(w http.ResponseWriter, r *http.Request) {
 	if v.Zone != "" && !update.ValidZone(v.Zone) {
 		httpx.WriteError(w, http.StatusBadRequest, "bad_zone", "that time zone isn't known")
 		return
+	}
+	if s.Host == "casaos" {
+		v.MainAddress = true // IceDash always has the main address there (Phase 3a)
 	}
 	if v.AutoInstall && v.Zone == "" {
 		httpx.WriteError(w, http.StatusBadRequest, "bad_zone", "installing at night needs the time zone it counts the night in")

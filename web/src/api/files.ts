@@ -91,6 +91,16 @@ export const restore = (ids: string[]) => request<{ restored: Entry[] }>(`${base
 export const purge = (ids: string[]) => request(`${base}/files/trash/delete`, { method: 'POST', body: { ids } })
 export const emptyTrash = () => request(`${base}/files/trash/empty`, { method: 'POST' })
 
+/** Names under a folder holding every word of q (Phase 5b); more: a limit stopped it early. */
+export interface Found {
+  query: string
+  path: string
+  entries: Entry[]
+  more: boolean
+}
+export const search = (q: string, path = '/', hidden = false) =>
+  request<Found>(`${base}/files/search?q=${encodeURIComponent(q)}&path=${encodeURIComponent(path)}${hidden ? '&hidden=1' : ''}`)
+
 export interface Upload {
   promise: Promise<{ entry?: Entry; skipped: boolean }>
   abort: () => void

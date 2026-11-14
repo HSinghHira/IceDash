@@ -16,6 +16,9 @@ type Settings struct {
 	AutoCheck   bool   `json:"auto_check"`
 	AutoInstall bool   `json:"auto_install"`
 	Zone        string `json:"zone"` // the clock's zone when auto_install was turned on
+	// Phase 5b: on ZimaOS, the server's main address opens IceDash and the
+	// stock dashboard moves to /zimaos/. Off by default; always so on CasaOS.
+	MainAddress bool `json:"main_address"`
 }
 
 // Defaults apply to anything not saved yet.

@@ -28,6 +28,7 @@ const TerminalPath = Route + "/terminal"
 func (s *Server) fileRoutes(mux *http.ServeMux, admin func(http.HandlerFunc) http.Handler) {
 	if s.Files != nil {
 		mux.Handle("GET "+Route+"/files/list", admin(s.filesList))
+		mux.Handle("GET "+Route+"/files/search", admin(s.filesSearch))
 		mux.Handle("POST "+Route+"/files/ticket", admin(s.filesTicket))
 		mux.HandleFunc("GET "+Route+"/files/raw", s.filesRaw) // the ticket is the sign-in
 		mux.HandleFunc("GET "+Route+"/files/zip", s.filesZip)
@@ -82,6 +83,21 @@ func (s *Server) filesList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, l)
+}
+
+// filesSearch finds names under path holding every word of q (PLAN.md 5b.3).
+func (s *Server) filesSearch(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	if len(strings.TrimSpace(q.Get("q"))) < 2 || len(q.Get("q")) > 200 {
+		httpx.WriteError(w, http.StatusBadRequest, "bad_query", "type at least two letters")
+		return
+	}
+	f, err := s.Files.Search(r.Context(), q.Get("path"), q.Get("q"), q.Get("hidden") == "1", files.DefaultLimits)
+	if err != nil {
+		writeFileErr(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, f)
 }
 
 func (s *Server) filesTicket(w http.ResponseWriter, r *http.Request) {

@@ -48,6 +48,7 @@ const crumbs = computed(() => {
   return parts.map((name, i) => ({ name, path: '/' + parts.slice(0, i + 1).join('/') }))
 })
 
+let pick = ''
 async function load() {
   if (view.value === 'trash') return loadTrash()
   loading.value = true
@@ -55,6 +56,14 @@ async function load() {
   try {
     listing.value = await api.list(cwd.value, hidden.value)
     cwd.value = listing.value.path
+    // Opened from search: pick the found item out and bring it into view.
+    const want = pick
+    pick = ''
+    if (want && listing.value.entries.some((e) => e.path === want)) {
+      sel.value = new Set([want])
+      anchor = want
+      void nextTick(() => document.querySelector(`[data-path="${CSS.escape(want)}"]`)?.scrollIntoView({ block: 'center' }))
+    }
   } catch (e) {
     error.value = msg(e)
     listing.value = null
@@ -89,7 +98,10 @@ watch(
   () => filesView.value.seq,
   () => {
     if (filesView.value.view === 'trash') showTrash()
-    else go(filesView.value.path)
+    else {
+      pick = filesView.value.select ?? ''
+      go(filesView.value.path)
+    }
   },
 )
 
@@ -510,6 +522,7 @@ onMounted(() => {
   if (filesView.value.view === 'trash') showTrash(false)
   else {
     cwd.value = filesView.value.path
+    pick = filesView.value.select ?? ''
     void load()
   }
   void loadTop()
@@ -608,6 +621,7 @@ onBeforeUnmount(() => {
               <tr
                 v-for="x in entries"
                 :key="x.path"
+                :data-path="x.path"
                 :class="{ sel: sel.has(x.path), dim: x.broken, cut: clip?.kind === 'move' && clip.paths.includes(x.path) }"
                 @click="click($event, x)"
                 @dblclick="open(x)"
@@ -628,6 +642,7 @@ onBeforeUnmount(() => {
             <button
               v-for="x in entries"
               :key="x.path"
+              :data-path="x.path"
               type="button"
               class="tile"
               :class="{ sel: sel.has(x.path), dim: x.broken }"

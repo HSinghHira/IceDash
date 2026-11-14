@@ -36,6 +36,54 @@ type Keeper struct {
 	RuntimePath string // /var/run/casaos
 	Target      string // http://127.0.0.1:<port>
 	HTTP        *http.Client
+	// Paths to keep; nil is Routes. On ZimaOS only "/" (PLAN.md 5b.1).
+	Paths []string
+}
+
+func (k *Keeper) paths() []string {
+	if k.Paths != nil {
+		return k.Paths
+	}
+	return Routes
+}
+
+// Gateway is the gateway's own address on loopback, for checking a route
+// through it: http://127.0.0.1:<port>, port 80 unless it says otherwise.
+func (k *Keeper) Gateway(ctx context.Context) string {
+	base := "http://127.0.0.1"
+	mgmt, err := k.read("management.url")
+	if err != nil {
+		return base
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mgmt+"/v1/gateway/port", nil)
+	if err != nil {
+		return base
+	}
+	res, err := k.client().Do(req)
+	if err != nil {
+		return base
+	}
+	defer res.Body.Close()
+	var body struct {
+		Data string `json:"data"`
+	}
+	if json.NewDecoder(res.Body).Decode(&body) != nil || body.Data == "" || body.Data == "80" || strings.ContainsAny(body.Data, ":/@") {
+		return base
+	}
+	return base + ":" + body.Data
+}
+
+// Has reports whether the gateway has a route for p at all.
+func (k *Keeper) Has(p string) bool {
+	have, err := k.routes()
+	_, ok := have[p]
+	return err == nil && ok
+}
+
+// Points reports whether the gateway sends p to Target now.
+func (k *Keeper) Points(p string) bool {
+	have, err := k.routes()
+	return err == nil && strings.TrimRight(have[p], "/") == k.Target
 }
 
 func (k *Keeper) client() *http.Client {
@@ -97,7 +145,7 @@ func (k *Keeper) Ensure(ctx context.Context) (bool, error) {
 		have = map[string]string{} // not written yet: register them all
 	}
 	changed := false
-	for _, p := range Routes {
+	for _, p := range k.paths() {
 		if strings.TrimRight(have[p], "/") == k.Target {
 			continue
 		}
@@ -122,7 +170,7 @@ func (k *Keeper) Run(ctx context.Context, ready func()) {
 				log.Printf("[icedash] gateway routes: %v", err)
 			}
 		case first:
-			log.Printf("[icedash] gateway routes point at %s: %s", k.Target, strings.Join(Routes, ", "))
+			log.Printf("[icedash] gateway routes point at %s: %s", k.Target, strings.Join(k.paths(), ", "))
 			first, every = false, 10*time.Second
 			if ready != nil {
 				ready()

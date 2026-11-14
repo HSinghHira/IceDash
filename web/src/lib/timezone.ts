@@ -1,3 +1,5 @@
+import { uiLocale } from '../strings'
+
 // The clock's time zone, the way the stock ZimaOS dashboard picks it (measured
 // on 1.8.0, docs/HOST-NOTES.md item 7): the zone saved in
 // /v1/users/current/custom/system if it's a real zone, else the browser's own.
@@ -41,7 +43,7 @@ export interface ClockParts {
 
 /** The clock's parts; h24 gives "14:06" with no am or pm (Settings → Appearance). */
 export function clockParts(now: Date, zone: string, h24 = false): ClockParts {
-  const get = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('en-NZ', { timeZone: zone, ...o })
+  const get = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(uiLocale(), { timeZone: zone, ...o })
   const tp = get(h24 ? { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' } : { hour: 'numeric', minute: '2-digit', hour12: true }).formatToParts(now)
   const hour = tp.find((p) => p.type === 'hour')?.value ?? ''
   const minute = tp.find((p) => p.type === 'minute')?.value ?? ''

@@ -30,7 +30,13 @@ type Prefs struct {
 	// user name; another seed gives another face).
 	AvatarStyle string `json:"avatar_style"`
 	AvatarSeed  string `json:"avatar_seed"`
+	// Lang is the UI's language (PLAN.md 5b.2): "" follows the system's and
+	// the browser's.
+	Lang string `json:"lang"`
 }
+
+// Langs are the languages the UI comes in.
+var Langs = []string{"", "en", "de", "fr", "es", "zh"}
 
 // AvatarStyles are the drawn styles offered: DiceBear's public domain (CC0) ones.
 var AvatarStyles = []string{"", "initials", "critters", "lorelei", "thumbs", "pixel-art", "pixelbot", "voxel-bot", "moods", "sprouts", "clay", "planets", "marbles", "glass", "shapes", "blobs"}
@@ -96,7 +102,7 @@ func (p *Prefs) Check() error {
 	if p.Notify.Off, err = only(p.Notify.Off, func(s string) bool { return slices.Contains(Groups, s) }); err != nil {
 		return err
 	}
-	if !slices.Contains(AvatarStyles, p.AvatarStyle) || !seedRx.MatchString(p.AvatarSeed) {
+	if !slices.Contains(AvatarStyles, p.AvatarStyle) || !seedRx.MatchString(p.AvatarSeed) || !slices.Contains(Langs, p.Lang) {
 		return ErrInvalid
 	}
 	return p.Wallpaper.check()

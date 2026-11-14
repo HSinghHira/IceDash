@@ -29,7 +29,9 @@ import {
   savePrefs,
   setModsView,
   setNotes,
+  setLanguage,
   setPicture,
+  systemLang,
   sys,
   wallpaperUrl,
   toast,
@@ -38,7 +40,7 @@ import {
   zoneSaved,
   type SettingsPage,
 } from '../store'
-import { strings } from '../strings'
+import { LANGS, strings, uiLang } from '../strings'
 
 const props = defineProps<{ page: SettingsPage }>()
 const admin = computed(() => !!user.value?.admin)
@@ -73,6 +75,27 @@ async function setSetting(change: Partial<ice.Settings>) {
 const toggleNight = () =>
   setSetting(settings.value?.auto_install ? { auto_install: false } : { auto_install: true, zone: zone.value })
 const nightZone = computed(() => cityOf(settings.value?.zone || zone.value))
+/** Phase 5b: this server's address, where IceDash opens when the switch is on. */
+const serverAddr = `${location.protocol}//${location.host}/`
+const mainBusy = ref(false)
+async function toggleMain() {
+  const on = !settings.value?.main_address
+  await setSetting({ main_address: on })
+  if (!on) return
+  // The server checks through ZimaOS's gateway within ~10 s and turns it back
+  // off if the address didn't come to IceDash; show what it settled on.
+  mainBusy.value = true
+  await new Promise((r) => setTimeout(r, 12000))
+  await loadSettings()
+  mainBusy.value = false
+}
+
+// ---- Appearance → Language ----
+const autoName = computed(() => LANGS.find((l) => l.id === (systemLang.value ?? 'en'))?.name ?? 'English')
+async function pickLang(e: Event) {
+  const err = await setLanguage((e.target as HTMLSelectElement).value as ice.Prefs['lang'])
+  if (err) toast({ title: strings.languageHeading, body: err })
+}
 
 // ---- Appearance ----
 const theme = computed(() => modsView.value.prefs.theme)
@@ -297,6 +320,31 @@ watch(() => props.page, enter)
     </div>
     <p v-if="!admin" class="mut small">{{ strings.adminOnlyHere }}</p>
 
+    <h3 class="kicker">{{ strings.mainAddressHeading }}</h3>
+    <div v-if="host.id === 'zimaos'" class="rows">
+      <div class="row">
+        <div class="who">
+          <strong>{{ strings.mainAddress }}</strong>
+          <span class="mut small">{{ strings.mainAddressHint(serverAddr) }}</span>
+          <span v-if="mainBusy" class="mut small" role="status">{{ strings.mainAddressChecking }}</span>
+          <span v-else-if="!settings?.main_address" class="mut small">{{ strings.mainAddressOffNote }}</span>
+        </div>
+        <button
+          type="button"
+          class="switch"
+          role="switch"
+          :aria-checked="!!settings?.main_address"
+          :aria-label="strings.mainAddress"
+          :disabled="!admin || !settings || mainBusy"
+          data-setting="main_address"
+          @click="toggleMain"
+        >
+          <span />
+        </button>
+      </div>
+    </div>
+    <p v-else class="mut small">{{ strings.mainAddressCasa(serverAddr) }}</p>
+
     <h3 class="kicker">{{ strings.serverHeading }}</h3>
     <dl class="facts">
       <dt>{{ strings.serverSystem }}</dt>
@@ -442,6 +490,15 @@ watch(() => props.page, enter)
       </div>
     </div>
     <button v-if="wp.dim || wp.blur || wp.fit" type="button" class="link" @click="setWall({ dim: 0, blur: 0, fit: '' })">{{ strings.wallReset }}</button>
+
+    <h3 class="kicker">{{ strings.languageHeading }}</h3>
+    <div class="addpin">
+      <select :value="prefs.lang" :aria-label="strings.languageHeading" data-setting="lang" @change="pickLang">
+        <option value="">{{ strings.languageAuto(autoName) }}</option>
+        <option v-for="l in LANGS" :key="l.id" :value="l.id" :lang="l.id">{{ l.name }}</option>
+      </select>
+    </div>
+    <p class="mut small">{{ strings.languageHint }}<template v-if="!prefs.lang"> ({{ LANGS.find((l) => l.id === uiLang())?.name }})</template></p>
 
     <h3 class="kicker">{{ strings.clockHeading }}</h3>
     <div class="seg" role="radiogroup" :aria-label="strings.clockHeading">

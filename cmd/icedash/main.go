@@ -37,6 +37,7 @@ import (
 	"github.com/HSinghHira/IceDash/internal/catalog"
 	"github.com/HSinghHira/IceDash/internal/creds"
 	"github.com/HSinghHira/IceDash/internal/files"
+	"github.com/HSinghHira/IceDash/internal/home"
 	"github.com/HSinghHira/IceDash/internal/host"
 	"github.com/HSinghHira/IceDash/internal/media"
 	"github.com/HSinghHira/IceDash/internal/mods"
@@ -204,6 +205,8 @@ func main() {
 				upd.Resume(ctx)
 			}
 		}()
+		// Phase 5b: the main address, while an admin has it on.
+		go keepMainAddress(ctx, runtimePath, target, prefs, notes)
 	}
 	// First check 2 minutes after start (the gateway and /DATA come late at
 	// boot), then every 6 hours, while "Check for updates automatically" is on.
@@ -232,6 +235,15 @@ func main() {
 	if kind == host.CasaOS {
 		// The stock UI's own files pass through unlogged.
 		handler = &casa.Front{RuntimePath: runtimePath, Next: handler}
+	} else {
+		// Phase 5b: once "/" comes here, the stock dashboard's files do too.
+		handler = &home.Front{WWW: home.WWW, Next: handler, On: func() bool { return prefs.Get().MainAddress }}
+		srv.StockNow = func() string {
+			if prefs.Get().MainAddress {
+				return home.StockPath
+			}
+			return "/"
+		}
 	}
 	hs := &http.Server{
 		Handler:           handler,
@@ -275,6 +287,71 @@ func uninstall(kind host.Kind, runtimePath string) {
 		log.Fatalf("[icedash] removing the boot watchdog: %v", err)
 	}
 	log.Printf("[icedash] boot watchdog removed; now run: zpkg remove icedash")
+	if (&casa.Keeper{RuntimePath: runtimePath}).Has("/") {
+		// Phase 5b: the gateway can't remove a route; a restart clears it.
+		log.Printf("[icedash] IceDash had this server's main address: after zpkg remove, restart the server to give ZimaOS its dashboard back at /")
+	}
+}
+
+// keepMainAddress points ZimaOS's "/" at IceDash while the setting is on
+// (PLAN.md 5b.1), checking every 10 s as on CasaOS, since the route lives in
+// /run and a gateway restart may drop it. The first time it's on, it checks
+// through the gateway that IceDash really answers "/"; if not, it turns the
+// setting off and says so. Turned off, "/" stays here until the box restarts
+// (the gateway can't remove a route): home.Front serves the stock page there,
+// and the route is kept pointing at this process.
+func keepMainAddress(ctx context.Context, runtimePath, target string, prefs *settings.Store, notes *notify.Store) {
+	k := &casa.Keeper{RuntimePath: runtimePath, Target: target, Paths: []string{"/"}}
+	checked := false
+	for {
+		on := prefs.Get().MainAddress
+		// ZimaOS has no "/" route of its own: one there is IceDash's, from
+		// before a restart or from before it was turned off. It must keep
+		// pointing at this process (the port changes at every start), or the
+		// dashboard would be gone until the box restarts.
+		if !on && k.Has("/") && !k.Points("/") {
+			if _, err := k.Ensure(ctx); err != nil {
+				log.Printf("[icedash] main address (off, still routed until restart): %v", err)
+			}
+		}
+		if on {
+			if err := home.Ready(home.WWW); err != nil {
+				turnOffMainAddress(prefs, notes, err)
+			} else if changed, err := k.Ensure(ctx); err != nil {
+				log.Printf("[icedash] main address: %v", err)
+			} else {
+				if changed {
+					log.Printf("[icedash] main address: / points at %s; the stock dashboard is at %s", target, home.StockPath)
+				}
+				if !checked {
+					cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+					err := home.Check(cctx, k.Gateway(cctx), nil)
+					cancel()
+					if err != nil {
+						turnOffMainAddress(prefs, notes, err)
+					} else {
+						checked = true
+					}
+				}
+			}
+		} else {
+			checked = false
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(10 * time.Second):
+		}
+	}
+}
+
+func turnOffMainAddress(prefs *settings.Store, notes *notify.Store, why error) {
+	log.Printf("[icedash] main address: %v; turning it off", why)
+	v := prefs.Get()
+	v.MainAddress = false
+	_ = prefs.Set(v)
+	_, _, _ = notes.Add(notify.Notification{Kind: "main_address_failed", Title: "IceDash couldn't open at this address",
+		Body: "ZimaOS kept its own dashboard at this server's address, so IceDash is still at /modules/icedash/. Nothing else changed."})
 }
 
 // registerRoute retries for two minutes: the gateway needs ~45 s after boot,

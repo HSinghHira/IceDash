@@ -1,5 +1,5 @@
-// Every string the UI shows, in plain en_US (ground rule 9). Translations
-// come later by adding another object with the same keys.
+// Every string the UI shows, in plain en_US (ground rule 9). Other languages
+// are in i18n/, with the same keys (Phase 5b; see the end of this file).
 export const strings = {
   appName: 'IceDash',
   loading: 'Loading…',
@@ -65,10 +65,16 @@ export const strings = {
   open: 'Open →',
 
   // search
-  searchPlaceholder: 'Search apps',
-  searchLabel: 'Search apps and launchers',
+  searchPlaceholder: 'Search apps, settings and files',
+  searchLabel: 'Search apps, settings, files and IceStore',
   searchShortcut: 'Ctrl Space',
   searchNothing: 'Nothing found.',
+  searchGroups: { apps: 'Apps', settings: 'Settings', look: 'Look', files: 'Files', store: 'IceStore' } as Record<string, string>,
+  searchFilesBusy: 'Looking through files…',
+  searchFilesMore: 'More files match. Open Files to look further.',
+  searchFilesFailed: 'Files can’t be searched right now.',
+  searchIn: (where: string) => `in ${where}`,
+  searchApply: 'Apply',
 
   // windows
   close: 'Close',
@@ -112,6 +118,7 @@ export const strings = {
     update_failed: 'Update failed, previous version restored',
     rollback_failed: 'Rollback failed',
     night_install: 'Installing overnight',
+    main_address_failed: 'IceDash couldn’t open at this address',
   } as Record<string, string>,
   notificationBody: {
     update_available: (v: string) => `IceDash ${v} is ready to install.`,
@@ -289,7 +296,7 @@ export const strings = {
   modInstallTitle: (n: string) => `Install ${n}?`,
   modCanRead: 'Can read',
   modReadsNothing: 'It reads nothing: it only shows things.',
-  modThemeNote: 'A theme is colours and a wallpaper only. It can’t run anything or read what you type.',
+  modThemeNote: 'A theme is colors and a wallpaper only. It can’t run anything or read what you type.',
   permInternet: (hosts: string) => `the internet (${hosts})`,
   permSystem: 'your system figures',
   permApps: 'your installed apps',
@@ -369,6 +376,44 @@ export const strings = {
   avatarInitials: 'Initials',
   avatarAnother: 'Another face',
   avatarDrawnBy: 'Drawn by DiceBear, in your browser.',
+
+  // Phase 5b: language
+  languageHeading: 'Language',
+  languageAuto: (name: string) => `Automatic (${name})`,
+  languageHint: 'IceDash reloads in the language you pick. Anything not translated yet stays in English.',
+
+  // Phase 5b: the main address
+  mainAddressHeading: 'This server’s address',
+  mainAddress: 'Open IceDash at this server’s address',
+  mainAddressHint: (addr: string) => `${addr} opens IceDash, and the ZimaOS dashboard moves to ${addr}zimaos/. Its apps, files and settings keep working as before.`,
+  mainAddressOffNote: 'Off takes effect at once. ZimaOS only lets go of the address when the server restarts; until then IceDash shows the ZimaOS dashboard there for you.',
+  mainAddressCasa: (addr: string) => `On CasaOS, IceDash always opens at ${addr}. The CasaOS dashboard is at ${addr}casaos/.`,
+  mainAddressChecking: 'Checking that ZimaOS sends the address to IceDash…',
+
+  // Phase 5b: app bundles
+  tabBundles: 'Bundles',
+  bundlesHint: 'Apps that work well together. Install all sets each one up in turn; apps you already have are skipped.',
+  bundleHave: (n: number, total: number) => (n ? `${n} of ${total} installed` : total === 1 ? '1 app' : `${total} apps`),
+  bundleInstall: (n: number) => (n === 1 ? 'Install 1 app' : `Install ${n} apps`),
+  bundleAllInstalled: 'All installed',
+  bundleStep: (i: number, n: number, name: string) => `App ${i} of ${n} in ${name}`,
+  bundleSkip: 'Skip this one',
+  bundleStop: 'Stop',
+  bundleDone: (n: number) => (n === 1 ? '1 app is installing.' : `${n} apps are installing.`),
+  bundles: {
+    homelab: { name: 'Homelab watch', about: 'See every device, port, disk and service on your network, and draw your homelab as a live map.' },
+    livetv: { name: 'Live TV', about: 'Bring in your IPTV streams, tidy the playlists and guide, then watch alone or together in the browser.' },
+    music: { name: 'Your music', about: 'Stream your own library like Spotify, keep playlists in sync across services, and play YouTube Music’s catalog.' },
+    reading: { name: 'Reading room', about: 'A library for ebooks, audiobooks and comics, stats from KOReader, and a place for everything you save to read later.' },
+    family: { name: 'Family home', about: 'A shared wall board, meal plans and recipes, receipts and shopping lists, and sign-up sheets.' },
+    places: { name: 'Places you’ve been', about: 'Your own location history, like Google Timeline, with your Strava activities brought in.' },
+    tasks: { name: 'Tasks and habits', about: 'To-dos, habit streaks and notes that work offline.' },
+    paperwork: { name: 'Paperwork', about: 'Sign documents, search your scans and PDFs, convert files, and keep a wiki.' },
+    private: { name: 'Private web', about: 'Search without tracking, watch YouTube without ads, and save media from the web.' },
+    devdesk: { name: 'Developer desk', about: 'An editor in the browser, scheduled Git backups, release alerts, snippets and a toolbox.' },
+    automation: { name: 'Automations', about: 'Workflows with n8n, one passkey sign-in for them, and push alerts to your phone.' },
+    localai: { name: 'Local AI', about: 'Chat with your own AI models, route between providers, and turn anything into clean Markdown.' },
+  } as Record<string, { name: string; about: string }>,
   modsAdminOnly: 'Only an admin can install or remove mods.',
   widgetSmall: 'Small',
   widgetMedium: 'Medium',
@@ -505,3 +550,76 @@ export const strings = {
 } as const
 
 export type Strings = typeof strings
+
+// ---- Phase 5b: other languages ----
+// English is above; each other language is a file of its own (i18n/), loaded
+// only when it's used, holding any of the same keys. A key it leaves out
+// stays in English. The language is applied before the page is drawn
+// (main.ts); changing it reloads the page.
+
+export type Lang = 'en' | 'de' | 'fr' | 'es' | 'zh'
+export const LANGS: { id: Lang; name: string; locale: string }[] = [
+  { id: 'en', name: 'English', locale: 'en-NZ' },
+  { id: 'de', name: 'Deutsch', locale: 'de-DE' },
+  { id: 'fr', name: 'Français', locale: 'fr-FR' },
+  { id: 'es', name: 'Español', locale: 'es-ES' },
+  { id: 'zh', name: '简体中文', locale: 'zh-CN' },
+]
+
+type Widen<T> = T extends string ? string : T extends (...a: infer A) => string ? (...a: A) => string : T
+/** A translation: any of the English keys, same shapes. */
+export type Translation = { [K in keyof Strings]?: Widen<Strings[K]> }
+
+const loaders: Record<Exclude<Lang, 'en'>, () => Promise<{ default: Translation }>> = {
+  de: () => import('./i18n/de'),
+  fr: () => import('./i18n/fr'),
+  es: () => import('./i18n/es'),
+  zh: () => import('./i18n/zh'),
+}
+
+const english = { ...strings }
+let current: Lang = 'en'
+/** The language the UI is in now. */
+export const uiLang = () => current
+/** Its locale, for dates and numbers. */
+export const uiLocale = () => LANGS.find((l) => l.id === current)?.locale ?? 'en-NZ'
+
+/** Turns "de_DE", "de-AT", "zh-Hans-CN" into a language IceDash has, or null. */
+export function langOf(code: string | undefined | null): Lang | null {
+  const c = (code ?? '').toLowerCase().replace('_', '-').split('-')[0]
+  return LANGS.some((l) => l.id === c) ? (c as Lang) : null
+}
+
+/** Puts the UI in lang; English for anything a translation leaves out. */
+export async function useLanguage(lang: Lang) {
+  let t: Translation = {}
+  if (lang !== 'en') {
+    try {
+      t = (await loaders[lang]()).default
+    } catch {
+      lang = 'en'
+    }
+  }
+  Object.assign(strings, english, t)
+  current = lang
+  if (typeof document !== 'undefined') document.documentElement.lang = lang
+}
+
+const LANG_KEY = 'icedash.lang'
+/** The language last used in this browser, else the browser's own. */
+export function rememberedLang(): Lang {
+  try {
+    const v = localStorage.getItem(LANG_KEY)
+    if (v && langOf(v)) return v as Lang
+  } catch {
+    // no storage
+  }
+  return langOf(typeof navigator !== 'undefined' ? navigator.language : '') ?? 'en'
+}
+export function rememberLang(lang: Lang) {
+  try {
+    localStorage.setItem(LANG_KEY, lang)
+  } catch {
+    // no storage: the browser's language next time
+  }
+}

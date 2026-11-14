@@ -8,7 +8,7 @@ import AppIcon from '../components/AppIcon.vue'
 import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
 import { inputLabel, placeholderIn } from '../lib/setup'
-import { apps, setupFor, toast, trackJob } from '../store'
+import { apps, bundleRun, nextInBundle, setupFor, stopBundle, toast, trackJob } from '../store'
 import { strings } from '../strings'
 
 const props = defineProps<{ id: string }>()
@@ -106,7 +106,8 @@ async function doInstall() {
     const j = await api.install(props.id, choices())
     trackJob(j)
     toast({ title: strings.installing, body: view.value.app.title })
-    setupFor.value = null
+    // In a bundle, the next app's setup comes next.
+    nextInBundle(true)
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
   } finally {
@@ -114,13 +115,20 @@ async function doInstall() {
   }
 }
 
-const close = () => (setupFor.value = null)
+const close = () => (bundleRun.value ? stopBundle() : (setupFor.value = null))
 const fillMark = (f?: string) =>
   f === 'auto' ? strings.autoFilled : f === 'account' ? strings.fromAccount : f === 'generated' ? strings.generated : ''
 </script>
 
 <template>
   <Modal :label="strings.setUpBeforeInstall" :width="580" @close="close">
+    <div v-if="bundleRun" class="bundle" role="status">
+      <Icon name="package" :size="16" />
+      <span>{{ strings.bundleStep(bundleRun.total - bundleRun.queue.length, bundleRun.total, strings.bundles[bundleRun.id]?.name ?? '') }}</span>
+      <span class="grow" />
+      <button type="button" class="linkish" @click="nextInBundle(false)">{{ strings.bundleSkip }}</button>
+      <button type="button" class="linkish" @click="stopBundle">{{ strings.bundleStop }}</button>
+    </div>
     <p v-if="loadError" class="error" role="alert">{{ loadError }}</p>
     <p v-else-if="!view" class="mut">{{ strings.loading }}</p>
     <form v-else class="setup" @submit.prevent="doInstall">
@@ -554,5 +562,29 @@ input:focus {
   h2 {
     font-size: 19px;
   }
+}
+.bundle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--ac-rgb), 0.4);
+  background: rgba(var(--ac-rgb), 0.08);
+  color: var(--ac2);
+  font-size: 13px;
+}
+.bundle .grow {
+  flex: 1;
+}
+.linkish {
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
 }
 </style>

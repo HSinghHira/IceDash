@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue'
 import * as api from '../api/apps'
 import AppIcon from '../components/AppIcon.vue'
 import Icon from '../components/Icon.vue'
+import { availableBundles } from '../lib/bundles'
 import { bytes } from '../lib/format'
 import { dashboardUrl } from '../lib/host'
 import { markdown } from '../lib/markdown'
@@ -13,11 +14,13 @@ import {
   apps,
   catalogError,
   catalogList,
+  iceStoreFocus,
   iceStoreView,
   jobFor,
   loadCatalog,
   openApp,
   setupFor,
+  startBundle,
   toast,
   trackJob,
   user,
@@ -54,10 +57,34 @@ const list = computed(() => {
   return [...l].sort((a, b) => a.title.localeCompare(b.title, 'en', { sensitivity: 'base' }))
 })
 
+// ---- Phase 5b: bundles ----
+const bundles = computed(() => {
+  const q = query.value.trim().toLowerCase()
+  return availableBundles(all.value)
+    .map((x) => ({ ...x, words: strings.bundles[x.bundle.id] ?? { name: x.bundle.id, about: '' }, have: x.apps.filter((a) => installedOf(a)).length }))
+    .filter((x) => !q || [x.words.name, x.words.about, ...x.apps.map((a) => a.title)].some((s) => s.toLowerCase().includes(q)))
+})
+function installBundle(id: string, ids: string[]) {
+  startBundle(id, ids)
+}
+
 const updatesCount = computed(() => all.value.filter((a) => installedOf(a)?.update).length)
 const installedCount = computed(() => all.value.filter((a) => installedOf(a)).length)
 
 watch(iceStoreView, () => (page.value = null))
+// Opened from search on one app: its page.
+watch(
+  [iceStoreFocus, all],
+  () => {
+    const id = iceStoreFocus.value
+    const a = id ? all.value.find((x) => x.id === id) : undefined
+    if (a) {
+      iceStoreFocus.value = null
+      void show(a)
+    }
+  },
+  { immediate: true },
+)
 
 async function show(a: api.CatalogApp) {
   pageError.value = ''
@@ -123,6 +150,9 @@ const views = computed(() => [
         {{ v.name }}
       </button>
       <span class="sep" />
+      <button type="button" class="cat" :class="{ on: iceStoreView === 'bundles' }" @click="iceStoreView = 'bundles'">
+        {{ strings.tabBundles }} <span class="n">{{ bundles.length }}</span>
+      </button>
       <button type="button" class="cat" :class="{ on: iceStoreView === 'installed' }" @click="iceStoreView = 'installed'">
         {{ strings.installed }} <span class="n">{{ installedCount }}</span>
       </button>
@@ -146,6 +176,41 @@ const views = computed(() => [
           </a>
         </div>
         <p v-if="catalogError" class="warn small">{{ catalogList ? strings.catalogOffline(catalogError) : catalogError }}</p>
+        <template v-if="iceStoreView === 'bundles'">
+          <p class="mut small">{{ strings.bundlesHint }}</p>
+          <ul class="bundles">
+            <li v-for="b in bundles" :key="b.bundle.id" class="bcard" :data-bundle="b.bundle.id">
+              <header class="bhead">
+                <span class="bicon"><Icon :name="b.bundle.icon" :size="20" /></span>
+                <div class="card-titles">
+                  <span class="title">{{ b.words.name }}</span>
+                  <span class="mut small">{{ strings.bundleHave(b.have, b.apps.length) }}</span>
+                </div>
+                <button
+                  type="button"
+                  class="pill"
+                  :class="b.have === b.apps.length ? 'open' : 'install'"
+                  :disabled="!admin || b.have === b.apps.length"
+                  :title="!admin ? strings.adminInstallOnly : undefined"
+                  @click="installBundle(b.bundle.id, b.apps.map((a) => a.id))"
+                >
+                  {{ b.have === b.apps.length ? strings.bundleAllInstalled : strings.bundleInstall(b.apps.length - b.have) }}
+                </button>
+              </header>
+              <p class="tagline">{{ b.words.about }}</p>
+              <ul class="bapps">
+                <li v-for="a in b.apps" :key="a.id">
+                  <button type="button" class="bapp" :title="a.tagline" @click="show(a)">
+                    <AppIcon :src="a.icon" :name="a.title" :size="30" />
+                    <span>{{ a.title }}</span>
+                    <Icon v-if="installedOf(a)" name="check" :size="14" class="ok" />
+                  </button>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </template>
+        <template v-else>
         <p class="count mono">{{ strings.appCount(list.length) }}</p>
         <p v-if="!catalogList && !catalogError" class="mut">{{ strings.loading }}</p>
         <p v-else-if="catalogList && !list.length" class="mut">{{ strings.catalogEmpty }}</p>
@@ -176,6 +241,7 @@ const views = computed(() => [
             </div>
           </li>
         </ul>
+        </template>
       </template>
 
       <article v-else class="page">
@@ -559,5 +625,67 @@ h4 {
   .wide {
     display: none;
   }
+}
+.bundles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.bcard {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+.bhead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bicon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 12px;
+  background: rgba(var(--ac-rgb), 0.12);
+  color: var(--ac);
+}
+.bhead .card-titles {
+  flex: 1;
+  min-width: 0;
+}
+.bapps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bapp {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: rgba(var(--fg-rgb), 0.03);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.bapp:hover {
+  border-color: rgba(var(--ac-rgb), 0.5);
+}
+.bapp .ok {
+  color: var(--ac2);
 }
 </style>

@@ -78,6 +78,8 @@ export interface Settings {
   /** Phase 5a: install a waiting update between 02:00 and 05:00 in zone. */
   auto_install?: boolean
   zone?: string
+  /** Phase 5b: on ZimaOS, the server's main address opens IceDash (always on for CasaOS). */
+  main_address?: boolean
 }
 
 export const getSettings = () => request<Settings>(`${base}/settings`)
@@ -101,6 +103,8 @@ export interface Prefs {
   /** Without a picture: the drawn style ("" is Critters, "initials" the letters) and its seed ("" is the name). */
   avatar_style: string
   avatar_seed: string
+  /** Phase 5b: "" follows the system's language, then the browser's. */
+  lang: '' | 'en' | 'de' | 'fr' | 'es' | 'zh'
 }
 
 export type WallpaperPreset = 'aurora' | 'glacier' | 'nightfall' | 'ember' | 'lagoon' | 'dune' | 'graphite' | 'mist'
@@ -127,12 +131,13 @@ export const defaultPrefs = (): Prefs => ({
   avatar: 0,
   avatar_style: '',
   avatar_seed: '',
+  lang: '',
 })
 
 /** Fills in what an older backend leaves out. */
 export const fullPrefs = (p: Partial<Prefs>): Prefs => {
   const d = defaultPrefs()
-  return { ...d, ...p, wallpaper: { ...d.wallpaper, ...(p.wallpaper ?? {}) }, avatar: p.avatar ?? 0, avatar_style: p.avatar_style ?? '', avatar_seed: p.avatar_seed ?? '' }
+  return { ...d, ...p, wallpaper: { ...d.wallpaper, ...(p.wallpaper ?? {}) }, avatar: p.avatar ?? 0, avatar_style: p.avatar_style ?? '', avatar_seed: p.avatar_seed ?? '', lang: p.lang ?? '' }
 }
 export const getPrefs = () => request<Prefs>(`${base}/prefs`).then(fullPrefs)
 export const savePrefs = (p: Partial<Prefs>) => request<Prefs>(`${base}/prefs`, { method: 'POST', body: p }).then(fullPrefs)
