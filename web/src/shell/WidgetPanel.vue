@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// The four built-in widgets (PLAN.md): Clock, System, Network and Apps, then
-// the user's own widgets (Phase 4), each in its sandbox. Widgets dragged from
-// Settings drop here; they can be reordered and taken off.
-import { computed, ref } from 'vue'
-import { setPanel } from '../api/mods'
+// The panel (IceCards): IceDash's own cards (Clock, System, Network, Apps)
+// and the user's widgets (Phase 4), each in its sandbox, in the user's order.
+// Every card can be dragged to a new place, taken off, or right-clicked.
+// Cards dragged from Settings → IceCards drop here.
+import { computed, reactive, ref } from 'vue'
 import WidgetFrame from '../components/WidgetFrame.vue'
 import Icon from '../components/Icon.vue'
 import { counts } from '../lib/apps'
@@ -11,22 +11,37 @@ import { duration, pct, speed, usedOfTotal } from '../lib/format'
 import { dashboardUrl } from '../lib/host'
 import { ICESTORE_SITE } from '../lib/launchers'
 import { cityOf, clockParts } from '../lib/timezone'
-import { appUpdates, apps, iceStoreInZimaOS, modsView, openIceStore, panelWidgets, setModsView, sys, toast, util, zone, h24 } from '../store'
+import { cardMenu, cardTitle, panelMenu } from '../menus'
+import {
+  appUpdates,
+  apps,
+  iceStoreInZimaOS,
+  modsView,
+  openContext,
+  openIceStore,
+  openSettings,
+  panelCards,
+  setPanelCards,
+  sys,
+  util,
+  zone,
+  h24,
+  type PanelCard,
+} from '../store'
 import { strings } from '../strings'
 
 const props = defineProps<{ now: Date }>()
 
-// ---- the user's widgets ----
+// ---- placing cards ----
 const ADD = 'application/x-icedash-widget'
 const MOVE = 'application/x-icedash-panel'
 const dropping = ref(false)
 const accepts = (e: DragEvent) => !!e.dataTransfer && (e.dataTransfer.types.includes(ADD) || e.dataTransfer.types.includes(MOVE))
-async function savePanel(ids: string[]) {
-  try {
-    setModsView(await setPanel(ids))
-  } catch (e) {
-    toast({ title: strings.settingsWidgets, body: e instanceof Error ? e.message : String(e) })
-  }
+const savePanel = (ids: string[]) => setPanelCards(ids)
+/** A widget reloads by remounting its frame. */
+const reloads = reactive<Record<string, number>>({})
+function menuFor(e: MouseEvent | KeyboardEvent, c: PanelCard, i: number) {
+  openContext(e, cardTitle(c), cardMenu(c, i, panelCards.value.length, c.builtin ? undefined : () => (reloads[c.id] = (reloads[c.id] ?? 0) + 1)))
 }
 function over(e: DragEvent) {
   if (!accepts(e)) return
@@ -101,20 +116,43 @@ const chart = computed(() => {
   return { down: line('down'), up: line('up') }
 })
 
-const c = computed(() => counts(apps.value))
+const tally = computed(() => counts(apps.value))
 const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICESTORE_SITE))
 </script>
 
 <template>
-  <aside class="panel" aria-label="Widgets" @dragover="over" @dragleave.self="dropping = false" @drop="drop($event)">
-    <section class="card clock">
+  <aside
+    class="panel"
+    :aria-label="strings.settingsWidgets"
+    @dragover="over"
+    @dragleave.self="dropping = false"
+    @drop="drop($event)"
+    @contextmenu.self="openContext($event, strings.ctxPanel, panelMenu())"
+  >
+    <section
+      v-for="(c, i) in panelCards"
+      :key="c.id"
+      class="card"
+      :class="[c.builtin ? `b-${c.id}` : 'wcard']"
+      :data-card="c.id"
+      draggable="true"
+      :aria-label="cardTitle(c)"
+      @dragstart="lift($event, c.id)"
+      @drop.stop="drop($event, c.id)"
+      @contextmenu="menuFor($event, c, i)"
+    >
+      <button type="button" class="off" :title="strings.removeFromPanel" :aria-label="`${strings.removeFromPanel}: ${cardTitle(c)}`" @click="takeOff(c.id)">
+        <Icon name="close" :size="13" />
+      </button>
+
+    <template v-if="c.id === 'clock'">
       <p class="time" aria-live="off">
         <span class="hm">{{ clock.time }}</span><span v-if="clock.ampm" class="ampm">{{ clock.ampm }}</span>
       </p>
       <p class="date">{{ clock.date }} · {{ city }}</p>
-    </section>
+    </template>
 
-    <section class="card">
+    <template v-else-if="c.id === 'system'">
       <header>
         <h2 class="kicker">{{ strings.system }}</h2>
         <span class="aside">{{ systemLine }}</span>
@@ -129,9 +167,9 @@ const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICEST
         </div>
       </div>
       <p v-if="!meters.length" class="aside">{{ strings.loading }}</p>
-    </section>
+    </template>
 
-    <section class="card">
+    <template v-else-if="c.id === 'network'">
       <header>
         <h2 class="kicker">{{ strings.network }}</h2>
         <span class="mono speeds">
@@ -144,21 +182,21 @@ const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICEST
           <path :d="chart.down" class="down" />
         </template>
       </svg>
-    </section>
+    </template>
 
-    <section class="card">
+    <template v-else-if="c.id === 'apps'">
       <header>
         <h2 class="kicker">{{ strings.apps }}</h2>
       </header>
       <div class="counts">
         <div class="count run">
-          <strong>{{ c.running }}</strong><span>{{ strings.running }}</span>
+          <strong>{{ tally.running }}</strong><span>{{ strings.running }}</span>
         </div>
         <div class="count start">
-          <strong>{{ c.starting }}</strong><span>{{ strings.starting }}</span>
+          <strong>{{ tally.starting }}</strong><span>{{ strings.starting }}</span>
         </div>
         <div class="count stop">
-          <strong>{{ c.stopped }}</strong><span>{{ strings.stopped }}</span>
+          <strong>{{ tally.stopped }}</strong><span>{{ strings.stopped }}</span>
         </div>
       </div>
       <button v-if="appUpdates.length" type="button" class="store" @click="openIceStore('updates')">
@@ -169,22 +207,18 @@ const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICEST
         <span>{{ strings.browseIceStore }}</span>
         <span class="go">{{ strings.open }}</span>
       </a>
+    </template>
+
+    <WidgetFrame v-else-if="!c.builtin" :key="`${c.id}:${reloads[c.id] ?? 0}`" :mod="c.mod" />
     </section>
 
-    <section
-      v-for="w in panelWidgets"
-      :key="w.id"
-      class="card wcard"
-      draggable="true"
-      :aria-label="w.name"
-      @dragstart="lift($event, w.id)"
-      @drop.stop="drop($event, w.id)"
-    >
-      <button type="button" class="off" :title="strings.removeFromPanel" :aria-label="`${strings.removeFromPanel}: ${w.name}`" @click="takeOff(w.id)">
-        <Icon name="close" :size="13" />
+    <div v-if="!panelCards.length && !dropping" class="none" @contextmenu.self="openContext($event, strings.ctxPanel, panelMenu())">
+      <p>{{ strings.panelEmpty }}</p>
+      <button type="button" class="store" @click="openSettings('widgets')">
+        <span>{{ strings.panelEmptyAdd }}</span>
+        <span class="go"><Icon name="plus" :size="14" /></span>
       </button>
-      <WidgetFrame :mod="w" />
-    </section>
+    </div>
     <p v-if="dropping" class="dropzone">{{ strings.dropWidget }}</p>
   </aside>
 </template>
@@ -216,9 +250,27 @@ const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICEST
   cursor: pointer;
   transition: opacity 0.15s;
 }
-.wcard:hover .off,
+.card:hover .off,
 .off:focus-visible {
   opacity: 1;
+}
+.card[draggable='true'] {
+  cursor: grab;
+}
+.card[draggable='true']:active {
+  cursor: grabbing;
+}
+.none {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-card);
+  color: var(--mut);
+  font-size: 13.5px;
+}
+.none p {
+  margin: 0;
 }
 .dropzone {
   margin: 0;
@@ -264,7 +316,7 @@ header {
   font-family: var(--font-mono);
   font-size: 12.5px;
 }
-.clock {
+.b-clock {
   padding: 20px 22px;
 }
 .time {

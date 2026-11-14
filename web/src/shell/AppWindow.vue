@@ -6,7 +6,8 @@
 import { computed, onMounted, ref } from 'vue'
 import Icon from '../components/Icon.vue'
 import WindowDots from '../components/WindowDots.vue'
-import { apps, closeWindow, focusWindow, toggleMax, toggleMin, type Win } from '../store'
+import { windowMenu } from '../menus'
+import { apps, closeWindow, focusWindow, openContext, toggleMax, toggleMin, type Win } from '../store'
 import { strings } from '../strings'
 
 const props = defineProps<{ win: Win; width?: number; index: number }>()
@@ -85,6 +86,7 @@ function towardDock(node: Element) {
         @pointerup="up"
         @pointercancel="up"
         @dblclick="toggleMax(win.id)"
+        @contextmenu="openContext($event, win.title, windowMenu(win))"
       >
         <WindowDots
           class="dots"

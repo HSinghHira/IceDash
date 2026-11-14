@@ -46,6 +46,8 @@ export function token(storage?: Store): string {
 export interface RequestOptions {
   method?: 'GET' | 'POST'
   body?: unknown
+  /** Sent as it is (a picture), instead of body as JSON. */
+  blob?: Blob
   fetch?: typeof fetch
   storage?: Store
 }
@@ -91,13 +93,14 @@ export async function request<T>(path: string, opts: RequestOptions = {}, retrie
   // The bare token: CasaOS 0.4.15 answers 401 to "Bearer <token>", ZimaOS takes both (measured).
   if (t) headers.Authorization = t
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
+  if (opts.blob) headers['Content-Type'] = 'application/octet-stream'
 
   let res: Response
   try {
     res = await doFetch(path, {
       method: opts.method ?? 'GET',
       headers,
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      body: opts.blob ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body)),
       credentials: 'same-origin',
     })
   } catch {
@@ -193,4 +196,22 @@ export function signOut() {
     }
   }
   location.href = loginUrl()
+}
+
+/** Fetches a picture that needs the sign-in (a wallpaper, an avatar); null when there is none. */
+export async function fetchBlob(path: string, opts: RequestOptions = {}, retried = false): Promise<Blob | null> {
+  const t = token(opts.storage)
+  let res: Response
+  try {
+    res = await (opts.fetch ?? fetch)(path, { headers: t ? { Authorization: t } : {}, credentials: 'same-origin' })
+  } catch {
+    return null
+  }
+  if (res.status === 401 && !retried && t && (await refreshSession(opts))) return fetchBlob(path, opts, true)
+  if (!res.ok) return null
+  try {
+    return await res.blob()
+  } catch {
+    return null
+  }
 }

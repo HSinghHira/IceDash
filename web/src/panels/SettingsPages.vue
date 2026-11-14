@@ -2,18 +2,25 @@
 // Settings pages from Phase 5a (PLAN.md 5a): General, Appearance, Dock,
 // Notifications and Users. Each user's own choices are saved for them;
 // General's switches are the server's and only an admin changes them.
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as ice from '../api/icedash'
 import * as modsApi from '../api/mods'
 import AppIcon from '../components/AppIcon.vue'
+import AvatarEditor from '../components/AvatarEditor.vue'
 import Icon from '../components/Icon.vue'
 import { dashboardUrl, host } from '../lib/host'
 import { desktopLaunchers } from '../lib/launchers'
 import { FROST, FROST_ID, ICE } from '../lib/theme'
 import { cityOf } from '../lib/timezone'
+import { initials } from '../lib/format'
+import { prepareWallpaper } from '../lib/pictures'
+import { PRESETS, SWATCHES, wallStyle } from '../lib/wallpaper'
+import { shuffleWallpaper } from '../menus'
 import {
+  activeTheme,
   apps,
   autoCheck,
+  avatarUrl,
   iceStoreInZimaOS,
   modsView,
   openSettings,
@@ -21,7 +28,9 @@ import {
   savePrefs,
   setModsView,
   setNotes,
+  setPicture,
   sys,
+  wallpaperUrl,
   toast,
   user,
   zone,
@@ -80,6 +89,79 @@ async function applyTheme(id: string) {
     toast({ title: strings.themeHeading, body: msg(e) })
   }
 }
+
+// ---- Appearance → Wallpaper ----
+const wp = computed(() => prefs.value.wallpaper)
+const themeWall = computed(() => activeTheme.value?.wallpaper?.startsWith('/v2/icedash/mods/') ? activeTheme.value.wallpaper : '')
+/** What the preview shows: the same layer the desktop draws, or the theme's background. */
+const preview = computed(() => wallStyle(wp.value, wallpaperUrl.value, !!themeWall.value) ?? (themeWall.value ? { background: `url("${themeWall.value}") center / cover`, } : { background: 'var(--bg)' }))
+const setWall = (change: Partial<ice.Wallpaper>) => save({ wallpaper: { ...wp.value, ...change } }, strings.wallpaperHeading)
+/** Sliders show at once and save when let go. */
+function slide(key: 'dim' | 'blur', e: Event) {
+  prefs.value = { ...prefs.value, wallpaper: { ...wp.value, [key]: Number((e.target as HTMLInputElement).value) } }
+}
+const wallFile = ref<HTMLInputElement | null>(null)
+const wallBusy = ref(false)
+const wallDrop = ref(false)
+async function useWallpaper(f: File | undefined) {
+  if (!f) return
+  wallBusy.value = true
+  try {
+    const err = await setPicture('wallpaper', await prepareWallpaper(f))
+    if (err) toast({ title: strings.wallpaperHeading, body: err })
+  } catch (e) {
+    toast({ title: strings.wallpaperHeading, body: msg(e) })
+  } finally {
+    wallBusy.value = false
+    if (wallFile.value) wallFile.value.value = ''
+  }
+}
+function dropWall(e: DragEvent) {
+  wallDrop.value = false
+  const f = [...(e.dataTransfer?.files ?? [])].find((x) => x.type.startsWith('image/'))
+  if (f) void useWallpaper(f)
+}
+const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files')
+async function dropPicture() {
+  const err = await setPicture('wallpaper', null)
+  if (err) toast({ title: strings.wallpaperHeading, body: err })
+}
+const fits: { id: ice.Wallpaper['fit']; name: string }[] = [
+  { id: '', name: strings.fitCover },
+  { id: 'contain', name: strings.fitContain },
+  { id: 'center', name: strings.fitCenter },
+  { id: 'tile', name: strings.fitTile },
+]
+
+// ---- Users → your picture ----
+const avatarFile = ref<HTMLInputElement | null>(null)
+const editing = ref<File | null>(null)
+function pickAvatar(e: Event) {
+  const f = (e.target as HTMLInputElement).files?.[0]
+  if (f) editing.value = f
+  ;(e.target as HTMLInputElement).value = ''
+}
+async function saveAvatar(b: Blob) {
+  editing.value = null
+  const err = await setPicture('avatar', b)
+  if (err) toast({ title: strings.avatarHeading, body: err })
+  else void loadAvatars()
+}
+async function dropAvatar() {
+  const err = await setPicture('avatar', null)
+  if (err) toast({ title: strings.avatarHeading, body: err })
+}
+/** Other people's pictures, as object URLs. */
+const avatars = ref<Record<string, string>>({})
+async function loadAvatars() {
+  for (const a of accounts.value ?? []) {
+    if (!a.avatar || a.name === user.value?.name || avatars.value[a.name]) continue
+    const b = await ice.avatarOf(a.name)
+    if (b) avatars.value = { ...avatars.value, [a.name]: URL.createObjectURL(b) }
+  }
+}
+onBeforeUnmount(() => Object.values(avatars.value).forEach((u) => URL.revokeObjectURL(u)))
+const avatarFor = (name: string) => (name === user.value?.name ? avatarUrl.value : avatars.value[name])
 
 // ---- Dock ----
 const launchers = computed(() => desktopLaunchers(location, { admin: admin.value, iceStoreInZimaOS: iceStoreInZimaOS.value }))
@@ -148,6 +230,7 @@ async function loadUsers() {
   usersError.value = ''
   try {
     accounts.value = await ice.accounts()
+    void loadAvatars()
   } catch {
     usersError.value = strings.usersFailed
   }
@@ -252,6 +335,105 @@ watch(() => props.page, enter)
       </button>
     </div>
     <button type="button" class="link" @click="openSettings('mods')">{{ strings.moreThemes }} <Icon name="arrowRight" :size="13" /></button>
+
+    <h3 class="kicker">{{ strings.wallpaperHeading }}</h3>
+    <div
+      class="wallbox"
+      :class="{ dropping: wallDrop }"
+      @dragover.prevent="hasFiles($event) && (wallDrop = true)"
+      @dragleave.self="wallDrop = false"
+      @drop.prevent="dropWall"
+    >
+      <div class="wprev" aria-hidden="true">
+        <div class="wprev-img" :style="{ ...preview, filter: wp.blur ? `blur(${wp.blur / 4}px)` : undefined }" />
+        <div class="wprev-dim" :style="{ opacity: wp.dim / 100 }" />
+        <span class="wbar" />
+        <span class="wcard" />
+        <span class="wcard two" />
+        <span class="wdock"><i /><i /><i /><i /></span>
+        <span v-if="wallDrop" class="wdrop">{{ strings.wallDrop }}</span>
+      </div>
+      <div class="walls" role="radiogroup" :aria-label="strings.wallpaperHeading">
+        <button type="button" role="radio" class="wall" :class="{ on: wp.kind === '' }" :aria-checked="wp.kind === ''" :title="strings.wallTheme" @click="setWall({ kind: '' })">
+          <span class="wsw" :style="themeWall ? { background: `url('${themeWall}') center / cover` } : { background: 'var(--bg)' }" />
+          <span class="wname">{{ strings.wallTheme }}</span>
+        </button>
+        <button
+          v-for="p in PRESETS"
+          :key="p.id"
+          type="button"
+          role="radio"
+          class="wall"
+          :class="{ on: wp.kind === 'preset' && wp.preset === p.id }"
+          :aria-checked="wp.kind === 'preset' && wp.preset === p.id"
+          :title="p.name"
+          @click="setWall({ kind: 'preset', preset: p.id })"
+        >
+          <span class="wsw" :style="{ background: p.css }" />
+          <span class="wname">{{ p.name }}</span>
+        </button>
+        <button
+          v-if="wallpaperUrl"
+          type="button"
+          role="radio"
+          class="wall"
+          :class="{ on: wp.kind === 'image' }"
+          :aria-checked="wp.kind === 'image'"
+          :title="strings.wallYours"
+          @click="setWall({ kind: 'image' })"
+        >
+          <span class="wsw" :style="{ background: `url('${wallpaperUrl}') center / cover` }" />
+          <span class="wname">{{ strings.wallYours }}</span>
+        </button>
+        <label class="wall" :class="{ on: wp.kind === 'color' }" :title="strings.wallColor">
+          <span class="wsw" :style="{ background: wp.color || '#10202e' }"><Icon name="palette" :size="18" class="wicon" /></span>
+          <span class="wname">{{ strings.wallColor }}</span>
+          <input type="color" class="sr" :value="wp.color || '#10202e'" :aria-label="strings.wallColorPick" @change="setWall({ kind: 'color', color: ($event.target as HTMLInputElement).value })" />
+        </label>
+      </div>
+    </div>
+    <div v-if="wp.kind === 'color'" class="swatches">
+      <button
+        v-for="c in SWATCHES"
+        :key="c"
+        type="button"
+        class="swatchbtn"
+        :class="{ on: wp.color === c }"
+        :style="{ background: c }"
+        :aria-label="c"
+        @click="setWall({ kind: 'color', color: c })"
+      />
+    </div>
+    <div class="wactions">
+      <input ref="wallFile" type="file" accept="image/*" class="sr" :aria-label="strings.wallUpload" @change="useWallpaper(($event.target as HTMLInputElement).files?.[0])" />
+      <button type="button" class="ghost" :disabled="wallBusy" @click="wallFile?.click()">
+        <Icon name="upload" :size="15" /> {{ wallBusy ? strings.wallUploading : wallpaperUrl ? strings.wallReplace : strings.wallUpload }}
+      </button>
+      <button v-if="wallpaperUrl" type="button" class="ghost" @click="dropPicture"><Icon name="trash" :size="15" /> {{ strings.wallRemovePic }}</button>
+      <button type="button" class="ghost" @click="shuffleWallpaper"><Icon name="shuffle" :size="15" /> {{ strings.ctxShuffle }}</button>
+    </div>
+    <p class="mut small">{{ strings.wallHint }}</p>
+    <div class="rows">
+      <div v-if="wp.kind === 'image'" class="row">
+        <div class="who"><strong>{{ strings.wallFit }}</strong></div>
+        <div class="seg flat" role="radiogroup" :aria-label="strings.wallFit">
+          <button v-for="f in fits" :key="f.id || 'cover'" type="button" role="radio" :aria-checked="wp.fit === f.id" :class="{ on: wp.fit === f.id }" @click="setWall({ fit: f.id })">
+            {{ f.name }}
+          </button>
+        </div>
+      </div>
+      <div class="row">
+        <div class="who"><strong>{{ strings.wallDim }}</strong></div>
+        <input type="range" class="slider" min="0" max="80" step="5" :value="wp.dim" :aria-label="strings.wallDim" @input="slide('dim', $event)" @change="setWall({})" />
+        <span class="mono small val">{{ wp.dim }}%</span>
+      </div>
+      <div class="row">
+        <div class="who"><strong>{{ strings.wallBlur }}</strong></div>
+        <input type="range" class="slider" min="0" max="30" step="1" :value="wp.blur" :aria-label="strings.wallBlur" @input="slide('blur', $event)" @change="setWall({})" />
+        <span class="mono small val">{{ wp.blur }} px</span>
+      </div>
+    </div>
+    <button v-if="wp.dim || wp.blur || wp.fit" type="button" class="link" @click="setWall({ dim: 0, blur: 0, fit: '' })">{{ strings.wallReset }}</button>
 
     <h3 class="kicker">{{ strings.clockHeading }}</h3>
     <div class="seg" role="radiogroup" :aria-label="strings.clockHeading">
@@ -404,10 +586,33 @@ watch(() => props.page, enter)
   <section v-else-if="page === 'users'" class="page">
     <h2>{{ strings.settingsUsers }}</h2>
     <p class="mut lead">{{ strings.usersHint(host.name) }}</p>
+
+    <h3 class="kicker">{{ strings.avatarHeading }}</h3>
+    <div class="row me">
+      <span class="avatar xl" :aria-label="strings.avatarOf(user?.name ?? '')" role="img">
+        <img v-if="avatarUrl" :src="avatarUrl" alt="" />
+        <template v-else>{{ initials(user?.name ?? '') }}</template>
+      </span>
+      <div class="who">
+        <strong>{{ user?.name }}</strong>
+        <span class="mut small">{{ strings.avatarHint }}</span>
+      </div>
+      <input ref="avatarFile" type="file" accept="image/*" class="sr" :aria-label="strings.avatarChoose" @change="pickAvatar" />
+      <button type="button" class="ghost" @click="avatarFile?.click()"><Icon name="user" :size="15" /> {{ avatarUrl ? strings.avatarChange : strings.avatarChoose }}</button>
+      <button v-if="avatarUrl" type="button" class="icon-btn" :title="strings.avatarRemove" :aria-label="strings.avatarRemove" @click="dropAvatar">
+        <Icon name="trash" :size="15" />
+      </button>
+    </div>
+    <AvatarEditor v-if="editing" :file="editing" @save="saveAvatar" @cancel="editing = null" />
+
+    <h3 class="kicker">{{ strings.settingsUsers }}</h3>
     <p v-if="usersError" class="warnline" role="alert">{{ usersError }}</p>
     <ul v-if="accounts" class="rows">
       <li v-for="a in accounts" :key="a.name" class="row">
-        <span class="avatar" aria-hidden="true">{{ a.name.slice(0, 2).toUpperCase() }}</span>
+        <span class="avatar" aria-hidden="true">
+          <img v-if="avatarFor(a.name)" :src="avatarFor(a.name)" alt="" />
+          <template v-else>{{ initials(a.name) }}</template>
+        </span>
         <div class="who">
           <strong>
             {{ a.name }}
@@ -702,11 +907,201 @@ h2 {
   place-items: center;
   width: 36px;
   height: 36px;
+  overflow: hidden;
   border-radius: 50%;
   background: var(--ac);
   color: var(--ink);
   font: 700 12px var(--font-mono);
   flex: none;
+}
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.avatar.xl {
+  width: 64px;
+  height: 64px;
+  font-size: 20px;
+}
+.row.me {
+  flex-wrap: wrap;
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.wallbox {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--card);
+}
+.wallbox.dropping {
+  border-color: var(--ac);
+  box-shadow: 0 0 0 1px var(--ac) inset;
+}
+.wprev {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  align-self: start;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+}
+.wprev-img,
+.wprev-dim {
+  position: absolute;
+  inset: -8px;
+}
+.wprev-dim {
+  background: #000;
+}
+.wbar {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 8%;
+  background: rgba(0, 0, 0, 0.35);
+}
+.wcard {
+  position: absolute;
+  right: 5%;
+  top: 14%;
+  width: 24%;
+  height: 22%;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.wcard.two {
+  top: 40%;
+}
+.wdock {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  display: flex;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 7px;
+  background: rgba(var(--surface-rgb), 0.7);
+  transform: translateX(-50%);
+}
+.wdock i {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--ac);
+  opacity: 0.8;
+}
+.wdrop {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-weight: 600;
+}
+.walls {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+.wall {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wall:hover {
+  background: rgba(var(--fg-rgb), 0.05);
+}
+.wall.on {
+  border-color: var(--ac);
+  box-shadow: 0 0 0 1px var(--ac) inset;
+}
+.wall:focus-within {
+  outline: 2px solid var(--ac2);
+  outline-offset: 1px;
+}
+.wsw {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.wicon {
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+.wname {
+  padding: 0 2px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.swatchbtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+.swatchbtn.on {
+  outline: 2px solid var(--ac);
+  outline-offset: 2px;
+}
+.wactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0 6px;
+}
+.slider {
+  flex: 1;
+  max-width: 260px;
+  accent-color: var(--ac);
+}
+.val {
+  min-width: 46px;
+  text-align: right;
+  color: var(--mut);
+}
+.seg.flat {
+  margin: 0;
+}
+.seg.flat button {
+  padding: 5px 12px;
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .wallbox {
+    grid-template-columns: 1fr;
+  }
 }
 .chip {
   padding: 4px 12px;

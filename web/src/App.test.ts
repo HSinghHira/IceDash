@@ -256,3 +256,71 @@ describe('Phase 5a notification choices', () => {
     prefs.value = defaultPrefs()
   })
 })
+
+describe('IceCards, menus and the top bar', () => {
+  async function desktop() {
+    localStorage.setItem('access_token', adminToken)
+    stubFetch()
+    const w = mount(App, { attachTo: document.body })
+    await flushPromises()
+    await flushPromises()
+    return w
+  }
+
+  it('has no stats in the top bar', async () => {
+    const w = await desktop()
+    expect(w.find('.topbar').text()).not.toContain('CPU')
+    expect(w.find('.topbar').text()).not.toContain('RAM')
+    w.unmount()
+  })
+
+  it('shows the four built-in cards, each with its own menu', async () => {
+    const w = await desktop()
+    const cards = w.findAll('.panel [data-card]').map((c) => c.attributes('data-card'))
+    expect(cards).toEqual(['clock', 'system', 'network', 'apps'])
+    await w.find('[data-card="clock"]').trigger('contextmenu', { clientX: 900, clientY: 100 })
+    await flushPromises()
+    const items = [...document.querySelectorAll('.ctx [role^="menuitem"]')].map((b) => b.textContent?.trim())
+    expect(items).toEqual(['12-hour', '24-hour', 'Move up', 'Move down', 'Take off the panel', 'IceCards settings…', 'Hide the panel'])
+    expect(document.querySelector('.ctx [data-ctx="up"]')?.hasAttribute('disabled')).toBe(true)
+    w.unmount()
+  })
+
+  it('opens a menu on the desktop, the dock and the clock', async () => {
+    const w = await desktop()
+    await w.find('nav.icons').trigger('contextmenu', { clientX: 300, clientY: 300 })
+    await flushPromises()
+    expect(document.querySelector('.ctx')?.textContent).toContain('Change wallpaper…')
+    expect(document.querySelector('.ctx')?.textContent).toContain('Shuffle wallpaper')
+    await w.find('nav.dock a[title="Files"]').trigger('contextmenu', { clientX: 300, clientY: 700 })
+    await flushPromises()
+    expect(document.querySelector('.ctx')?.textContent).toContain('Remove from dock')
+    await w.find('button.clock').trigger('contextmenu', { clientX: 1200, clientY: 10 })
+    await flushPromises()
+    expect(document.querySelector('.ctx [data-ctx="24"]')).not.toBeNull()
+    // The app menu and these never show together.
+    await w.find('a[href="http://localhost:8123/"]').trigger('contextmenu', { clientX: 100, clientY: 100 })
+    await flushPromises()
+    expect(document.querySelector('.ctx')).toBeNull()
+    expect(document.querySelector('.menu')).not.toBeNull()
+    w.unmount()
+  })
+
+  it('names the pages IceLook and IceCards, with collections on both', async () => {
+    const w = await desktop()
+    openSettings('widgets')
+    await flushPromises()
+    const side = w.find('.side').text()
+    expect(side).toContain('IceCards')
+    expect(side).toContain('IceLook')
+    expect(side).not.toContain('Mods & Themes')
+    expect(w.find('.page form.add input').exists()).toBe(true)
+    expect(w.find('.page').text()).toContain('Your cards')
+    openSettings('mods')
+    await flushPromises()
+    expect(w.find('.page h2').text()).toBe('IceLook')
+    expect(w.find('.page').text()).not.toContain('Widgets ·')
+    expect(w.find('.page form.add input').exists()).toBe(true)
+    w.unmount()
+  })
+})

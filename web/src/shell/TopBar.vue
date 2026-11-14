@@ -2,13 +2,16 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { signOut } from '../api/client'
 import Icon from '../components/Icon.vue'
-import { initials, speed, usedOfTotal } from '../lib/format'
+import { initials } from '../lib/format'
 import { dashboardUrl, host } from '../lib/host'
 import { clockParts } from '../lib/timezone'
+import { accountMenu, bellMenu, clockMenu, topBarMenu } from '../menus'
 import {
   activeWindow,
   appUpdates,
+  avatarUrl,
   notesOpen,
+  openContext,
   openIceStore,
   openSettings,
   openWindow,
@@ -16,12 +19,10 @@ import {
   h24,
   togglePanel,
   refreshUpdate,
-  sys,
   unread,
   updateCount,
   updateWaiting,
   user,
-  util,
   zone,
 } from '../store'
 import { strings } from '../strings'
@@ -31,14 +32,7 @@ const props = defineProps<{ now: Date }>()
 const menu = ref<'' | 'icedash' | 'account'>('')
 
 const clock = computed(() => clockParts(props.now, zone.value, h24.value))
-const cpu = computed(() => (util.value ? `${Math.round(util.value.cpu.percent)}%` : '–'))
-const ram = computed(() => {
-  if (!util.value) return '–'
-  const m = util.value.mem
-  const p = usedOfTotal(m.total - m.available, m.total)
-  return `${p.used} / ${p.total} ${p.unit}`
-})
-const down = computed(() => (sys.value ? speed(sys.value.down) : '–'))
+
 
 function toggle(which: 'icedash' | 'account') {
   menu.value = menu.value === which ? '' : which
@@ -71,7 +65,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <header class="topbar">
+  <header class="topbar" @contextmenu.self="openContext($event, strings.ctxTopBar, topBarMenu())">
     <div class="left">
       <div class="menu-wrap">
         <button
@@ -97,9 +91,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="right">
-      <span class="stat mono hide-sm"><span class="mut">{{ strings.cpu }}</span> {{ cpu }}</span>
-      <span class="stat mono hide-sm"><span class="mut">{{ strings.ram }}</span> {{ ram }}</span>
-      <span class="stat mono hide-md"><Icon name="down" :size="13" /> {{ down }}</span>
+
       <button
         v-if="updateCount"
         class="badge mono"
@@ -109,7 +101,7 @@ onBeforeUnmount(() => {
         <Icon name="refresh" :size="15" />
         <span class="hide-sm">{{ strings.updatesBadge(updateCount) }}</span>
       </button>
-      <button class="bell" type="button" :aria-label="strings.notificationsButton(unread)" @click="notesOpen = !notesOpen">
+      <button class="bell" type="button" :aria-label="strings.notificationsButton(unread)" @click="notesOpen = !notesOpen" @contextmenu="openContext($event, strings.notifications, bellMenu())">
         <Icon name="bell" :size="18" />
         <span v-if="unread" class="dot" aria-hidden="true" />
       </button>
@@ -121,15 +113,29 @@ onBeforeUnmount(() => {
           :aria-expanded="menu === 'account'"
           aria-haspopup="menu"
           @click="toggle('account')"
+          @contextmenu="openContext($event, user?.name ?? '', accountMenu())"
         >
-          {{ initials(user?.name ?? '') }}
+          <img v-if="avatarUrl" :src="avatarUrl" alt="" />
+          <template v-else>{{ initials(user?.name ?? '') }}</template>
         </button>
         <div v-if="menu === 'account'" class="menu end" role="menu">
-          <p class="who">{{ user?.name }}</p>
+          <div class="who">
+            <span class="big avatar" aria-hidden="true">
+              <img v-if="avatarUrl" :src="avatarUrl" alt="" />
+              <template v-else>{{ initials(user?.name ?? '') }}</template>
+            </span>
+            <span>
+              <strong>{{ user?.name }}</strong>
+              <span class="role">{{ user?.admin ? strings.roleAdmin : strings.roleMember }}</span>
+            </span>
+          </div>
+          <button role="menuitem" type="button" @click="(close(), openSettings('users'))">{{ strings.ctxChangePicture }}</button>
+          <button role="menuitem" type="button" @click="(close(), openSettings('appearance'))">{{ strings.ctxAppearance }}</button>
+          <hr />
           <button role="menuitem" type="button" @click="signOut">{{ strings.menuSignOut }}</button>
         </div>
       </div>
-      <button class="clock" type="button" :aria-pressed="panelOpen" :title="strings.togglePanel" @click="(panelOpen = !panelOpen), togglePanel()">
+      <button class="clock" type="button" :aria-pressed="panelOpen" :title="strings.togglePanel" @click="togglePanel()" @contextmenu="openContext($event, strings.ctxClock, clockMenu())">
         <span class="hide-sm">{{ clock.day }}&nbsp;</span>{{ clock.time }}<template v-if="clock.ampm">&nbsp;{{ clock.ampm }}</template>
       </button>
     </div>
@@ -198,12 +204,7 @@ button {
   font-family: var(--font-mono);
   font-size: 12.5px;
 }
-.stat {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-}
+
 .mut {
   color: var(--mut);
 }
@@ -240,13 +241,27 @@ button {
   box-shadow: 0 0 8px var(--ac);
 }
 .avatar {
+  display: grid;
+  place-items: center;
   width: 26px;
   height: 26px;
+  overflow: hidden;
   border-radius: 50%;
   background: var(--ac);
   color: var(--ink);
   font-size: 11px;
   font-weight: 700;
+}
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.avatar.big {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
 }
 .clock {
   font-weight: 600;
@@ -299,14 +314,22 @@ button {
   margin: 4px 2px;
 }
 .who {
-  margin: 4px 10px 6px;
-  color: var(--mut);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 6px 6px;
   font-size: 13px;
 }
-@media (max-width: 1100px) {
-  .hide-md {
-    display: none;
-  }
+.who strong {
+  display: block;
+  font-size: 14px;
+}
+.role {
+  color: var(--mut);
+  font-size: 12px;
+}
+.menu.end {
+  min-width: 220px;
 }
 @media (max-width: 760px) {
   .hide-sm,

@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -357,7 +358,7 @@ func TestModsFromV070AreDropped(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "mods.json"), []byte(old), 0o600)
 	s := &Service{Dir: filepath.Join(dir, "mods"), State: filepath.Join(dir, "mods.json"), Cache: filepath.Join(dir, "c.json")}
 	v := s.List("casaos")
-	if len(v.Mods) != 0 || v.Prefs.Theme != "" || len(v.Prefs.Panel) != 0 {
+	if len(v.Mods) != 0 || v.Prefs.Theme != "" || !slices.Equal(v.Prefs.Panel, Builtin) {
 		t.Fatalf("%+v", v)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "mods", "paper")); err == nil {
@@ -415,5 +416,37 @@ func TestFrostIsBuiltIn(t *testing.T) {
 	again := &Service{Dir: s.Dir, State: s.State, Cache: s.Cache}
 	if v := again.List("hira"); v.Prefs.Theme != Frost {
 		t.Fatalf("after a restart: %q", v.Prefs.Theme)
+	}
+}
+
+func TestBuiltinCards(t *testing.T) {
+	dir := t.TempDir()
+	// A panel saved by v0.8.0: the built-in cards showed above it, always.
+	old := `{"mods":{},"users":{"hira":{"theme":"","panel":[]}}}`
+	os.WriteFile(filepath.Join(dir, "mods.json"), []byte(old), 0o600)
+	s := &Service{Dir: filepath.Join(dir, "mods"), State: filepath.Join(dir, "mods.json"), Cache: filepath.Join(dir, "c.json")}
+	if p := s.List("hira").Prefs.Panel; !slices.Equal(p, Builtin) {
+		t.Fatalf("old panel %v", p)
+	}
+	if p := s.List("someone").Prefs.Panel; !slices.Equal(p, Builtin) {
+		t.Fatalf("new user %v", p)
+	}
+	// Reordered, one taken off: kept as set.
+	if err := s.SetPanel("hira", []string{"apps", "clock", "apps"}); err != nil {
+		t.Fatal(err)
+	}
+	if p := s.List("hira").Prefs.Panel; !slices.Equal(p, []string{"apps", "clock"}) {
+		t.Fatalf("set %v", p)
+	}
+	// All taken off stays empty, after a restart too.
+	if err := s.SetPanel("hira", []string{}); err != nil {
+		t.Fatal(err)
+	}
+	s2 := &Service{Dir: s.Dir, State: s.State, Cache: s.Cache}
+	if p := s2.List("hira").Prefs.Panel; len(p) != 0 {
+		t.Fatalf("emptied %v", p)
+	}
+	if err := s.SetPanel("hira", []string{"weather"}); err == nil {
+		t.Fatal("an unknown card accepted")
 	}
 }

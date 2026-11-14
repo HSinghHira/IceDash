@@ -1,5 +1,5 @@
 // The desktop's shared state and its polling. One instance per page.
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { ApiError, keepStockVersion, token } from './api/client'
 import * as appsApi from './api/apps'
 import * as modsApi from './api/mods'
@@ -7,6 +7,7 @@ import * as ice from './api/icedash'
 import * as zima from './api/zimaos'
 import { toApps, type App } from './lib/apps'
 import { host, setHost } from './lib/host'
+import type { IconName } from './lib/icons'
 import { applyTheme, FROST, FROST_ID } from './lib/theme'
 import { poll, type Poller } from './lib/poll'
 import { pickZone } from './lib/timezone'
@@ -382,18 +383,50 @@ export function openSettings(page: SettingsPage = 'general') {
   openWindow('settings')
 }
 
-export const modsView = ref<modsApi.View>({ mods: [], prefs: { theme: '', panel: [] } })
+/** IceDash's own cards (IceCards): on the panel like any widget, nothing to install. */
+export const BUILTIN_CARDS = ['clock', 'system', 'network', 'apps'] as const
+export type BuiltinCard = (typeof BUILTIN_CARDS)[number]
+export const isBuiltinCard = (id: string): id is BuiltinCard => (BUILTIN_CARDS as readonly string[]).includes(id)
+
+export const modsView = ref<modsApi.View>({ mods: [], prefs: { theme: '', panel: [...BUILTIN_CARDS] } })
 export const activeTheme = computed(() => {
   if (modsView.value.prefs.theme === FROST_ID) return FROST
   const m = modsView.value.mods.find((x) => x.kind === 'theme' && x.id === modsView.value.prefs.theme)
   return m ? modsApi.themeOf(m) : null
 })
-/** The user's widgets on the panel, top to bottom: installed and switched on. */
-export const panelWidgets = computed(() =>
-  modsView.value.prefs.panel
-    .map((id) => modsView.value.mods.find((m) => m.id === id && m.kind === 'widget' && m.enabled))
-    .filter((m): m is modsApi.Installed => !!m),
+/** The cards on the user's panel, top to bottom: built-in ones, and widgets installed and switched on. */
+export type PanelCard = { id: BuiltinCard; builtin: true } | { id: string; builtin: false; mod: modsApi.Installed }
+export const panelCards = computed<PanelCard[]>(() =>
+  modsView.value.prefs.panel.flatMap((id): PanelCard[] => {
+    if (isBuiltinCard(id)) return [{ id, builtin: true }]
+    const mod = modsView.value.mods.find((m) => m.id === id && m.kind === 'widget' && m.enabled)
+    return mod ? [{ id, builtin: false, mod }] : []
+  }),
 )
+export const onPanel = (id: string) => modsView.value.prefs.panel.includes(id)
+/** Sets the panel's cards; the change shows at once and goes back if saving fails. */
+export async function setPanelCards(ids: string[]) {
+  const before = modsView.value
+  modsView.value = { ...before, prefs: { ...before.prefs, panel: ids } }
+  try {
+    setModsView(await modsApi.setPanel(ids))
+  } catch (e) {
+    modsView.value = before
+    toast({ title: strings.settingsWidgets, body: e instanceof Error ? e.message : String(e) })
+  }
+}
+export function toggleCard(id: string) {
+  const ids = modsView.value.prefs.panel
+  return setPanelCards(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id])
+}
+export function moveCard(id: string, by: number) {
+  const ids = [...modsView.value.prefs.panel]
+  const i = ids.indexOf(id)
+  const j = i + by
+  if (i < 0 || j < 0 || j >= ids.length) return
+  ;[ids[i], ids[j]] = [ids[j]!, ids[i]!]
+  return setPanelCards(ids)
+}
 const THEME_KEY = 'icedash.theme'
 /** Takes a fresh view of the mods and applies the user's theme. */
 export function setModsView(v: modsApi.View) {
@@ -426,6 +459,71 @@ export function applyRememberedTheme() {
 
 // ---- Phase 5a: the user's own choices ----
 
+export const prefsLoaded = ref(false)
+
+// ---- each user's pictures: fetched with the sign-in, shown as object URLs ----
+export const wallpaperUrl = ref('')
+export const avatarUrl = ref('')
+/** How light the user's picture is, 0–1, so the desktop's words stay readable on it. */
+export const pictureLight = ref<number | null>(null)
+async function showPicture(kind: ice.PictureKind, rev: number) {
+  const target = kind === 'avatar' ? avatarUrl : wallpaperUrl
+  const blob = rev ? await ice.myPicture(kind, rev) : null
+  if (target.value) URL.revokeObjectURL(target.value)
+  target.value = blob ? URL.createObjectURL(blob) : ''
+  if (kind === 'wallpaper') pictureLight.value = blob ? await lightness(blob) : null
+}
+watch(
+  () => prefs.value.wallpaper.kind === 'image' ? prefs.value.wallpaper.rev : 0,
+  (rev) => void showPicture('wallpaper', rev),
+)
+watch(
+  () => prefs.value.avatar,
+  (rev) => void showPicture('avatar', rev),
+)
+/** Sends a new wallpaper or avatar, or takes it away (null). */
+export async function setPicture(kind: ice.PictureKind, blob: Blob | null): Promise<string | undefined> {
+  try {
+    prefs.value = blob ? await ice.putPicture(kind, blob) : await ice.dropPicture(kind)
+    applyPrefs(prefs.value)
+    return undefined
+  } catch (e) {
+    handle(e)
+    return e instanceof Error ? e.message : String(e)
+  }
+}
+
+// ---- right-click menus on everything that isn't an app ----
+export interface CtxItem {
+  id: string
+  label: string
+  icon: IconName
+  danger?: boolean
+  /** Shown as a tick: a choice that is on. */
+  checked?: boolean
+  disabled?: boolean
+  run: () => unknown
+}
+export const ctx = ref<{ x: number; y: number; title: string; groups: CtxItem[][] } | null>(null)
+function pointOf(e: MouseEvent | KeyboardEvent) {
+  let x = 'clientX' in e ? e.clientX : 0
+  let y = 'clientY' in e ? e.clientY : 0
+  if (!x && !y && e.currentTarget instanceof HTMLElement) {
+    const r = e.currentTarget.getBoundingClientRect()
+    x = r.left + r.width / 2
+    y = r.bottom
+  }
+  return { x, y }
+}
+/** Opens a menu at the pointer (or under the element, from the keyboard). */
+export function openContext(e: MouseEvent | KeyboardEvent, title: string, groups: CtxItem[][]) {
+  e.preventDefault()
+  e.stopPropagation()
+  menu.value = null
+  const g = groups.filter((x) => x.length)
+  if (g.length) ctx.value = { ...pointOf(e), title, groups: g }
+}
+
 /** Applies what the choices change outside Vue: the panel and motion. */
 function applyPrefs(p: ice.Prefs) {
   panelOpen.value = !p.hide_panel
@@ -434,6 +532,7 @@ function applyPrefs(p: ice.Prefs) {
 export async function loadPrefs() {
   try {
     prefs.value = await ice.getPrefs()
+    prefsLoaded.value = true
     applyPrefs(prefs.value)
   } catch (e) {
     handle(e)
@@ -456,8 +555,11 @@ export async function savePrefs(change: Partial<ice.Prefs>): Promise<string | un
   }
 }
 /** Shows or hides the widget panel, and keeps that for next time. */
+export function showPanel(on: boolean) {
+  void savePrefs({ hide_panel: !on })
+}
 export function togglePanel() {
-  void savePrefs({ hide_panel: panelOpen.value })
+  showPanel(!panelOpen.value)
 }
 /** The apps kept in the dock, in order, that are still installed. */
 export const pinnedApps = computed(() =>
@@ -549,14 +651,9 @@ export async function runNoteAction(kind: string, app?: string): Promise<string 
 
 /** The right-click menu at the pointer, or under the element when opened by keyboard. */
 export function openMenu(name: string, e: MouseEvent | KeyboardEvent) {
-  let x = 'clientX' in e ? e.clientX : 0
-  let y = 'clientY' in e ? e.clientY : 0
-  if (!x && !y && e.currentTarget instanceof HTMLElement) {
-    const r = e.currentTarget.getBoundingClientRect()
-    x = r.left + r.width / 2
-    y = r.bottom
-  }
-  menu.value = { name, x, y }
+  e.stopPropagation?.()
+  ctx.value = null
+  menu.value = { name, ...pointOf(e) }
 }
 
 export function refreshApps() {
@@ -613,5 +710,25 @@ export function stop() {
   for (const p of pollers.splice(0)) p.stop()
   frameable.value = {}
   windows.splice(0)
+  ctx.value = null
   window.removeEventListener('focus', onFocus)
+}
+
+/** The average lightness of a picture, from a 24×24 copy; null where it can't be drawn. */
+async function lightness(blob: Blob): Promise<number | null> {
+  try {
+    const img = await createImageBitmap(blob)
+    const c = document.createElement('canvas')
+    c.width = c.height = 24
+    const g = c.getContext('2d')
+    if (!g) return null
+    g.drawImage(img, 0, 0, 24, 24)
+    img.close()
+    const d = g.getImageData(0, 0, 24, 24).data
+    let sum = 0
+    for (let i = 0; i < d.length; i += 4) sum += (0.2126 * d[i]! + 0.7152 * d[i + 1]! + 0.0722 * d[i + 2]!) / 255
+    return sum / (d.length / 4)
+  } catch {
+    return null
+  }
 }

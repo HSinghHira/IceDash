@@ -17,6 +17,7 @@ import (
 	"github.com/HSinghHira/IceDash/internal/apps"
 	"github.com/HSinghHira/IceDash/internal/catalog"
 	"github.com/HSinghHira/IceDash/internal/files"
+	"github.com/HSinghHira/IceDash/internal/media"
 	"github.com/HSinghHira/IceDash/internal/mods"
 	"github.com/HSinghHira/IceDash/internal/notify"
 	"github.com/HSinghHira/IceDash/internal/prefs"
@@ -83,6 +84,8 @@ type Server struct {
 	// Phase 5a: each user's own choices, and the system's accounts.
 	Prefs *prefs.Store
 	Users UsersFunc
+	// Each user's wallpaper and avatar (nil: not offered).
+	Media *media.Store
 }
 
 // Health is the answer of GET /v2/icedash/health. The updater and the UI poll

@@ -37,7 +37,25 @@ body::before {
 :root.has-wallpaper body {
   background: var(--wallpaper) center / cover no-repeat fixed, var(--bg);
 }
-:root.has-wallpaper body::before {
+/* The user's own wallpaper (Phase 5a.8) is a layer under the desktop: the body steps aside. */
+:root.own-wall body {
+  background: transparent;
+}
+/* On a wallpaper of their own, cards get a solid face and the desktop's words
+   follow how light the wallpaper is, whatever the theme. */
+:root.own-wall .panel > .card {
+  background: rgba(var(--surface-rgb), 0.8);
+}
+:root.wall-dark .icons .label {
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+}
+:root.wall-light .icons .label {
+  color: #0b1620;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+:root.has-wallpaper body::before,
+:root.own-wall body::before {
   display: none;
 }
 

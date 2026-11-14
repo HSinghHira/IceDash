@@ -58,6 +58,13 @@ export const icons = {
   dock: 'M3 16a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zM7 16.5h.01M12 16.5h.01M17 16.5h.01',
   pin: 'M9 4h6l-1 6 4 4H6l4-4zM12 14v7',
   clock: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2',
+  chip: 'M7 7h10v10H7zM10 10h4v4h-4zM10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4',
+  pulse: 'M3 12h4l3-7 4 14 3-7h4',
+  user: 'M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zM4 21v-1a7 7 0 0 1 7-7h2a7 7 0 0 1 7 7v1',
+  shuffle: 'M3 7h3.5c2 0 3.2 1 4.5 3l2 4c1.3 2 2.5 3 4.5 3H21M18 14l3 3-3 3M3 17h3.5c1.3 0 2.2-.4 3-1.2M21 7h-3.5c-1.3 0-2.2.4-3 1.2M18 4l3 3-3 3',
+  cards: 'M4 4h16v6H4zM4 14h7v6H4zM15 14h5v6h-5z',
+  minus: 'M5 12h14',
+  maximize: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
 } as const
 
 export type IconName = keyof typeof icons

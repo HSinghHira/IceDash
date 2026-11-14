@@ -53,8 +53,21 @@ func TestNightStepInstallsOncePerNight(t *testing.T) {
 	if !slices.Contains(n.kinds(), notify.KindNightInstall) {
 		t.Fatalf("notifications %v", n.kinds())
 	}
-	before := len(n.kinds())
-	if again := m.nightStep(ctx, on, night.Add(time.Minute), got); again != got || len(n.kinds()) != before {
+	// The install runs on in the background and raises its own result, so
+	// count only the overnight notices.
+	nights := func() int {
+		return len(slices.DeleteFunc(n.kinds(), func(k string) bool { return k != notify.KindNightInstall }))
+	}
+	before := nights()
+	if again := m.nightStep(ctx, on, night.Add(time.Minute), got); again != got || nights() != before {
 		t.Fatal("ran twice in one night")
+	}
+	// The install goes on in the background: let it reach the handover (where
+	// a real box restarts) or fail, before the test's folders go.
+	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		st := m.Status()
+		if n := len(st.Steps); st.State != StateInstalling || n > 0 && st.Steps[n-1].ID == "handover" {
+			break
+		}
 	}
 }

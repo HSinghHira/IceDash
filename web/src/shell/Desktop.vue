@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Mock-up screen 1: top bar, desktop icons on the left, the widget panel on
 // the right, search and dock at the bottom, and IceDash's own windows on top.
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
 import AppFrame from '../panels/AppFrame.vue'
 import CredentialsPanel from '../panels/CredentialsPanel.vue'
 import FilesPanel from '../panels/FilesPanel.vue'
@@ -10,10 +10,13 @@ import LogsPanel from '../panels/LogsPanel.vue'
 import NotificationsPanel from '../panels/NotificationsPanel.vue'
 import SettingsPanel from '../panels/SettingsPanel.vue'
 import TerminalPanel from '../panels/TerminalPanel.vue'
-import { firstLaunchFor, notesOpen, offline, panelOpen, setupFor, uninstallFor, updating, windows, type WindowKind } from '../store'
+import { wallStyle, wallTone } from '../lib/wallpaper'
+import { desktopMenu } from '../menus'
+import { activeTheme, firstLaunchFor, notesOpen, offline, openContext, panelOpen, pictureLight, prefs, setupFor, uninstallFor, updating, wallpaperUrl, windows, type WindowKind } from '../store'
 import { strings } from '../strings'
 import AppMenu from './AppMenu.vue'
 import AppWindow from './AppWindow.vue'
+import ContextMenu from './ContextMenu.vue'
 import FirstLaunchDialog from './FirstLaunchDialog.vue'
 import SetupDialog from './SetupDialog.vue'
 import UninstallDialog from './UninstallDialog.vue'
@@ -28,6 +31,24 @@ const widths: Record<WindowKind, number> = { settings: 1040, notifications: 380,
 /** Something is open: the rest fades so it stands out. */
 const dimmed = computed(() => notesOpen.value || windows.some((w) => !w.min))
 
+/** The user's wallpaper, drawn under everything (PLAN.md 5a.8). */
+const wp = computed(() => prefs.value.wallpaper)
+const themeWall = computed(() => !!activeTheme.value?.wallpaper?.startsWith('/v2/icedash/mods/'))
+const wall = computed(() => wallStyle(wp.value, wallpaperUrl.value, themeWall.value))
+const wallLayer = computed(() => {
+  const b = wp.value.blur
+  return b ? { ...wall.value, filter: `blur(${b}px)`, inset: `-${b * 2}px` } : wall.value
+})
+const tone = computed(() => (wall.value ? wallTone(wp.value, pictureLight.value) : null))
+watchEffect(() => {
+  const root = document.documentElement.classList
+  root.toggle('own-wall', !!wall.value)
+  root.toggle('wall-dark', tone.value === 'dark')
+  root.toggle('wall-light', tone.value === 'light')
+})
+onBeforeUnmount(() => document.documentElement.classList.remove('own-wall', 'wall-dark', 'wall-light'))
+const onDesktop = (e: MouseEvent) => openContext(e, strings.ctxDesktop, desktopMenu())
+
 const now = ref(new Date())
 let tick: ReturnType<typeof setInterval>
 onMounted(() => {
@@ -39,12 +60,16 @@ onBeforeUnmount(() => clearInterval(tick))
 
 <template>
   <div class="desktop">
+    <div v-if="wall" class="wall" aria-hidden="true">
+      <div class="wall-img" :style="wallLayer" />
+      <div v-if="wp.dim" class="wall-dim" :style="{ opacity: wp.dim / 100 }" />
+    </div>
     <TopBar :now="now" />
     <p v-if="updating" class="offline" role="status">{{ strings.updatingBanner }}</p>
     <p v-else-if="offline" class="offline" role="status">{{ strings.cantReach }}</p>
 
-    <div class="area" :class="{ 'no-panel': !panelOpen }">
-      <DesktopIcons class="icons" />
+    <div class="area" :class="{ 'no-panel': !panelOpen }" @contextmenu.self="onDesktop">
+      <DesktopIcons class="icons" @contextmenu.self="onDesktop" />
       <WidgetPanel v-if="panelOpen" class="widgets" :now="now" />
     </div>
 
@@ -66,6 +91,7 @@ onBeforeUnmount(() => clearInterval(tick))
     </AppWindow>
     <NotificationsPanel v-if="notesOpen" />
     <AppMenu />
+    <ContextMenu />
     <SetupDialog v-if="setupFor" :id="setupFor" :key="setupFor" />
     <FirstLaunchDialog v-if="firstLaunchFor" :key="firstLaunchFor" :name="firstLaunchFor" />
     <UninstallDialog v-if="uninstallFor" :key="uninstallFor" :name="uninstallFor" />
@@ -83,6 +109,22 @@ onBeforeUnmount(() => clearInterval(tick))
 }
 /* Under the windows (z 11 and up): the desktop and widgets fade; the top bar
    and dock stay bright. With the notification list open it covers windows too. */
+.wall {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.wall-img {
+  position: absolute;
+  inset: 0;
+}
+.wall-dim {
+  position: absolute;
+  inset: 0;
+  background: #000;
+}
 .dim {
   position: fixed;
   inset: 0;

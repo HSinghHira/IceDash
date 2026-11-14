@@ -1,5 +1,5 @@
 // IceDash's own backend under /v2/icedash (PLAN.md, "Backend API").
-import { request } from './client'
+import { fetchBlob, request } from './client'
 
 const base = '/v2/icedash'
 
@@ -94,7 +94,25 @@ export interface Prefs {
   motion: '' | 'reduce' | 'full'
   dock: { hidden: DockLauncher[]; pinned: string[] }
   notify: { off: NotifyGroup[]; quiet: boolean }
+  /** The user's own desktop background. */
+  wallpaper: Wallpaper
+  /** Changes with each new picture; 0 is none (initials). */
+  avatar: number
 }
+
+export type WallpaperPreset = 'aurora' | 'glacier' | 'nightfall' | 'ember' | 'lagoon' | 'dune' | 'graphite' | 'mist'
+export interface Wallpaper {
+  kind: '' | 'preset' | 'color' | 'image'
+  preset: WallpaperPreset | ''
+  color: string
+  fit: '' | 'contain' | 'center' | 'tile'
+  /** 0–80, percent darker. */
+  dim: number
+  /** 0–30 px. */
+  blur: number
+  rev: number
+}
+export const defaultWallpaper = (): Wallpaper => ({ kind: '', preset: '', color: '', fit: '', dim: 0, blur: 0, rev: 0 })
 
 export const defaultPrefs = (): Prefs => ({
   clock: '',
@@ -102,13 +120,28 @@ export const defaultPrefs = (): Prefs => ({
   motion: '',
   dock: { hidden: [], pinned: [] },
   notify: { off: [], quiet: false },
+  wallpaper: defaultWallpaper(),
+  avatar: 0,
 })
 
-export const getPrefs = () => request<Prefs>(`${base}/prefs`)
-export const savePrefs = (p: Partial<Prefs>) => request<Prefs>(`${base}/prefs`, { method: 'POST', body: p })
+/** Fills in what an older backend leaves out. */
+export const fullPrefs = (p: Partial<Prefs>): Prefs => {
+  const d = defaultPrefs()
+  return { ...d, ...p, wallpaper: { ...d.wallpaper, ...(p.wallpaper ?? {}) }, avatar: p.avatar ?? 0 }
+}
+export const getPrefs = () => request<Prefs>(`${base}/prefs`).then(fullPrefs)
+export const savePrefs = (p: Partial<Prefs>) => request<Prefs>(`${base}/prefs`, { method: 'POST', body: p }).then(fullPrefs)
+
+// ---- each user's pictures ----
+export type PictureKind = 'wallpaper' | 'avatar'
+export const putPicture = (kind: PictureKind, blob: Blob) => request<Prefs>(`${base}/me/${kind}`, { method: 'POST', blob }).then(fullPrefs)
+export const dropPicture = (kind: PictureKind) => request<Prefs>(`${base}/me/${kind}/remove`, { method: 'POST' }).then(fullPrefs)
+export const myPicture = (kind: PictureKind, rev: number) => fetchBlob(`${base}/me/${kind}?v=${rev}`)
+export const avatarOf = (name: string) => fetchBlob(`${base}/users/${encodeURIComponent(name)}/avatar`)
 
 export interface Account {
   name: string
   admin: boolean
+  avatar?: boolean
 }
 export const accounts = () => request<{ items: Account[] }>(`${base}/users`).then((r) => r.items)

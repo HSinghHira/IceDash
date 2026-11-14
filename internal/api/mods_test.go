@@ -17,7 +17,7 @@ func TestModsMembersAndAdmins(t *testing.T) {
 	}}
 	h := s.Handler()
 	// Everyone signed in reads and chooses for themselves.
-	if w := call(h, "GET", "/v2/icedash/mods", member, ""); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"panel":[]`) {
+	if w := call(h, "GET", "/v2/icedash/mods", member, ""); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"panel":["clock","system","network","apps"]`) {
 		t.Fatalf("member list: %d %s", w.Code, w.Body)
 	}
 	if w := call(h, "POST", "/v2/icedash/mods/theme", member, `{"id":""}`); w.Code != http.StatusOK {

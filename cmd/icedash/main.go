@@ -38,6 +38,7 @@ import (
 	"github.com/HSinghHira/IceDash/internal/creds"
 	"github.com/HSinghHira/IceDash/internal/files"
 	"github.com/HSinghHira/IceDash/internal/host"
+	"github.com/HSinghHira/IceDash/internal/media"
 	"github.com/HSinghHira/IceDash/internal/mods"
 	"github.com/HSinghHira/IceDash/internal/notify"
 	userprefs "github.com/HSinghHira/IceDash/internal/prefs"
@@ -177,6 +178,7 @@ func main() {
 		// Phase 5a: each user's choices, and the accounts for the Users page.
 		Prefs: userprefs.Open(filepath.Join(state.Dir, "prefs.json")),
 		Users: accounts,
+		Media: &media.Store{Dir: filepath.Join(state.Dir, "media")},
 	}
 	if kind == host.CasaOS {
 		srv.StockURL = casa.StockPath

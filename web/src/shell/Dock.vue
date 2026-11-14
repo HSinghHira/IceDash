@@ -7,7 +7,8 @@ import AppIcon from '../components/AppIcon.vue'
 import Icon from '../components/Icon.vue'
 import type { IconName } from '../lib/icons'
 import { desktopLaunchers, dockEnd, openLauncher, type Launcher } from '../lib/launchers'
-import { activeWindow, apps, focusWindow, iceStoreInZimaOS, openApp, openFiles, openIceStore, openMenu, openSettings, openTerminal, pinnedApps, prefs, toggleMin, user, windows, type Win } from '../store'
+import { dockMenu, launcherMenu, windowMenu } from '../menus'
+import { activeWindow, apps, focusWindow, iceStoreInZimaOS, openApp, openContext, openFiles, openIceStore, openMenu, openSettings, openTerminal, pinnedApps, prefs, toggleMin, user, windows, type Win } from '../store'
 import { strings } from '../strings'
 import SearchBar from './SearchBar.vue'
 
@@ -33,6 +34,14 @@ function launch(e: MouseEvent, l: Launcher) {
   openIceStore()
 }
 
+/** The same as a click: IceDash's window, or the launcher's page in a new tab. */
+function runLauncher(l: Launcher) {
+  if (l.open) openLauncher(l, { files: openFiles, terminal: openTerminal, settings: () => openSettings() })
+  else if (l.id === 'icestore') openIceStore()
+  else window.open(l.url, '_blank', 'noopener')
+}
+const launcherCtx = (e: MouseEvent, l: Launcher) => openContext(e, l.name, launcherMenu(l, () => runLauncher(l)))
+
 const kindIcon: Record<string, IconName> = {
   notifications: 'bell',
   icestore: 'snowflake',
@@ -54,7 +63,7 @@ function pick(w: Win) {
 </script>
 
 <template>
-  <nav class="dock" aria-label="Dock">
+  <nav class="dock" aria-label="Dock" @contextmenu.self="openContext($event, strings.ctxDock, dockMenu())">
     <SearchBar />
     <a
       v-for="l in launchers"
@@ -65,6 +74,7 @@ function pick(w: Win) {
       rel="noopener"
       :title="l.name"
       @click="launch($event, l)"
+      @contextmenu="launcherCtx($event, l)"
     >
       <span class="tile"><Icon :name="l.icon" :size="21" /></span>
       <span class="sr">{{ l.name }}</span>
@@ -96,6 +106,7 @@ function pick(w: Win) {
         :data-dock-win="w.id"
         :title="w.min ? strings.restoreWindow(w.title) : w.title"
         @click="pick(w)"
+        @contextmenu="openContext($event, w.title, windowMenu(w))"
       >
         <AppIcon v-if="w.kind === 'app'" :src="appOf(w)?.icon" :name="w.title" :size="44" />
         <span v-else class="tile"><Icon :name="kindIcon[w.kind] ?? 'app'" :size="21" /></span>
@@ -104,7 +115,7 @@ function pick(w: Win) {
       </button>
     </template>
     <span class="divider" aria-hidden="true" />
-    <a v-for="l in end" :key="l.id" class="slot" :href="l.url || undefined" target="_blank" rel="noopener" :title="l.name" @click="launch($event, l)">
+    <a v-for="l in end" :key="l.id" class="slot" :href="l.url || undefined" target="_blank" rel="noopener" :title="l.name" @click="launch($event, l)" @contextmenu="launcherCtx($event, l)">
       <span class="tile"><Icon :name="l.icon" :size="21" /></span>
       <span class="sr">{{ l.name }}</span>
     </a>

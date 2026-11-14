@@ -5,6 +5,9 @@ import { setHost } from './host'
 import { desktopLaunchers, dockEnd, openLauncher, terminalUrl } from './launchers'
 import { search } from './search'
 import { cityOf, clockParts, pickZone } from './timezone'
+import { clampCrop } from './pictures'
+import { PRESETS, wallStyle, wallTone } from './wallpaper'
+import { defaultWallpaper, fullPrefs } from '../api/icedash'
 
 // Entries shaped like the ZimaCube's app grid (HOST-NOTES item 1).
 const grid: GridEntry[] = [
@@ -188,5 +191,41 @@ describe('themes', () => {
     expect(paper['--surface-rgb']).toBe('255, 255, 255')
     expect(paper['--ac-rgb']).toBe('47, 111, 236')
     expect(paper['--mut']).toBe('rgba(13, 23, 38, 0.6)')
+  })
+})
+
+describe('wallpapers (5a.8)', () => {
+  const w = defaultWallpaper()
+  it('leaves the theme alone unless asked', () => {
+    expect(wallStyle(w, '', false)).toBeNull()
+    expect(wallStyle(w, '', true)).toBeNull()
+    expect(wallStyle({ ...w, dim: 30 }, '', true)?.backgroundImage).toBe('var(--wallpaper)')
+  })
+  it('draws presets, colours and the user’s picture', () => {
+    expect(wallStyle({ ...w, kind: 'preset', preset: 'aurora' }, '', false)?.background).toBe(PRESETS[0]!.css)
+    expect(wallStyle({ ...w, kind: 'color', color: '#112233' }, '', false)?.background).toBe('#112233')
+    expect(wallStyle({ ...w, kind: 'color', color: 'red;x' }, '', false)).toBeNull()
+    const img = wallStyle({ ...w, kind: 'image', fit: 'tile' }, 'blob:x', false)!
+    expect(img.backgroundImage).toBe('url("blob:x")')
+    expect(img.backgroundRepeat).toBe('repeat')
+    // A picture not loaded (yet): nothing drawn over the theme.
+    expect(wallStyle({ ...w, kind: 'image' }, '', false)).toBeNull()
+  })
+  it('fills in choices an older backend leaves out', () => {
+    const p = fullPrefs({ clock: '24' })
+    expect(p.wallpaper).toEqual(defaultWallpaper())
+    expect(p.avatar).toBe(0)
+    expect(p.clock).toBe('24')
+  })
+  it('tells a dark wallpaper from a light one', () => {
+    expect(wallTone(w, null)).toBeNull()
+    expect(wallTone({ ...w, kind: 'preset', preset: 'mist' }, null)).toBe('light')
+    expect(wallTone({ ...w, kind: 'preset', preset: 'mist', dim: 60 }, null)).toBe('dark')
+    expect(wallTone({ ...w, kind: 'color', color: '#f4efe6' }, null)).toBe('light')
+    expect(wallTone({ ...w, kind: 'image' }, 0.1)).toBe('dark')
+    expect(wallTone({ ...w, kind: 'image' }, null)).toBeNull()
+  })
+  it('keeps an avatar covering its frame', () => {
+    expect(clampCrop({ x: 20, y: -500, w: 300, h: 400 }, 260)).toEqual({ x: 0, y: -140, w: 300, h: 400 })
   })
 })

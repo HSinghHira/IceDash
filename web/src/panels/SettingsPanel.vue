@@ -1,16 +1,18 @@
 <script setup lang="ts">
-// Settings (mock-up 5): General, Appearance, Widgets, Mods & Themes, Dock,
-// Notifications, Users and About. Phase 5a's pages live in SettingsPages.vue. Themes and widgets
-// come from collections: GitHub repos of plain folders, the official ones
-// being IceColors and IceCards. Everyone picks their own theme and panel;
-// adding collections and installing, removing and switching mods is for admins.
-import { computed, onMounted, ref } from 'vue'
+// Settings (mock-up 5): General, Appearance, IceCards, IceLook, Dock,
+// Notifications, Users and About. Phase 5a's pages live in SettingsPages.vue.
+// IceLook is themes, IceCards the cards on the panel: IceDash's own (Clock,
+// System, Network, Apps) and widgets. Both come from collections: GitHub
+// repos of plain folders, the official ones being IceColors and IceCards.
+// Everyone picks their own theme and cards; adding collections and
+// installing, removing and switching mods is for admins.
+import { computed, onMounted, ref, watch } from 'vue'
 import * as api from '../api/mods'
 import type { Collection, Installed, Item } from '../api/mods'
 import Icon from '../components/Icon.vue'
 import { dashboardUrl, host } from '../lib/host'
 import { ICE } from '../lib/theme'
-import { modsView, settingsPage, setModsView, toast, user, type SettingsPage } from '../store'
+import { BUILTIN_CARDS, modsView, onPanel, settingsPage, setModsView, toast, toggleCard, user, type SettingsPage } from '../store'
 import type { IconName } from '../lib/icons'
 import { strings } from '../strings'
 import AboutPanel from './AboutPanel.vue'
@@ -22,8 +24,8 @@ const admin = computed(() => !!user.value?.admin)
 const pages: { id: SettingsPage; name: string; icon: IconName }[] = [
   { id: 'general', name: strings.settingsGeneral, icon: 'sun' },
   { id: 'appearance', name: strings.settingsAppearance, icon: 'palette' },
-  { id: 'widgets', name: strings.settingsWidgets, icon: 'puzzle' },
-  { id: 'mods', name: strings.settingsMods, icon: 'grid' },
+  { id: 'widgets', name: strings.settingsWidgets, icon: 'cards' },
+  { id: 'mods', name: strings.settingsMods, icon: 'eye' },
   { id: 'dock', name: strings.settingsDock, icon: 'dock' },
   { id: 'notifications', name: strings.settingsNotifications, icon: 'bell' },
   { id: 'users', name: strings.settingsUsers, icon: 'users' },
@@ -49,8 +51,11 @@ async function loadCollections(refresh = false) {
 onMounted(() => loadCollections())
 const items = computed(() => cols.value.flatMap((c) => c.items))
 
-// ---- tabs ----
-const tab = ref<'themes' | 'widgets' | 'collections'>('themes')
+// ---- tabs: IceLook has themes, IceCards your cards and more to get; both list the collections ----
+type Tab = 'themes' | 'cards' | 'more' | 'collections'
+const look = computed(() => settingsPage.value === 'mods')
+const tab = ref<Tab>(look.value ? 'themes' : 'cards')
+watch(look, (l) => (tab.value = l ? 'themes' : 'cards'))
 interface Card {
   m: Item
   inst?: Installed
@@ -76,7 +81,11 @@ function cardsOf(kind: 'theme' | 'widget'): Card[] {
   return list
 }
 const themeCards = computed(() => cardsOf('theme'))
-const widgetCards = computed(() => cardsOf('widget'))
+/** Cards in collections that aren't installed yet. */
+const moreCards = computed<Card[]>(() => items.value.filter((x) => x.kind === 'widget' && !installed(x.id)).map((m) => ({ m })))
+const myWidgets = computed(() => mods.value.filter((m) => m.kind === 'widget'))
+const builtinIcon: Record<string, IconName> = { clock: 'clock', system: 'chip', network: 'pulse', apps: 'grid' }
+const myCount = computed(() => BUILTIN_CARDS.length + myWidgets.value.length)
 
 // ---- actions ----
 const busy = ref('')
@@ -124,15 +133,7 @@ async function toggle(m: Installed) {
     toast({ title: m.name, body: msg(e) })
   }
 }
-const panel = computed(() => modsView.value.prefs.panel)
-async function togglePanel(id: string) {
-  const next = panel.value.includes(id) ? panel.value.filter((x) => x !== id) : [...panel.value, id]
-  try {
-    setModsView(await api.setPanel(next))
-  } catch (e) {
-    toast({ title: strings.addToPanel, body: msg(e) })
-  }
-}
+const togglePanel = (id: string) => toggleCard(id)
 function dragWidget(e: DragEvent, id: string) {
   e.dataTransfer?.setData('application/x-icedash-widget', id)
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
@@ -211,11 +212,11 @@ const count = (col: Collection, kind: string) => col.items.filter((i) => i.kind 
       </a>
     </nav>
 
-    <section v-if="settingsPage === 'mods'" class="page">
+    <section v-if="settingsPage === 'mods' || settingsPage === 'widgets'" class="page">
       <header class="head">
         <div>
-          <h2>{{ strings.settingsMods }}</h2>
-          <p class="mut">{{ strings.modsSubtitle }}</p>
+          <h2>{{ look ? strings.settingsMods : strings.settingsWidgets }}</h2>
+          <p class="mut">{{ look ? strings.modsSubtitle : strings.cardsSubtitle }}</p>
         </div>
         <form v-if="admin" class="add" @submit.prevent="addCollection">
           <label class="field">
@@ -230,12 +231,19 @@ const count = (col: Collection, kind: string) => col.items.filter((i) => i.kind 
       <p v-if="addError" class="warnline" role="alert">{{ addError }}</p>
 
       <div class="tabs" role="tablist">
-        <button type="button" role="tab" class="tab" :aria-selected="tab === 'themes'" :class="{ on: tab === 'themes' }" @click="tab = 'themes'">
-          {{ strings.tabThemes(themeCards.length) }}
-        </button>
-        <button type="button" role="tab" class="tab" :aria-selected="tab === 'widgets'" :class="{ on: tab === 'widgets' }" @click="tab = 'widgets'">
-          {{ strings.tabWidgets(widgetCards.length) }}
-        </button>
+        <template v-if="look">
+          <button type="button" role="tab" class="tab" :aria-selected="tab === 'themes'" :class="{ on: tab === 'themes' }" @click="tab = 'themes'">
+            {{ strings.tabThemes(themeCards.length) }}
+          </button>
+        </template>
+        <template v-else>
+          <button type="button" role="tab" class="tab" :aria-selected="tab === 'cards'" :class="{ on: tab === 'cards' }" @click="tab = 'cards'">
+            {{ strings.tabCards(myCount) }}
+          </button>
+          <button type="button" role="tab" class="tab" :aria-selected="tab === 'more'" :class="{ on: tab === 'more' }" @click="tab = 'more'">
+            {{ strings.tabMore(moreCards.length) }}
+          </button>
+        </template>
         <button type="button" role="tab" class="tab" :aria-selected="tab === 'collections'" :class="{ on: tab === 'collections' }" @click="tab = 'collections'">
           {{ strings.tabCollections }} · {{ cols.length }}
         </button>
@@ -245,9 +253,9 @@ const count = (col: Collection, kind: string) => col.items.filter((i) => i.kind 
         </button>
       </div>
 
-      <div v-if="tab !== 'collections'" class="cards">
+      <div v-if="tab === 'themes' || tab === 'more'" class="cards">
         <article
-          v-for="x in tab === 'themes' ? themeCards : widgetCards"
+          v-for="x in tab === 'themes' ? themeCards : moreCards"
           :key="x.ice ? 'ice' : x.m.id"
           class="card"
           :class="{ active: x.m.kind === 'theme' && (x.ice ? !current : current === x.m.id) }"
@@ -281,10 +289,7 @@ const count = (col: Collection, kind: string) => col.items.filter((i) => i.kind 
               <span v-if="x.ice ? !current : current === x.m.id" class="state"><Icon name="check" :size="14" /> {{ strings.themeActive }}</span>
               <button v-else type="button" class="ghost" @click="apply(x.ice ? '' : x.m.id)">{{ strings.themeApply }}</button>
             </template>
-            <button v-else-if="x.inst" type="button" class="ghost" :disabled="!x.inst.enabled" @click="togglePanel(x.m.id)">
-              {{ panel.includes(x.m.id) ? strings.removeFromPanel : strings.addToPanel }}
-            </button>
-            <button v-else-if="admin" type="button" class="primary" :disabled="!!busy" @click="offer = x.m">
+            <button v-else-if="admin && !x.inst" type="button" class="primary" :disabled="!!busy" @click="offer = x.m">
               {{ strings.modInstall }}
             </button>
             <button v-if="admin && x.inst?.update && latest(x.m.id)" type="button" class="ghost" :title="strings.modUpdateTitle" @click="offer = latest(x.m.id)!">
@@ -295,7 +300,61 @@ const count = (col: Collection, kind: string) => col.items.filter((i) => i.kind 
             </button>
           </footer>
         </article>
+        <p v-if="tab === 'more' && !moreCards.length" class="mut">{{ strings.cardsNoneMore }}</p>
       </div>
+
+      <template v-else-if="tab === 'cards'">
+        <p class="mut small">{{ strings.widgetsHint }}</p>
+        <ul class="wlist">
+          <li v-for="id in BUILTIN_CARDS" :key="id" class="wrow" draggable="true" @dragstart="dragWidget($event, id)">
+            <span class="grip" aria-hidden="true"><Icon name="grip" :size="16" /></span>
+            <span class="wicon sm"><Icon :name="builtinIcon[id] ?? 'cards'" :size="20" /></span>
+            <div class="who">
+              <strong>{{ strings.cardName[id] }}</strong>
+              <span class="mut">{{ strings.cardAbout[id] }}</span>
+            </div>
+            <span class="chip mono">{{ strings.builtIn.toLowerCase() }}</span>
+            <button type="button" class="ghost" :class="{ onp: onPanel(id) }" @click="togglePanel(id)">
+              {{ onPanel(id) ? strings.removeFromPanel : strings.addToPanel }}
+            </button>
+          </li>
+          <li v-for="w in myWidgets" :key="w.id" class="wrow" draggable="true" @dragstart="dragWidget($event, w.id)">
+            <span class="grip" aria-hidden="true"><Icon name="grip" :size="16" /></span>
+            <span class="wicon sm"><Icon name="puzzle" :size="20" /></span>
+            <div class="who">
+              <strong>{{ w.name }}</strong>
+              <span class="mut">
+                {{ w.author }}
+                <template v-if="!w.official"> · <span class="tp">{{ strings.modThirdParty }}</span></template>
+              </span>
+            </div>
+            <span class="chips">
+              <span v-for="p in permChips(w.permissions)" :key="p" class="chip mono">{{ strings.modCanRead.toLowerCase() }}: {{ p }}</span>
+            </span>
+            <button v-if="admin && w.update && latest(w.id)" type="button" class="ghost" :title="strings.modUpdateTitle" @click="offer = latest(w.id)!">
+              {{ strings.modUpdateShort }}
+            </button>
+            <button type="button" class="ghost" :disabled="!w.enabled" @click="togglePanel(w.id)">
+              {{ onPanel(w.id) ? strings.removeFromPanel : strings.addToPanel }}
+            </button>
+            <button
+              v-if="admin"
+              type="button"
+              class="switch"
+              role="switch"
+              :aria-checked="w.enabled"
+              :aria-label="`${w.name}: ${strings.widgetOn}`"
+              :title="strings.widgetOn"
+              @click="toggle(w)"
+            >
+              <span />
+            </button>
+            <button v-if="admin" type="button" class="icon-btn" :title="strings.modRemove" :aria-label="`${strings.modRemove} ${w.name}`" @click="removing = w">
+              <Icon name="trash" :size="15" />
+            </button>
+          </li>
+        </ul>
+      </template>
 
       <ul v-else class="clist">
         <li v-for="col in cols" :key="col.source" class="crow">
@@ -330,48 +389,6 @@ const count = (col: Collection, kind: string) => col.items.filter((i) => i.kind 
       </ul>
       <p v-if="!admin" class="mut small">{{ strings.modsAdminOnly }}</p>
     </section>
-
-    <section v-else-if="settingsPage === 'widgets'" class="page">
-      <header class="head">
-        <div>
-          <h2>{{ strings.settingsWidgets }}</h2>
-          <p class="mut">{{ strings.widgetsHint }}</p>
-        </div>
-      </header>
-      <p v-if="!mods.some((m) => m.kind === 'widget')" class="mut">{{ strings.widgetsNone }}</p>
-      <ul class="wlist">
-        <li v-for="w in mods.filter((m) => m.kind === 'widget')" :key="w.id" class="wrow" draggable="true" @dragstart="dragWidget($event, w.id)">
-          <span class="grip" aria-hidden="true"><Icon name="grip" :size="16" /></span>
-          <span class="wicon sm"><Icon name="puzzle" :size="20" /></span>
-          <div class="who">
-            <strong>{{ w.name }}</strong>
-            <span class="mut">
-              {{ w.author }}
-              <template v-if="!w.official"> · <span class="tp">{{ strings.modThirdParty }}</span></template>
-            </span>
-          </div>
-          <span class="chips">
-            <span v-for="p in permChips(w.permissions)" :key="p" class="chip mono">{{ strings.modCanRead.toLowerCase() }}: {{ p }}</span>
-          </span>
-          <button type="button" class="ghost" :disabled="!w.enabled" @click="togglePanel(w.id)">
-            {{ panel.includes(w.id) ? strings.removeFromPanel : strings.addToPanel }}
-          </button>
-          <button
-            v-if="admin"
-            type="button"
-            class="switch"
-            role="switch"
-            :aria-checked="w.enabled"
-            :aria-label="`${w.name}: ${strings.widgetOn}`"
-            :title="strings.widgetOn"
-            @click="toggle(w)"
-          >
-            <span />
-          </button>
-        </li>
-      </ul>
-    </section>
-
     <section v-else-if="settingsPage === 'about'" class="page about"><AboutPanel /></section>
 
     <SettingsPages v-else :page="settingsPage" />

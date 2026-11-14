@@ -21,7 +21,27 @@ type Prefs struct {
 	Motion    string `json:"motion"`     // "" (the system's), "reduce", "full"
 	Dock      Dock   `json:"dock"`
 	Notify    Notify `json:"notify"`
+	// Wallpaper is the user's own desktop background (PLAN.md 5a.8).
+	Wallpaper Wallpaper `json:"wallpaper"`
+	// Avatar changes each time the user sets a picture; 0 is none (initials).
+	Avatar int64 `json:"avatar"`
 }
+
+// Wallpaper is what fills the desktop behind the icons.
+type Wallpaper struct {
+	Kind   string `json:"kind"`   // "" (the theme's), "preset", "color", "image"
+	Preset string `json:"preset"` // one of Presets
+	Color  string `json:"color"`  // #rrggbb
+	Fit    string `json:"fit"`    // "" (cover), "contain", "center", "tile"
+	Dim    int    `json:"dim"`    // 0–80: darkens it, in percent
+	Blur   int    `json:"blur"`   // 0–30: blurs it, in px
+	Rev    int64  `json:"rev"`    // changes with each uploaded picture
+}
+
+// Presets are the built-in wallpapers; the UI draws them.
+var Presets = []string{"aurora", "glacier", "nightfall", "ember", "lagoon", "dune", "graphite", "mist"}
+
+var colorRx = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 // Dock is which launchers the dock leaves out and which apps it keeps.
 type Dock struct {
@@ -65,6 +85,24 @@ func (p *Prefs) Check() error {
 	}
 	if p.Notify.Off, err = only(p.Notify.Off, func(s string) bool { return slices.Contains(Groups, s) }); err != nil {
 		return err
+	}
+	return p.Wallpaper.check()
+}
+
+func (w *Wallpaper) check() error {
+	if !slices.Contains([]string{"", "preset", "color", "image"}, w.Kind) ||
+		!slices.Contains([]string{"", "contain", "center", "tile"}, w.Fit) ||
+		w.Dim < 0 || w.Dim > 80 || w.Blur < 0 || w.Blur > 30 || w.Rev < 0 {
+		return ErrInvalid
+	}
+	if w.Preset != "" && !slices.Contains(Presets, w.Preset) {
+		return ErrInvalid
+	}
+	if w.Color != "" && !colorRx.MatchString(w.Color) {
+		return ErrInvalid
+	}
+	if (w.Kind == "preset" && w.Preset == "") || (w.Kind == "color" && w.Color == "") {
+		return ErrInvalid
 	}
 	return nil
 }
@@ -121,6 +159,13 @@ func (s *Store) Get(user string) Prefs {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.users[user].clean()
+}
+
+// Update changes part of a user's choices and saves them.
+func (s *Store) Update(user string, change func(*Prefs)) (Prefs, error) {
+	p := s.Get(user)
+	change(&p)
+	return s.Set(user, p)
 }
 
 // Set checks and saves a user's choices.
