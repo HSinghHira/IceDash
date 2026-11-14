@@ -112,4 +112,4 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "IceDash $TAG" --notes-file notes.md --verify-tag \
-            dist/icedash-amd64.raw dist/icedash-amd64.raw.sha256 dist/icedash.raw dist/icedash.raw.sha256             dist/icedash-casaos-amd64.tar.gz dist/icedash-casaos-amd64.tar.gz.sha256             dist/icedash-casaos-arm64.tar.gz dist/icedash-casaos-arm64.tar.gz.sha256             dist/install-casaos.sh
+            dist/icedash-amd64.raw dist/icedash-amd64.raw.sha256 dist/icedash.raw dist/icedash.raw.sha256             dist/icedash-casaos-amd64.tar.gz dist/icedash-casaos-amd64.tar.gz.sha256             dist/icedash-casaos-arm64.tar.gz dist/icedash-casaos-arm64.tar.gz.sha256             dist/install-casaos.sh dist/install.sh dist/uninstall.sh

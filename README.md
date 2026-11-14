@@ -27,50 +27,37 @@ A desktop-style dashboard for [ZimaOS](https://www.zimaspace.com/ZimaOS) and [Ca
 - **ZimaOS 1.8.0 or newer** (amd64)
 - **CasaOS 0.4.15 or newer** (amd64 and arm64)
 
-## Install on ZimaOS
+## Install
 
-Over SSH on your ZimaOS box:
-
-```sh
-cd /tmp
-curl -fsSLO https://github.com/HSinghHira/IceDash/releases/latest/download/icedash-amd64.raw
-curl -fsSLO https://github.com/HSinghHira/IceDash/releases/latest/download/icedash-amd64.raw.sha256
-sha256sum -c icedash-amd64.raw.sha256
-mv icedash-amd64.raw icedash.raw   # zpkg takes the module name from the file name
-sudo zpkg install /tmp/icedash.raw
-```
-
-Then open the **IceDash** tile on the ZimaOS dashboard, or go to `http://<your-server>/modules/icedash/`. Sign in with your ZimaOS account. There's nothing else to set up.
-
-To have IceDash open at `http://<your-server>/` itself, an admin turns on **Settings → General → Open IceDash at this server's address**. The ZimaOS dashboard then stays at `http://<your-server>/index.html`. Turning the setting off gives ZimaOS its address back within a few seconds.
-
-To remove IceDash:
+Over SSH on your ZimaOS or CasaOS box, one command (it finds out which system it's on):
 
 ```sh
-sudo icedash --uninstall     # removes IceDash's boot units and gives "/" back to ZimaOS
-sudo zpkg remove icedash
+curl -fsSL https://github.com/HSinghHira/IceDash/releases/latest/download/install.sh | sudo sh
 ```
 
-IceDash keeps its notifications and settings in `/DATA/.icedash`. Delete that folder yourself if you don't want them any more.
+Running it again repairs or reinstalls IceDash.
 
-## Install on CasaOS
+**On ZimaOS**, open the **IceDash** tile on the ZimaOS dashboard, or go to `http://<your-server>/modules/icedash/`. Sign in with your ZimaOS account. There's nothing else to set up. To have IceDash open at `http://<your-server>/` itself, an admin turns on **Settings → General → Open IceDash at this server's address**. The ZimaOS dashboard then stays at `http://<your-server>/index.html`. Turning the setting off gives ZimaOS its address back within a few seconds.
 
-Over SSH on your CasaOS box:
+**On CasaOS**, open `http://<your-server>/`. IceDash is now the main page, and you sign in with your CasaOS account. The stock CasaOS UI is at `http://<your-server>/casaos/`, and IceDash links to it from its menu.
+
+## Uninstall
+
+One command on either system. It gives this server's address back to the stock dashboard, whichever IceDash version you had:
 
 ```sh
-wget -qO- https://github.com/HSinghHira/IceDash/releases/latest/download/install-casaos.sh | sudo sh
+curl -fsSL https://github.com/HSinghHira/IceDash/releases/latest/download/uninstall.sh | sudo sh
 ```
 
-Then open `http://<your-server>/`. IceDash is now the main page, and you sign in with your CasaOS account. The stock CasaOS UI is at `http://<your-server>/casaos/`, and IceDash links to it from its menu. Running the command again repairs or reinstalls IceDash.
-
-To remove IceDash and put the stock CasaOS UI back at the main address:
+IceDash's notifications and settings stay in `/DATA/.icedash`. To remove those too:
 
 ```sh
-sudo /opt/icedash/current/uninstall.sh            # keeps IceDash's settings in /DATA/.icedash
-sudo /opt/icedash/current/uninstall.sh --purge    # removes those too
+curl -fsSL https://github.com/HSinghHira/IceDash/releases/latest/download/uninstall.sh | sudo sh -s -- --purge
 ```
 
-Apps you installed from IceDash stay in CasaOS either way.
+Apps you installed from IceDash stay in ZimaOS or CasaOS either way.
+
+If an older IceDash was removed another way and `http://<your-server>/` now shows a 404, run the uninstall command above, or `sudo systemctl restart zimaos-gateway`.
 
 ## Updates
 

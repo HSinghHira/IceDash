@@ -76,8 +76,15 @@ func TestApplyAndRemove(t *testing.T) {
 		t.Fatalf("apply twice: %v puts=%d routes=%v", err, f.puts, f.routes)
 	}
 	rt := f.routes[0]
-	if m := rt["match"].([]any)[0].(map[string]any)["path"].([]any); len(m) != 1 || m[0] != "/" {
+	match := rt["match"].([]any)[0].(map[string]any)
+	if m := match["path"].([]any); len(m) != 1 || m[0] != "/" {
 		t.Fatalf("match %v", m)
+	}
+	// Only while IceDash's page is on disk, so a removed IceDash can't leave
+	// "/" redirecting to a 404.
+	file, _ := match["file"].(map[string]any)
+	if file["root"] != "/usr/share/casaos/www" || len(file["try_files"].([]any)) != 1 || file["try_files"].([]any)[0] != "/modules/icedash/index.html" {
+		t.Fatalf("file matcher %v", file)
 	}
 	if ok, _ := c.Present(ctx); !ok {
 		t.Fatal("not present")

@@ -97,11 +97,25 @@ func (c *Caddy) do(ctx context.Context, method, path string, body any) (int, []b
 	return res.StatusCode, b, nil
 }
 
-// Route is IceDash's route: exactly "/" (with or without a query), a redirect.
+// WebRoot is the gateway's file_server root, and Page is IceDash's page under
+// it. The route matches only while Page is on disk, so if IceDash is removed
+// without giving "/" back (zpkg remove alone, a crash, an older version's
+// uninstall), "/" falls through to ZimaOS instead of redirecting to a 404.
+const (
+	WebRoot = "/usr/share/casaos/www"
+	Page    = Target + "index.html"
+)
+
+// Route is IceDash's route: exactly "/" (with or without a query), a
+// redirect, while IceDash's page exists. Caddy's `file` matcher is in the
+// same module as the gateway's file_server.
 func Route() map[string]any {
 	return map[string]any{
-		"@id":   ID,
-		"match": []any{map[string]any{"path": []string{"/"}}},
+		"@id": ID,
+		"match": []any{map[string]any{
+			"path": []string{"/"},
+			"file": map[string]any{"root": WebRoot, "try_files": []string{Page}},
+		}},
 		"handle": []any{map[string]any{
 			"handler":     "static_response",
 			"status_code": 302,

@@ -280,7 +280,7 @@ func main() {
 
 // uninstall undoes what IceDash set up outside its own files. On ZimaOS: the
 // boot watchdog units in /etc/systemd/system, which `zpkg remove` doesn't
-// know about, so the README runs `icedash --uninstall` first. On CasaOS:
+// know about, so uninstall.sh runs `icedash --uninstall` first. On CasaOS:
 // "/" goes back to the stock UI (uninstall.sh runs this).
 func uninstall(kind host.Kind, runtimePath string) {
 	if kind == host.CasaOS {

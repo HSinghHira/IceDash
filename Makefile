@@ -74,6 +74,7 @@ casaos: web modkit
 	tar -C $(CASAOS) --owner=0 --group=0 --numeric-owner -czf dist/icedash-casaos-$(ARCH).tar.gz .
 	cd dist && sha256sum icedash-casaos-$(ARCH).tar.gz > icedash-casaos-$(ARCH).tar.gz.sha256
 	cp packaging/casaos/install-casaos.sh dist/install-casaos.sh
+	cp packaging/install.sh packaging/uninstall.sh dist/
 
 casaos-all:
 	$(MAKE) casaos ARCH=amd64

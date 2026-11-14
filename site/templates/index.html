@@ -79,7 +79,7 @@
           </div>
           <ol class="steps">
             <li><span>Open a terminal on your ZimaOS box (SSH, or the Terminal in Settings).</span></li>
-            <li><span>Run the commands on the right. They download IceDash, check it and install it.</span></li>
+            <li><span>Run the command on the right. It downloads IceDash, checks it and installs it. Running it again repairs or reinstalls IceDash.</span></li>
             <li><span>Open the <b>IceDash</b> tile on the ZimaOS dashboard, or the address above.</span></li>
             <li><span>Sign in with your ZimaOS account. There is nothing else to set up.</span></li>
           </ol>
@@ -90,21 +90,16 @@
         <div class="tstack">
           <div class="term">
             <header>
-              <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="ttl">user@zimaos: /tmp</span><button class="ic" type="button" data-copy-from="#cmd-zima" aria-label="Copy the ZimaOS install commands">{{icon:copy}}</button>
+              <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="ttl">user@zimaos: ~</span><button class="ic" type="button" data-copy-from="#cmd-zima" aria-label="Copy the ZimaOS install command">{{icon:copy}}</button>
             </header>
-            <pre><span class="pr"><span class="u">user@zimaos</span>:<span class="d">~</span>$</span> <code id="cmd-zima">cd /tmp
-curl -fsSLO {{repo}}/releases/latest/download/icedash-amd64.raw
-curl -fsSLO {{repo}}/releases/latest/download/icedash-amd64.raw.sha256
-sha256sum -c icedash-amd64.raw.sha256
-mv icedash-amd64.raw icedash.raw
-sudo zpkg install /tmp/icedash.raw</code>
-<span class="pr"><span class="u">user@zimaos</span>:<span class="d">/tmp</span>$</span> <span class="cur" aria-hidden="true"></span></pre>
+            <pre><span class="pr"><span class="u">user@zimaos</span>:<span class="d">~</span>$</span> <code id="cmd-zima">curl -fsSL {{repo}}/releases/latest/download/install.sh | sudo sh</code>
+<span class="pr"><span class="u">user@zimaos</span>:<span class="d">~</span>$</span> <span class="cur" aria-hidden="true"></span></pre>
           </div>
           <div class="tip">
             <header><span>To remove it</span></header>
             <ul>
-              <li>Run <code>sudo icedash --uninstall</code>, then <code>sudo zpkg remove icedash</code>.</li>
-              <li>Settings and notifications stay in <code>/DATA/.icedash</code> until you delete that folder.</li>
+              <li>Run <code>curl -fsSL {{repo}}/releases/latest/download/uninstall.sh | sudo sh</code>. It gives the server's address back to the ZimaOS dashboard.</li>
+              <li>Settings and notifications stay in <code>/DATA/.icedash</code>; add <code>-s -- --purge</code> after <code>sh</code> to delete them too.</li>
             </ul>
           </div>
         </div>
@@ -139,14 +134,14 @@ sudo zpkg install /tmp/icedash.raw</code>
             <header>
               <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="ttl">user@casaos: ~</span><button class="ic" type="button" data-copy-from="#cmd-casa" aria-label="Copy the CasaOS install command">{{icon:copy}}</button>
             </header>
-            <pre><span class="pr"><span class="u">user@casaos</span>:<span class="d">~</span>$</span> <code id="cmd-casa">wget -qO- {{repo}}/releases/latest/download/install-casaos.sh | sudo sh</code>
+            <pre><span class="pr"><span class="u">user@casaos</span>:<span class="d">~</span>$</span> <code id="cmd-casa">curl -fsSL {{repo}}/releases/latest/download/install.sh | sudo sh</code>
 <span class="pr"><span class="u">user@casaos</span>:<span class="d">~</span>$</span> <span class="cur" aria-hidden="true"></span></pre>
           </div>
           <div class="tip">
             <header><span>To remove it</span></header>
             <ul>
-              <li><code>sudo /opt/icedash/current/uninstall.sh</code> puts the stock CasaOS UI back at the main address.</li>
-              <li>Add <code>--purge</code> to delete IceDash's settings too. Apps you installed from IceDash stay in CasaOS either way.</li>
+              <li>Run <code>curl -fsSL {{repo}}/releases/latest/download/uninstall.sh | sudo sh</code>. It puts the stock CasaOS UI back at the main address.</li>
+              <li>Add <code>-s -- --purge</code> after <code>sh</code> to delete IceDash's settings too. Apps you installed from IceDash stay in CasaOS either way.</li>
             </ul>
           </div>
         </div>
