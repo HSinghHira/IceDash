@@ -48,6 +48,7 @@ export interface Collection {
   official: boolean
   commit?: string
   items: Item[]
+  refused?: { folder: string; reason: string }[]
   error?: string
 }
 

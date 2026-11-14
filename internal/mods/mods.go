@@ -201,7 +201,7 @@ func (s *Service) AddCollection(ctx context.Context, address string) (Collection
 	if err != nil {
 		return Collection{}, err
 	}
-	if len(c.Items) == 0 {
+	if len(c.Items) == 0 && len(c.Refused) == 0 {
 		return Collection{}, ErrEmpty
 	}
 	s.loadCache()

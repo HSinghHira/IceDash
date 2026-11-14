@@ -198,6 +198,7 @@ export const strings = {
     [t ? (t === 1 ? '1 theme' : `${t} themes`) : '', w ? (w === 1 ? '1 widget' : `${w} widgets`) : ''].filter(Boolean).join(', ') || 'nothing yet',
   collectionsHint: 'A collection is a GitHub repository with a folder per theme or widget. Add one by its address above.',
   removeCollection: 'Remove collection',
+  modRefused: (folder: string, reason: string) => `Left out ${folder}: ${reason}`,
   openOnGitHub: 'Open on GitHub',
   modOfficial: 'Official',
   modUpdateShort: 'Update',

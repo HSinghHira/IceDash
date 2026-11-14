@@ -104,8 +104,15 @@ type Collection struct {
 	Official bool      `json:"official"`
 	Commit   string    `json:"commit,omitempty"`
 	Items    []Item    `json:"items"`
+	Refused  []Refused `json:"refused,omitempty"`
 	Error    string    `json:"error,omitempty"`
 	At       time.Time `json:"at"`
+}
+
+// Refused is a folder that looks like a mod but breaks a rule, with why.
+type Refused struct {
+	Folder string `json:"folder"`
+	Reason string `json:"reason"`
 }
 
 type treeFile struct {
@@ -245,8 +252,13 @@ func (s *Service) read(ctx context.Context, src string) (*Collection, error) {
 	slices.Sort(names)
 	for _, folder := range names {
 		it, err := s.item(ctx, c, folder, folders[folder], files[folder])
-		if err != nil || it == nil {
-			continue // not a mod, or a broken one: left out of the list
+		if err != nil {
+			reason := strings.TrimPrefix(err.Error(), ErrInvalid.Error()+": ")
+			c.Refused = append(c.Refused, Refused{Folder: folder, Reason: reason})
+			continue // a broken mod: left out, with the reason shown
+		}
+		if it == nil {
+			continue // not a mod
 		}
 		c.Items = append(c.Items, *it)
 	}

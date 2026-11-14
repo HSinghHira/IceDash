@@ -291,6 +291,9 @@ const count = (col: Collection, kind: string) => col.items.filter((i) => i.kind 
               · {{ strings.collectionCount(count(col, 'theme'), count(col, 'widget')) }}
             </span>
             <span v-if="col.error" class="tp small">{{ col.error }}</span>
+            <span v-for="r in col.refused ?? []" :key="r.folder" class="tp small">
+              <Icon name="alert" :size="12" /> {{ strings.modRefused(r.folder, r.reason) }}
+            </span>
           </div>
           <a class="icon-btn" :href="`https://${col.source}`" target="_blank" rel="noopener" :title="strings.openOnGitHub" :aria-label="strings.openOnGitHub">
             <Icon name="external" :size="15" />

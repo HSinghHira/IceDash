@@ -380,3 +380,24 @@ func TestAllowedURL(t *testing.T) {
 		}
 	}
 }
+
+func TestBrokenModsAreListedWithTheirReason(t *testing.T) {
+	g := newGitHub(t)
+	officialRepos(g)
+	s := service(t, g)
+	why := map[string]string{}
+	for _, c := range s.Collections(context.Background(), false) {
+		for _, r := range c.Refused {
+			why[r.Folder] = r.Reason
+		}
+	}
+	if !strings.Contains(why["broken"], "colour") && !strings.Contains(why["broken"], "color") {
+		t.Errorf("broken: %q", why["broken"])
+	}
+	if !strings.Contains(why["spy"], "is an address") {
+		t.Errorf("spy: %q", why["spy"])
+	}
+	if _, ok := why["notes"]; ok {
+		t.Error("a folder that isn't a mod is reported")
+	}
+}
