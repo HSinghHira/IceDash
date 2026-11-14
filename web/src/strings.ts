@@ -385,8 +385,8 @@ export const strings = {
   // Phase 5b: the main address
   mainAddressHeading: 'This server’s address',
   mainAddress: 'Open IceDash at this server’s address',
-  mainAddressHint: (addr: string) => `${addr} opens IceDash, and the ZimaOS dashboard moves to ${addr}zimaos/. Its apps, files and settings keep working as before.`,
-  mainAddressOffNote: 'Off takes effect at once. ZimaOS only lets go of the address when the server restarts; until then IceDash shows the ZimaOS dashboard there for you.',
+  mainAddressHint: (addr: string) => `${addr} opens IceDash. The ZimaOS dashboard stays at ${addr}index.html, and its apps, files and settings work as before.`,
+  mainAddressOffNote: 'Turning it off gives ZimaOS its address back within a few seconds. Nothing in ZimaOS is changed either way.',
   mainAddressCasa: (addr: string) => `On CasaOS, IceDash always opens at ${addr}. The CasaOS dashboard is at ${addr}casaos/.`,
   mainAddressChecking: 'Checking that ZimaOS sends the address to IceDash…',
 

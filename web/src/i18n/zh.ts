@@ -358,8 +358,8 @@ const zh: Translation = {
 
   mainAddressHeading: '此服务器的地址',
   mainAddress: '在此服务器的地址打开 IceDash',
-  mainAddressHint: (addr) => `${addr} 将打开 IceDash，ZimaOS 控制台移到 ${addr}zimaos/。它的应用、文件和设置照常可用。`,
-  mainAddressOffNote: '关闭会立即生效。ZimaOS 要到服务器重启时才会放开这个地址；在此之前，IceDash 会在那里为你显示 ZimaOS 控制台。',
+  mainAddressHint: (addr) => `${addr} 将打开 IceDash。ZimaOS 控制台仍在 ${addr}index.html，它的应用、文件和设置照常可用。`,
+  mainAddressOffNote: '关闭后，ZimaOS 会在几秒内取回该地址。无论开关，ZimaOS 本身都不会被修改。',
   mainAddressCasa: (addr) => `在 CasaOS 上，IceDash 始终在 ${addr} 打开。CasaOS 控制台位于 ${addr}casaos/。`,
   mainAddressChecking: '正在确认 ZimaOS 已把该地址交给 IceDash…',
 

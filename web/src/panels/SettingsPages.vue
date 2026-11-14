@@ -82,10 +82,10 @@ async function toggleMain() {
   const on = !settings.value?.main_address
   await setSetting({ main_address: on })
   if (!on) return
-  // The server checks through ZimaOS's gateway within ~10 s and turns it back
+  // The server checks through ZimaOS's gateway within a few seconds and turns it back
   // off if the address didn't come to IceDash; show what it settled on.
   mainBusy.value = true
-  await new Promise((r) => setTimeout(r, 12000))
+  await new Promise((r) => setTimeout(r, 6000))
   await loadSettings()
   mainBusy.value = false
 }

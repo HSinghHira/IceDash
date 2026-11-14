@@ -360,8 +360,8 @@ const de: Translation = {
 
   mainAddressHeading: 'Adresse dieses Servers',
   mainAddress: 'IceDash unter der Adresse dieses Servers öffnen',
-  mainAddressHint: (addr) => `${addr} öffnet IceDash, und das ZimaOS-Dashboard zieht nach ${addr}zimaos/. Seine Apps, Dateien und Einstellungen funktionieren wie bisher.`,
-  mainAddressOffNote: 'Aus wirkt sofort. ZimaOS gibt die Adresse erst beim Neustart des Servers frei; bis dahin zeigt IceDash dort das ZimaOS-Dashboard für dich.',
+  mainAddressHint: (addr) => `${addr} öffnet IceDash. Das ZimaOS-Dashboard bleibt unter ${addr}index.html, und seine Apps, Dateien und Einstellungen funktionieren wie bisher.`,
+  mainAddressOffNote: 'Ausschalten gibt ZimaOS seine Adresse innerhalb weniger Sekunden zurück. An ZimaOS selbst ändert sich dabei nichts.',
   mainAddressCasa: (addr) => `Unter CasaOS öffnet IceDash immer unter ${addr}. Das CasaOS-Dashboard ist unter ${addr}casaos/.`,
   mainAddressChecking: 'Es wird geprüft, ob ZimaOS die Adresse an IceDash gibt…',
 

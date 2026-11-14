@@ -1,122 +1,191 @@
 // Package home opens IceDash at ZimaOS's main address when an admin asks
-// (PLAN.md 5b.1). ZimaOS's gateway is Caddy: it serves the stock dashboard's
-// files from /usr/share/casaos/www for every path no service claimed
-// (HOST-NOTES item 3). Pointing the route "/" at IceDash makes every such
-// path come here instead, so IceDash serves those same files itself: the
-// stock dashboard moves to /zimaos/, its files keep their addresses, and the
-// APIs (longer routes) still go straight to ZimaOS.
+// (PLAN.md 5b.1).
 //
-// The gateway can't remove a route (HOST-NOTES, uninstall), so turning it off
-// leaves "/" pointing here until the next restart of the box; IceDash then
-// serves the stock dashboard at "/" exactly as Caddy did.
+// ZimaOS's gateway is Caddy, and the gateway writes every route it is given
+// as `reverse_proxy <path>/* …` (measured on the box, 2026-11-15), so a route
+// for "/" would become "//*" and match nothing. Instead IceDash adds one route
+// of its own through Caddy's admin socket (/run/caddy-admin.sock, root only):
+// the exact path "/" answers a redirect to /modules/icedash/. Every other path
+// stays Caddy's, so the stock dashboard keeps working at /index.html and no
+// ZimaOS file changes.
+//
+// Caddy runs with persist_config off and the gateway reloads its Caddyfile
+// whenever routes change, which drops the route: IceDash puts it back
+// within 10 s while the switch is on. Turning it off deletes the route at
+// once.
 package home
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
+	"io"
+	"net"
 	"net/http"
-	"os"
-	"path"
+	"net/url"
 	"strings"
 	"time"
 )
 
-// WWW is where ZimaOS keeps its dashboard's files.
-const WWW = "/usr/share/casaos/www"
+// Socket is Caddy's admin socket on ZimaOS (HOST-NOTES item 3).
+const Socket = "/run/caddy-admin.sock"
 
 // StockPath is where the stock dashboard stays while IceDash has "/".
-const StockPath = "/zimaos/"
+const StockPath = "/index.html"
 
-// Marker is the header every answer from here carries, so a check through
-// the gateway can tell IceDash answered.
+// Target is where "/" sends people.
+const Target = "/modules/icedash/"
+
+// Marker is the header IceDash's redirect carries, so a check through the
+// gateway can tell it is IceDash's.
 const Marker = "X-IceDash-Front"
 
-// Front serves "/" and the stock dashboard's files. Next gets IceDash's own
-// paths; On says whether "/" opens IceDash.
-type Front struct {
-	WWW  string
-	Next http.Handler
-	On   func() bool
+// ID is the route's @id in Caddy's config.
+const ID = "icedash-home"
+
+// Caddy talks to Caddy's admin API.
+type Caddy struct {
+	// Base is the API's address; "" is the unix socket (Socket).
+	Base string
+	HTTP *http.Client
 }
 
-func (f *Front) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	p := r.URL.Path
-	if strings.HasPrefix(p, "/modules/icedash") || strings.HasPrefix(p, "/v2/icedash") {
-		f.Next.ServeHTTP(w, r)
-		return
+func (c *Caddy) client() *http.Client {
+	if c.HTTP != nil {
+		return c.HTTP
 	}
-	w.Header().Set(Marker, "zimaos")
-	switch {
-	case p == "/" && f.On != nil && f.On():
-		http.Redirect(w, r, "/modules/icedash/", http.StatusFound)
-		return
-	case p == strings.TrimSuffix(StockPath, "/"):
-		http.Redirect(w, r, StockPath, http.StatusFound)
-		return
-	case strings.HasPrefix(p, StockPath):
-		p = "/" + strings.TrimPrefix(p, StockPath)
+	return &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			var d net.Dialer
+			return d.DialContext(ctx, "unix", Socket)
+		}},
 	}
-	f.file(w, r, p)
 }
 
-// file serves one of the stock files: a folder only by its index.html, never
-// a listing; nothing outside the folder (os.Root).
-func (f *Front) file(w http.ResponseWriter, r *http.Request, p string) {
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
+func (c *Caddy) base() string {
+	if c.Base != "" {
+		return strings.TrimRight(c.Base, "/")
 	}
-	root, err := os.OpenRoot(f.WWW)
-	if err != nil {
-		http.Error(w, "the ZimaOS dashboard isn't available right now", http.StatusBadGateway)
-		return
-	}
-	defer root.Close()
-	rel := strings.TrimPrefix(path.Clean("/"+p), "/")
-	if rel == "" {
-		rel = "."
-	}
-	st, err := root.Stat(rel)
-	if err == nil && st.IsDir() {
-		rel = path.Join(rel, "index.html")
-		st, err = root.Stat(rel)
-	}
-	if err != nil || st.IsDir() {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
-	}
-	fh, err := root.Open(rel)
-	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
-	}
-	defer fh.Close()
-	if strings.HasSuffix(rel, ".html") {
-		// The page itself is never cached, as Caddy's file server does with ETags.
-		w.Header().Set("Cache-Control", "no-cache")
-	}
-	http.ServeContent(w, r, path.Base(rel), st.ModTime(), fh)
+	return "http://localhost"
 }
 
-// Ready reports whether the stock dashboard's files are there to serve.
-func Ready(www string) error {
-	st, err := os.Stat(path.Join(www, "index.html"))
-	if err != nil {
-		return fmt.Errorf("the ZimaOS dashboard's files aren't in %s: %w", www, err)
+func (c *Caddy) do(ctx context.Context, method, path string, body any) (int, []byte, error) {
+	var rd io.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			return 0, nil, err
+		}
+		rd = bytes.NewReader(b)
 	}
-	if st.IsDir() {
-		return fs.ErrInvalid
+	req, err := http.NewRequestWithContext(ctx, method, c.base()+path, rd)
+	if err != nil {
+		return 0, nil, err
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	res, err := c.client().Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer res.Body.Close()
+	b, _ := io.ReadAll(io.LimitReader(res.Body, 4<<20))
+	return res.StatusCode, b, nil
+}
+
+// Route is IceDash's route: exactly "/" (with or without a query), a redirect.
+func Route() map[string]any {
+	return map[string]any{
+		"@id":   ID,
+		"match": []any{map[string]any{"path": []string{"/"}}},
+		"handle": []any{map[string]any{
+			"handler":     "static_response",
+			"status_code": 302,
+			"headers": map[string][]string{
+				"Location":      {Target},
+				Marker:          {"zimaos"},
+				"Cache-Control": {"no-store"},
+			},
+		}},
+		"terminal": true,
+	}
+}
+
+// Present reports whether Caddy has the route now.
+func (c *Caddy) Present(ctx context.Context) (bool, error) {
+	code, _, err := c.do(ctx, http.MethodGet, "/id/"+ID, nil)
+	if err != nil {
+		return false, err
+	}
+	return code == http.StatusOK, nil
+}
+
+// server finds the server that listens on the gateway's port.
+func (c *Caddy) server(ctx context.Context, port string) (string, error) {
+	code, b, err := c.do(ctx, http.MethodGet, "/config/apps/http/servers", nil)
+	if err != nil {
+		return "", err
+	}
+	if code != http.StatusOK {
+		return "", fmt.Errorf("caddy answered %d for its servers", code)
+	}
+	var servers map[string]struct {
+		Listen []string `json:"listen"`
+	}
+	if err := json.Unmarshal(b, &servers); err != nil {
+		return "", fmt.Errorf("caddy's servers: %w", err)
+	}
+	for name, s := range servers {
+		for _, l := range s.Listen {
+			if strings.HasSuffix(l, ":"+port) {
+				return name, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no caddy server listens on :%s", port)
+}
+
+// Apply puts the route first on the gateway's server, once.
+func (c *Caddy) Apply(ctx context.Context, port string) error {
+	if ok, err := c.Present(ctx); err != nil || ok {
+		return err
+	}
+	name, err := c.server(ctx, port)
+	if err != nil {
+		return err
+	}
+	// PUT on an array index inserts there: first, before the gateway's own.
+	code, b, err := c.do(ctx, http.MethodPut, "/config/apps/http/servers/"+url.PathEscape(name)+"/routes/0", Route())
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK {
+		return fmt.Errorf("caddy answered %d: %s", code, strings.TrimSpace(string(b)))
 	}
 	return nil
 }
 
-// ErrNotTaken is when the gateway doesn't send "/" here.
+// Remove takes the route away; none there is fine.
+func (c *Caddy) Remove(ctx context.Context) error {
+	code, b, err := c.do(ctx, http.MethodDelete, "/id/"+ID, nil)
+	if err != nil {
+		return err
+	}
+	if code != http.StatusOK && code != http.StatusNotFound && !strings.Contains(string(b), "unknown object ID") {
+		return fmt.Errorf("caddy answered %d: %s", code, strings.TrimSpace(string(b)))
+	}
+	return nil
+}
+
+// ErrNotTaken is when "/" through the gateway isn't IceDash's redirect.
 var ErrNotTaken = errors.New("ZimaOS's gateway didn't send its main address to IceDash")
 
-// Check asks the gateway for "/" (base is http://127.0.0.1:<port>) and
-// reports whether IceDash answered.
+// Check asks the gateway for "/" (base is http://127.0.0.1[:port]) and
+// reports whether IceDash's redirect answered.
 func Check(ctx context.Context, base string, c *http.Client) error {
 	if c == nil {
 		c = &http.Client{Timeout: 5 * time.Second}
@@ -132,7 +201,7 @@ func Check(ctx context.Context, base string, c *http.Client) error {
 		return err
 	}
 	res.Body.Close()
-	if res.Header.Get(Marker) == "" {
+	if res.Header.Get(Marker) == "" || res.Header.Get("Location") != Target {
 		return ErrNotTaken
 	}
 	return nil

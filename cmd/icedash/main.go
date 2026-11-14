@@ -206,7 +206,7 @@ func main() {
 			}
 		}()
 		// Phase 5b: the main address, while an admin has it on.
-		go keepMainAddress(ctx, runtimePath, target, prefs, notes)
+		go keepMainAddress(ctx, runtimePath, prefs, notes)
 	}
 	// First check 2 minutes after start (the gateway and /DATA come late at
 	// boot), then every 6 hours, while "Check for updates automatically" is on.
@@ -236,8 +236,7 @@ func main() {
 		// The stock UI's own files pass through unlogged.
 		handler = &casa.Front{RuntimePath: runtimePath, Next: handler}
 	} else {
-		// Phase 5b: once "/" comes here, the stock dashboard's files do too.
-		handler = &home.Front{WWW: home.WWW, Next: handler, On: func() bool { return prefs.Get().MainAddress }}
+		// Phase 5b: with the main address on, the stock dashboard is at /index.html.
 		srv.StockNow = func() string {
 			if prefs.Get().MainAddress {
 				return home.StockPath
@@ -287,66 +286,76 @@ func uninstall(kind host.Kind, runtimePath string) {
 		log.Fatalf("[icedash] removing the boot watchdog: %v", err)
 	}
 	log.Printf("[icedash] boot watchdog removed; now run: zpkg remove icedash")
-	if (&casa.Keeper{RuntimePath: runtimePath}).Has("/") {
-		// Phase 5b: the gateway can't remove a route; a restart clears it.
-		log.Printf("[icedash] IceDash had this server's main address: after zpkg remove, restart the server to give ZimaOS its dashboard back at /")
+	// Phase 5b: give "/" back to ZimaOS (none there is fine).
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := (&home.Caddy{}).Remove(ctx); err != nil {
+		log.Printf("[icedash] giving / back to ZimaOS: %v (a restart of the gateway or the server does it too)", err)
 	}
 }
 
-// keepMainAddress points ZimaOS's "/" at IceDash while the setting is on
-// (PLAN.md 5b.1), checking every 10 s as on CasaOS, since the route lives in
-// /run and a gateway restart may drop it. The first time it's on, it checks
-// through the gateway that IceDash really answers "/"; if not, it turns the
-// setting off and says so. Turned off, "/" stays here until the box restarts
-// (the gateway can't remove a route): home.Front serves the stock page there,
-// and the route is kept pointing at this process.
-func keepMainAddress(ctx context.Context, runtimePath, target string, prefs *settings.Store, notes *notify.Store) {
-	k := &casa.Keeper{RuntimePath: runtimePath, Target: target, Paths: []string{"/"}}
-	checked := false
+// keepMainAddress gives ZimaOS's "/" to IceDash while the setting is on
+// (PLAN.md 5b.1): a route of IceDash's own in the gateway's Caddy, added
+// through its admin socket, that redirects exactly "/" to /modules/icedash/.
+// The gateway reloads Caddy whenever its routes change, which drops the
+// route, so it is put back within 10 s. The first time, it checks through
+// the gateway that "/" answers with IceDash's redirect; if not, it turns the
+// setting off and says so. Off removes the route within 2 s.
+func keepMainAddress(ctx context.Context, runtimePath string, prefs *settings.Store, notes *notify.Store) {
+	c := &home.Caddy{}
+	k := &casa.Keeper{RuntimePath: runtimePath}
+	was, checked, tick := false, false, 0
+	first := true
 	for {
 		on := prefs.Get().MainAddress
-		// ZimaOS has no "/" route of its own: one there is IceDash's, from
-		// before a restart or from before it was turned off. It must keep
-		// pointing at this process (the port changes at every start), or the
-		// dashboard would be gone until the box restarts.
-		if !on && k.Has("/") && !k.Points("/") {
-			if _, err := k.Ensure(ctx); err != nil {
-				log.Printf("[icedash] main address (off, still routed until restart): %v", err)
+		switch {
+		case on && (!was || tick%5 == 0):
+			cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			base := k.Gateway(cctx)
+			port := "80"
+			if i := strings.LastIndex(base, ":"); i > len("http:") {
+				port = base[i+1:]
 			}
-		}
-		if on {
-			if err := home.Ready(home.WWW); err != nil {
-				turnOffMainAddress(prefs, notes, err)
-			} else if changed, err := k.Ensure(ctx); err != nil {
+			err := c.Apply(cctx, port)
+			if err == nil && !checked {
+				if err = home.Check(cctx, base, nil); err == nil {
+					checked = true
+					log.Printf("[icedash] main address: / opens IceDash; the ZimaOS dashboard is at %s", home.StockPath)
+				}
+			}
+			cancel()
+			if err != nil && !checked {
+				turnOffMainAddress(c, prefs, notes, err)
+				on = false
+			} else if err != nil {
 				log.Printf("[icedash] main address: %v", err)
-			} else {
-				if changed {
-					log.Printf("[icedash] main address: / points at %s; the stock dashboard is at %s", target, home.StockPath)
-				}
-				if !checked {
-					cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-					err := home.Check(cctx, k.Gateway(cctx), nil)
-					cancel()
-					if err != nil {
-						turnOffMainAddress(prefs, notes, err)
-					} else {
-						checked = true
-					}
-				}
 			}
-		} else {
+		case !on && (was || first):
+			// Off, or off since the last start: ZimaOS gets "/" back now.
+			cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			if err := c.Remove(cctx); err != nil && !first {
+				log.Printf("[icedash] main address: giving / back: %v", err)
+			} else if was {
+				log.Printf("[icedash] main address: / is the ZimaOS dashboard again")
+			}
+			cancel()
 			checked = false
 		}
+		was, first = on, false
+		tick++
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(10 * time.Second):
+		case <-time.After(2 * time.Second):
 		}
 	}
 }
 
-func turnOffMainAddress(prefs *settings.Store, notes *notify.Store, why error) {
+func turnOffMainAddress(c *home.Caddy, prefs *settings.Store, notes *notify.Store, why error) {
 	log.Printf("[icedash] main address: %v; turning it off", why)
+	rctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	_ = c.Remove(rctx)
+	cancel()
 	v := prefs.Get()
 	v.MainAddress = false
 	_ = prefs.Set(v)

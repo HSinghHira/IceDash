@@ -73,19 +73,6 @@ func (k *Keeper) Gateway(ctx context.Context) string {
 	return base + ":" + body.Data
 }
 
-// Has reports whether the gateway has a route for p at all.
-func (k *Keeper) Has(p string) bool {
-	have, err := k.routes()
-	_, ok := have[p]
-	return err == nil && ok
-}
-
-// Points reports whether the gateway sends p to Target now.
-func (k *Keeper) Points(p string) bool {
-	have, err := k.routes()
-	return err == nil && strings.TrimRight(have[p], "/") == k.Target
-}
-
 func (k *Keeper) client() *http.Client {
 	if k.HTTP != nil {
 		return k.HTTP

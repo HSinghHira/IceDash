@@ -2,80 +2,107 @@ package home
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
-func www(t *testing.T) string {
-	d := t.TempDir()
-	os.MkdirAll(filepath.Join(d, "js"), 0o755)
-	os.MkdirAll(filepath.Join(d, "modules", "other"), 0o755)
-	os.WriteFile(filepath.Join(d, "index.html"), []byte("<html>stock</html>"), 0o644)
-	os.WriteFile(filepath.Join(d, "js", "app.js"), []byte("console.log(1)"), 0o644)
-	os.WriteFile(filepath.Join(filepath.Dir(d), "secret"), []byte("no"), 0o644)
-	return d
+// fakeCaddy answers the few admin calls IceDash makes, like Caddy 2 does.
+type fakeCaddy struct {
+	mu     sync.Mutex
+	routes []map[string]any // srv0's routes
+	puts   int
 }
 
-func get(h http.Handler, p string) *httptest.ResponseRecorder {
-	w := httptest.NewRecorder()
-	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, p, nil))
-	return w
+func (f *fakeCaddy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	find := func() int {
+		for i, rt := range f.routes {
+			if rt["@id"] == ID {
+				return i
+			}
+		}
+		return -1
+	}
+	switch {
+	case r.Method == http.MethodGet && r.URL.Path == "/config/apps/http/servers":
+		w.Write([]byte(`{"srv0":{"listen":[":80"],"routes":[]},"srv1":{"listen":[":9527"]}}`))
+	case r.URL.Path == "/id/"+ID && r.Method == http.MethodGet:
+		if find() < 0 {
+			http.Error(w, `{"error":"unknown object ID 'icedash-home'"}`, http.StatusNotFound)
+			return
+		}
+		json.NewEncoder(w).Encode(f.routes[find()])
+	case r.URL.Path == "/id/"+ID && r.Method == http.MethodDelete:
+		i := find()
+		if i < 0 {
+			http.Error(w, `{"error":"unknown object ID 'icedash-home'"}`, http.StatusNotFound)
+			return
+		}
+		f.routes = append(f.routes[:i], f.routes[i+1:]...)
+	case r.Method == http.MethodPut && r.URL.Path == "/config/apps/http/servers/srv0/routes/0":
+		var rt map[string]any
+		b, _ := io.ReadAll(r.Body)
+		if json.Unmarshal(b, &rt) != nil {
+			http.Error(w, "bad", http.StatusBadRequest)
+			return
+		}
+		f.puts++
+		f.routes = append([]map[string]any{rt}, f.routes...)
+	default:
+		http.Error(w, "not found: "+r.Method+" "+r.URL.Path, http.StatusNotFound)
+	}
 }
 
-func TestFront(t *testing.T) {
-	on := true
-	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("icedash " + r.URL.Path)) })
-	f := &Front{WWW: www(t), Next: next, On: func() bool { return on }}
-	if w := get(f, "/"); w.Code != http.StatusFound || w.Header().Get("Location") != "/modules/icedash/" || w.Header().Get(Marker) == "" {
-		t.Fatalf("/ with IceDash on: %d %v", w.Code, w.Header())
+func TestApplyAndRemove(t *testing.T) {
+	f := &fakeCaddy{routes: []map[string]any{{"handle": "the gateway's"}}}
+	srv := httptest.NewServer(f)
+	defer srv.Close()
+	c := &Caddy{Base: srv.URL, HTTP: srv.Client()}
+	ctx := context.Background()
+	if ok, err := c.Present(ctx); ok || err != nil {
+		t.Fatalf("present before: %v %v", ok, err)
 	}
-	if w := get(f, "/modules/icedash/index.html"); w.Body.String() != "icedash /modules/icedash/index.html" {
-		t.Fatalf("own files: %s", w.Body)
+	if err := c.Apply(ctx, "80"); err != nil {
+		t.Fatal(err)
 	}
-	if w := get(f, "/zimaos/"); !strings.Contains(w.Body.String(), "stock") || w.Header().Get("Cache-Control") != "no-cache" {
-		t.Fatalf("stock page: %d %s", w.Code, w.Body)
+	// Once only, and first, before the gateway's own route.
+	if err := c.Apply(ctx, "80"); err != nil || f.puts != 1 || f.routes[0]["@id"] != ID || len(f.routes) != 2 {
+		t.Fatalf("apply twice: %v puts=%d routes=%v", err, f.puts, f.routes)
 	}
-	if w := get(f, "/zimaos"); w.Header().Get("Location") != "/zimaos/" {
-		t.Fatal("no slash")
+	rt := f.routes[0]
+	if m := rt["match"].([]any)[0].(map[string]any)["path"].([]any); len(m) != 1 || m[0] != "/" {
+		t.Fatalf("match %v", m)
 	}
-	// The stock page's files at their own addresses, and under /zimaos/ too.
-	for _, p := range []string{"/js/app.js", "/zimaos/js/app.js"} {
-		if w := get(f, p); w.Body.String() != "console.log(1)" || !strings.Contains(w.Header().Get("Content-Type"), "javascript") {
-			t.Fatalf("%s: %d %q", p, w.Code, w.Header().Get("Content-Type"))
-		}
+	if ok, _ := c.Present(ctx); !ok {
+		t.Fatal("not present")
 	}
-	for _, p := range []string{"/js/", "/modules/other/", "/../secret", "/zimaos/../../secret", "/nope.js"} {
-		if w := get(f, p); w.Code != http.StatusNotFound {
-			t.Fatalf("%s: %d %s", p, w.Code, w.Body)
-		}
+	if err := c.Remove(ctx); err != nil || len(f.routes) != 1 {
+		t.Fatalf("remove: %v %v", err, f.routes)
 	}
-	// Turned off: "/" is the stock page again, as before.
-	on = false
-	if w := get(f, "/"); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "stock") {
-		t.Fatalf("/ off: %d", w.Code)
+	if err := c.Remove(ctx); err != nil {
+		t.Fatalf("remove again: %v", err)
 	}
-	w := httptest.NewRecorder()
-	f.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/js/app.js", nil))
-	if w.Code != http.StatusNotFound {
-		t.Fatalf("POST: %d", w.Code)
-	}
-	if Ready(f.WWW) != nil || Ready(t.TempDir()) == nil {
-		t.Fatal("ready")
+	if err := c.Apply(ctx, "8080"); err == nil || !strings.Contains(err.Error(), ":8080") {
+		t.Fatalf("no server on the port: %v", err)
 	}
 }
 
 func TestCheck(t *testing.T) {
-	f := &Front{WWW: www(t), Next: http.NotFoundHandler(), On: func() bool { return true }}
-	ours := httptest.NewServer(f)
+	ours := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(Marker, "zimaos")
+		http.Redirect(w, r, Target, http.StatusFound)
+	}))
 	defer ours.Close()
 	if err := Check(context.Background(), ours.URL, nil); err != nil {
 		t.Fatal(err)
 	}
-	theirs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("caddy")) }))
+	theirs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("<html>zimaos</html>")) }))
 	defer theirs.Close()
 	if err := Check(context.Background(), theirs.URL, nil); err != ErrNotTaken {
 		t.Fatalf("not ours: %v", err)
