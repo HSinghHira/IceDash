@@ -22,7 +22,10 @@ export function inputLabel(key: string, app: string): string {
   return words.join(' ')
 }
 
-/** Puts this server's host into IceStore text: [ZIMAOS-IP-ADDRESS], [SERVER-IP], your-zimaos-ip. */
+/**
+ * Puts this server's host into IceStore text: [ZIMAOS-IP-ADDRESS], [SERVER-IP],
+ * your-zimaos-ip, and <your ZimaOS IP> (written by some images' credentials).
+ */
 export function withHost(text: string, host: string): string {
-  return text.replace(/\[ZIMAOS-IP-ADDRESS\]|\[SERVER-IP\]|your-zimaos-ip/gi, host)
+  return text.replace(/\[ZIMAOS-IP-ADDRESS\]|\[SERVER-IP\]|your-zimaos-ip|<your[ -](?:zimaos|casaos|server)[ -]ip>/gi, host)
 }

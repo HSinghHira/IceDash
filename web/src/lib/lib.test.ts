@@ -167,6 +167,7 @@ describe('setup helpers', () => {
     expect(withHost('Open http://[ZIMAOS-IP-ADDRESS]:6181 or your-zimaos-ip', '192.168.68.17')).toBe(
       'Open http://192.168.68.17:6181 or 192.168.68.17',
     )
+    expect(withHost('https://<your ZimaOS IP>:6119', '10.0.0.5')).toBe('https://10.0.0.5:6119')
   })
 
   it('renders markdown safely', async () => {

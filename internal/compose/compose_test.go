@@ -1,6 +1,7 @@
 package compose
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"strings"
@@ -219,6 +220,31 @@ func TestHostOnly(t *testing.T) {
 	for in, want := range map[string]string{"192.168.68.17": "192.168.68.17", "192.168.68.17:80": "192.168.68.17", "[fe80::1]:80": "fe80::1", "zima.local": "zima.local"} {
 		if got := HostOnly(in); got != want {
 			t.Errorf("%q: %q", in, got)
+		}
+	}
+}
+
+// An app on the host network has no ports; the setup must still send [] for
+// ports and inputs, not null, or the setup popup can't open.
+func TestSetupHostNetworkSendsEmptyLists(t *testing.T) {
+	d, err := Parse([]byte(`name: lan
+services:
+  lan:
+    image: example/lan:1
+    network_mode: host
+x-casaos:
+  port_map: "8840"
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(d.Setup(Context{Host: "10.0.0.5"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"ports":[]`, `"inputs":[]`} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("setup %s: want %s", b, want)
 		}
 	}
 }

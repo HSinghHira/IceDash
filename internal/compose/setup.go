@@ -104,7 +104,10 @@ func (d *Doc) Setup(c Context) Setup {
 		host = "[" + host + "]"
 	}
 
-	s := Setup{Name: d.Name(), Address: d.Address(c.Host), Ports: d.Ports(), Data: "/DATA/AppData/" + d.Name(), Access: d.Access()}
+	// Inputs and Ports start empty, not nil, so an app on the host network
+	// (no ports) or with no settings sends [] rather than null.
+	s := Setup{Name: d.Name(), Address: d.Address(c.Host), Inputs: []Input{}, Ports: append([]Port{}, d.Ports()...),
+		Data: "/DATA/AppData/" + d.Name(), Access: d.Access()}
 	for _, e := range d.Envs() {
 		in := Input{Env: e, Secret: secretWords.MatchString(e.Key)}
 		v := e.Value

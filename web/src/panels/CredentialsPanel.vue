@@ -7,6 +7,7 @@ import { ApiError } from '../api/client'
 import AppIcon from '../components/AppIcon.vue'
 import Icon from '../components/Icon.vue'
 import { copyText } from '../lib/copy'
+import { withHost } from '../lib/setup'
 import { apps, closeWindow } from '../store'
 import { strings } from '../strings'
 
@@ -41,7 +42,13 @@ onMounted(async () => {
     if (left.value <= 0) closeWindow(props.winId)
   }, 1000)
   try {
-    creds.value = await api.credentials(props.name)
+    const c = await api.credentials(props.name)
+    // Some images write "<your ZimaOS IP>" into the address: show this server.
+    const host = location.hostname
+    creds.value = {
+      fields: c.fields.map((f) => (f.secret ? f : { ...f, value: withHost(f.value, host) })),
+      notes: c.notes.map((n) => withHost(n, host)),
+    }
   } catch (e) {
     if (e instanceof ApiError && e.code === 'no_credentials') problem.value = strings.noCredentials
     else if (e instanceof ApiError && e.code === 'not_running') problem.value = strings.notRunning
