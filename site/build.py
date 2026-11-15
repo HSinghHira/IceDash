@@ -50,15 +50,15 @@ ICONS = {
 # The tour: (tab id, tab label, image, window title, caption)
 SHOTS = [
     ("shot-desktop", "Desktop", "desktop", "IceDash",
-     "Your apps on the desktop and in the dock, with a status dot each. Widgets for the clock, the system, the network and your apps sit on the right."),
+     "Your apps on the desktop and in the dock, with a status dot each. Cards for the clock, the system, the network and your apps sit on the right."),
     ("shot-store", "IceStore", "icestore", "IceStore",
      "Install from IceStore without typing an IP: the setup fills in the server's address, makes passwords and checks that ports are free."),
     ("shot-menu", "Credentials", "credentials", "Credentials",
      "Right-click any app to open, restart, update, back up or uninstall it, or to see the login it made for you."),
     ("shot-first", "First launch", "first-launch", "Welcome",
      "The first time you open a new app, IceDash shows its address, login and the steps to get started."),
-    ("shot-mods", "Mods & Themes", "mods", "Settings",
-     "Themes and widgets from GitHub. Each widget runs in a sandbox and only sees what its permissions allow."),
+    ("shot-themes", "Themes", "themes", "Settings",
+     "Themes change IceDash's colors and wallpaper. Get more themes, and cards for the panel, from collections on GitHub; each card runs in a sandbox."),
 ]
 
 # What you get: (icon, title, text)

@@ -477,7 +477,7 @@ def readme_block(cfg):
 
     parts = [
         img("hero.svg", f'{cfg["site_name"]}: {cfg["tagline"]}'),
-        link(base + "#tour", img("screens.svg", "The IceDash desktop, IceStore, the right-click menu, an app's first launch and Mods & Themes")),
+        link(base + "#tour", img("screens.svg", "The IceDash desktop, IceStore, the right-click menu, an app's first launch and themes")),
         link(base + "#features", img("features.svg", "What you get: " + ", ".join(f[1] for f in FEATURES))),
         link(base + "#install", img("install.svg", f'Install {cfg["site_name"]} on ZimaOS or CasaOS')),
         link(cfg["repo"] + "/issues/new", img("help.svg", "Found a bug, or want a feature? Open an issue on GitHub")),

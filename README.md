@@ -4,7 +4,7 @@ A desktop-style dashboard for [ZimaOS](https://www.zimaspace.com/ZimaOS) and [Ca
 
 <!-- README-SVGS:START -->
 <p align="center"><img src="readme/hero.svg" width="100%" align="top" alt="IceDash: A desktop-style dashboard for ZimaOS and CasaOS, with IceStore built in"
-><a href="https://icedash.hsinghhira.me/#tour"><img src="readme/screens.svg" width="100%" align="top" alt="The IceDash desktop, IceStore, the right-click menu, an app&#x27;s first launch and Mods &amp; Themes"></a
+><a href="https://icedash.hsinghhira.me/#tour"><img src="readme/screens.svg" width="100%" align="top" alt="The IceDash desktop, IceStore, the right-click menu, an app&#x27;s first launch and themes"></a
 ><a href="https://icedash.hsinghhira.me/#features"><img src="readme/features.svg" width="100%" align="top" alt="What you get: A real desktop, IceStore built in, App bundles, Logins at a right-click, Files, Terminal, Widgets and themes, Notifications, Search everything, Your language, Updates itself, At your server&#x27;s address"></a
 ><a href="https://icedash.hsinghhira.me/#install"><img src="readme/install.svg" width="100%" align="top" alt="Install IceDash on ZimaOS or CasaOS"></a
 ><a href="https://github.com/HSinghHira/IceDash/issues/new"><img src="readme/help.svg" width="100%" align="top" alt="Found a bug, or want a feature? Open an issue on GitHub"></a
