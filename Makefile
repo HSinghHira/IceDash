@@ -22,11 +22,18 @@ LDFLAGS := -s -w -X main.version=$(VERSION:v%=%) $(if $(BROKEN),-X main.broken=1
 
 CASAOS  := build/casaos-$(ARCH)
 
-.PHONY: build check modkit vet test web-deps web-test rootfs binary web image casaos casaos-all preview site clean
+.PHONY: build check deploy d modkit vet test web-deps web-test rootfs binary web image casaos casaos-all preview site clean
 
 build: check image casaos-all
 
 check: modkit vet test web-test
+
+# check, then commit everything and push: `make deploy MSG="Add Immich"`
+MSG ?= Building
+deploy: check
+	git add -A && (git diff --cached --quiet || git commit -m "$(MSG)") && git push
+
+d: deploy
 
 modkit:
 	@sh scripts/modkit.sh $(MODKIT)

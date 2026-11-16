@@ -44,6 +44,11 @@ ICONS = {
     "refresh": '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M8 16H3v5"/>',
     "home": '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .71-1.53l7-6a2 2 0 0 1 2.58 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
     "boxes": '<rect x="2" y="13" width="9" height="9" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/><rect x="7.5" y="2" width="9" height="9" rx="1"/>',
+    "calendar": '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    "bug": '<path d="m8 2 1.88 1.88M14.12 3.88 16 2M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6M12 20v-9M6.53 9C4.6 8.8 3 7.1 3 5M6 13H2M3 21c0-2.1 1.7-3.9 3.8-4M20.97 5c0 2.1-1.6 3.8-3.5 4M22 13h-4M17.2 17c2.1.1 3.8 1.9 3.8 4"/>',
+    "wrench": '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+    "rocket": '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09zM12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
+    "lightbulb": '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5M9 18h6M10 22h4"/>',
     "users": '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
 }
 
@@ -144,6 +149,69 @@ def features():
         for ic, t, p in FEATURES)
 
 
+# Roadmap: each entry's type and status, from site/roadmap.json.
+KINDS = {"feature": ("rocket", "Feature"), "bug": ("bug", "Bug"), "fix": ("wrench", "Fix"), "idea": ("lightbulb", "Idea")}
+STATUSES = [("in-progress", "In progress"), ("planned", "Planned"), ("done", "Done")]
+
+
+def roadmap_page(cfg, layout):
+    """roadmap/: fixes, bugs, features and ideas, read from site/roadmap.json.
+    Each entry: title, type (feature, bug, fix, idea), status (in-progress, planned, done),
+    desc, and optionally issue (a GitHub issue number) and version (the release that shipped it).
+    A tile links to its issue, or else to its release. Done tiles fade like IceStore's."""
+    base, repo = cfg["base_url"], cfg["repo"]
+    url = base + "roadmap/"
+    items = json.loads((HERE / "roadmap.json").read_text(encoding="utf-8"))
+    for r in items:
+        if r.get("type") not in KINDS or r.get("status") not in dict(STATUSES):
+            raise ValueError(f"roadmap.json: bad type or status in {r.get('title')!r}")
+
+    def tile(r):
+        ic, kind = KINDS[r["type"]]
+        meta = [kind]
+        if r.get("issue"):
+            meta.append(f'#{r["issue"]}')
+        if r.get("version"):
+            meta.append(r["version"])
+        href = (f'{repo}/issues/{r["issue"]}' if r.get("issue")
+                else f'{repo}/releases/tag/{r["version"]}' if r.get("version") else "")
+        cls = "card rm" + (" done" if r["status"] == "done" else "")
+        body = (f'<span class="ph {e(r["type"])}">{icon(ic)}</span>'
+                f'<div class="ct"><span class="k">{e(" · ".join(meta))}</span>'
+                f'<h3>{e(r["title"])}</h3><p>{e(r.get("desc", ""))}</p></div>')
+        return f'<a class="{cls}" href="{e(href)}">{body}</a>' if href else f'<div class="{cls}">{body}</div>'
+
+    groups, counts = [], []
+    for key, label in STATUSES:
+        rows = [r for r in items if r["status"] == key]
+        if not rows:
+            continue
+        counts.append(f"{len(rows)} {label.lower()}")
+        groups.append(
+            f'    <section class="rmg" aria-labelledby="rm-{key}">\n'
+            f'      <h2 id="rm-{key}">{e(label)} <span>{len(rows)}</span></h2>\n'
+            f'      <div class="grid">{"".join(tile(r) for r in rows)}</div>\n'
+            '    </section>\n')
+    content = (
+        '<div class="wrap">\n'
+        f'  <div class="top"><a class="logo" href="../">{e(cfg["site_name"])}</a>'
+        f'<a class="back" href="../">{icon("arrow-left")}Home</a></div>\n'
+        '  <main id="main" tabindex="-1" data-page="roadmap">\n'
+        '    <section class="bhero" aria-labelledby="r-h">\n'
+        '      <h1 id="r-h">Roadmap</h1>\n'
+        f'      <p class="lead">What is coming to {e(cfg["site_name"])}, and what just shipped: '
+        f'{e(", ".join(counts))}. Found a bug, or want something else?</p>\n'
+        f'      <div class="cta" style="justify-content:flex-start"><a class="btn p" href="{e(repo)}/issues/new">'
+        f'{icon("plus-circle")}Open an issue</a><a class="btn" href="{e(repo)}/releases">{icon("tag")}Releases</a></div>\n'
+        '    </section>\n'
+        + "".join(groups) +
+        '  </main>\n</div>')
+    ld = {"@context": "https://schema.org", "@type": "WebPage", "name": "Roadmap", "url": url}
+    return page(layout, content, {**cfg, "title": f'Roadmap – {cfg["site_name"]}',
+                                  "description": f'Fixes, bugs and features planned for {cfg["site_name"]}, and what shipped.'},
+                root="../", url=url, jsonld=json.dumps(ld, ensure_ascii=False))
+
+
 def page(layout, content, cfg, **head):
     values = {**cfg, "content": content, "robots": "index,follow,max-image-preview:large", **head}
     return new_tab(fill(layout, values), cfg["base_url"])
@@ -186,6 +254,9 @@ def main():
     (out / "index.html").write_text(
         page(layout, home, cfg, root="", url=base, jsonld=json.dumps(ld, ensure_ascii=False)), encoding="utf-8")
 
+    (out / "roadmap").mkdir(parents=True, exist_ok=True)
+    (out / "roadmap" / "index.html").write_text(roadmap_page(cfg, layout), encoding="utf-8")
+
     # 404: served for any missing path, so its links start at the site's root
     base_nf = "/"
     nf = (
@@ -216,7 +287,7 @@ def main():
     (out / "robots.txt").write_text(f"User-agent: *\nAllow: /\nSitemap: {base}sitemap.xml\n", encoding="utf-8")
     (out / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        f"  <url><loc>{base}</loc></url>\n</urlset>\n", encoding="utf-8")
+        f"  <url><loc>{base}</loc></url>\n  <url><loc>{base}roadmap/</loc></url>\n</urlset>\n", encoding="utf-8")
     (out / ".nojekyll").write_text("", encoding="utf-8")
     print(f"built {out} ({version})")
 

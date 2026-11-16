@@ -471,3 +471,15 @@ td:first-child code,td:nth-child(2) code{word-break:normal;overflow-wrap:anywher
 .faq details>div p+p{margin-top:12px}
 .faq details>div p code{overflow-wrap:anywhere}
 @media(max-width:700px){.icmd code{font-size:13px;-webkit-mask-image:linear-gradient(90deg,#000 80%,transparent);mask-image:linear-gradient(90deg,#000 80%,transparent);padding-right:24px}}
+
+/* roadmap: groups by status, an icon per kind, done tiles fade as in IceStore */
+.rmg{padding-top:48px}
+.rmg h2{display:flex;align-items:center;gap:12px;font-size:22px;margin-bottom:16px}
+.rmg h2 span{font:400 13px/24px var(--mono);color:var(--mut);padding:0 8px;border:1px solid var(--line);border-radius:8px}
+.rmg:last-child{padding-bottom:24px}
+.card.rm{align-items:flex-start}
+.card.rm .ph{--s:44px;color:var(--ac)}
+.card.rm .ph .i{width:22px;height:22px}
+.card.rm .ph.bug{color:#f2a0a0}
+.card.rm .ph.idea{color:#f2d48a}
+.card.rm p{-webkit-line-clamp:3}

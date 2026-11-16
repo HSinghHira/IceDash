@@ -1,0 +1,87 @@
+# Changelog
+
+## Unreleased
+
+## v1.1.0 (2026-11-16)
+
+After the first comments from the ZimaOS forum:
+
+- **Other disks in Files.** USB sticks, second drives and shares mounted under `/media` or `/mnt` show under **Disks** in the Files sidebar, with how much is free. Browse, upload, rename, copy and move work on them as on DATA, and between them. They have no Trash, so Delete asks first and deletes for good.
+- **Easier window buttons.** The dots are easier to hit and always show their signs. **Settings → Appearance → Window buttons** switches to Classic: larger − □ × buttons on the right of every title bar.
+- **°C or °F.** **Settings → Appearance → Temperature.** It starts on °F in US-region browsers. Widgets are told the choice (`IceDash.on('units')`), and the Weather card follows it.
+- The README and the site link to `/modules/icedash/index.html`, which opens on every box.
+
+## v0.4.0 (2026-11-13)
+
+- **Apps open in windows** inside IceDash, with a button to open them in a new tab. Apps that refuse to be shown inside another page (X-Frame-Options or CSP frame-ancestors, checked on the box) open in a new tab as before. Ctrl-click and middle-click still open a new tab.
+- **Windows:** the three dots close, minimize and maximize. Minimize shrinks the window into its icon in the dock, and the icon brings it back. Double-click the title bar to maximize. Popups have the same dots.
+- **Dock and desktop:** installed apps are on the desktop, filling the first column top to bottom; the dock holds search, Files, IceStore, App Store, Terminal, the open windows, Settings and Trash.
+- **Notifications** drop down from the bell, with Mark all read and Clear all as icons in their title bar.
+- While a window or the notification list is open, the rest of the desktop dims.
+- Everything is smaller: app tiles, dock, popups, menus and IceStore cards. The page no longer scrolls; scrollbars inside are thin and dark.
+- `make preview` (or `npm run mock` in web/) shows the desktop on a PC with sample data before anything is committed.
+
+## v0.3.1 (2026-11-12)
+
+- Credentials: an address with its own login in one line (Documenso's mail viewer) shows as an address, a user and a password under its name. The welcome popup shows only the app's own login.
+- The welcome popup's steps show this server's address instead of `[ZIMAOS-IP-ADDRESS]` or `your-zimaos-ip`.
+
+## v0.3.0 (2026-11-12)
+
+Phase 2, IceStore inside IceDash (mock-ups 2 to 4):
+
+- **IceStore window:** the IceStore launcher opens IceStore inside IceDash: categories, Installed and Updates, search, app cards with Install, Open or Update, and an app page with screenshots, release notes and links. The catalog is IceStore's 84 KB index, refreshed every 6 hours.
+- **Set up before install:** the server's address goes into `[ZIMAOS-IP-ADDRESS]`, `[SERVER-IP]`, `CHANGEME_LAN_IP`, `CHANGEME_ORIGIN` and `CHANGEME_RP_ID`; `CHANGEME_PASSWORD` gets a new secret; the account's email fills an admin email. Ports are checked as you type, with a free one offered when taken. Install stays off until every placeholder is replaced, and the popup says when an app gets full server access, the Docker socket or the host network. Installs go through ZimaOS's own installer, so the app is a normal ZimaOS app.
+- **Right-click menu** on any app, desktop or dock: Open, Open in new tab, Credentials, Logs, Restart, Stop or Start, Update, Settings, Back up data (a .tar.gz download) and Uninstall (asks first, keeps the data unless told). Members only get Open. A long press opens it on touch screens.
+- **Credentials:** an IceStore app's generated login, read live from its container, never stored; hides after 5 minutes. Admin only.
+- **First launch:** the first time an app installed from IceDash is opened, a welcome popup shows its address, login and "How to use" steps, until "Don't show this again".
+- **App updates and events:** update dots on app icons, "N app updates in IceStore" in the Apps widget, the top-bar badge counts them, and notifications for installed, install failed, updated, update available and stopped apps. Updating keeps the app's settings and ports.
+
+## v0.2.5 (2026-11-12)
+
+- The System widget shows /DATA in the same units as ZimaOS (140 of 238 GB, not 130 of 222). Memory still counts in 1024s.
+
+## v0.2.4 (2026-11-12)
+
+- While an update installs, the page says "Installing the update…" instead of "Can't reach IceDash".
+- After a rollback, the page stops waiting and shows the result.
+
+## v0.2.3 (2026-11-12)
+
+- Rollback test build (`[broken-image]`): the service exits at once. Not meant to be installed; the updater puts the previous version back.
+
+## v0.2.2 (2026-11-12)
+
+- "Update available" shows as soon as Check for updates finds it.
+- The update's result ("Updated to …", "Update failed …") shows after the page reloads on the new version.
+
+## v0.2.1 (2026-11-12)
+
+- The update card on the ZimaOS dashboard is removed after an update, even though the new process didn't show it.
+
+## v0.2.0 (2026-11-12)
+
+The desktop from mock-up screen 1:
+
+- Top bar: the IceDash menu (About, Check for updates, Open the ZimaOS dashboard, Sign out), the active window's name, CPU, RAM, download speed, the updates badge, the notification bell, the account menu and the clock (which shows or hides the widgets).
+- Desktop icons: Files, IceStore, App Store and Terminal, then every installed app with its status dot. Apps open in a new tab at their own address.
+- Dock: launchers, running apps, Settings and Trash.
+- Widgets: Clock (time zone as ZimaOS picks it), System (CPU, memory, /DATA, device, uptime), Network (speeds and a 60-second chart), Apps (running, starting, stopped).
+- Search (Ctrl+Space): apps and launchers, Enter opens the top match.
+- Windows for About and Updates, and for Notifications: dragged, focused, closed with Escape. Toasts for new notifications.
+- Update now shows each step, then reloads on the new version.
+- Below 900 px the widgets move under the icons and the dock scrolls; no sideways scrolling on a phone.
+- The ZimaOS session is refreshed once on a 401 before asking to sign in again.
+- Inter and Unbounded ship inside the image: the dashboard calls no other site.
+- `ICEDASH_MOCK=1 npm run dev` shows the desktop on a PC, with answers shaped like a real box.
+
+## v0.1.0 (2026-11-11)
+
+First test release: the backend, notifications and self-update.
+
+- The backend: a service on loopback behind the ZimaOS gateway at `/v2/icedash`, which checks the ZimaOS sign-in on every request except `/health` and keeps its state in `/DATA/.icedash`.
+- `GET /v2/icedash/health` and `GET /v2/icedash/system` (network speed with a 60-second history, uptime, device name).
+- The module image: dashboard tile, service unit and boot watchdog.
+- The build: `make check` and `make build`, and CI that publishes releases from version tags only.
+- Notifications: the last 100 in `/DATA/.icedash/notifications.json`, read and cleared per user (`GET /notifications`, `POST /notifications/read`, `POST /notifications/clear`).
+- Self-update: checks GitHub 2 minutes after start and every 6 hours (switch in `/settings`, on by default), raises "Update available" and the ZimaOS dashboard card. **Update now** (admin only) downloads, verifies the checksum, refuses an image that would replace a ZimaOS file, keeps the installed image, and hands the swap to a transient unit. That unit waits for the new version to start and otherwise puts the previous one back; the result becomes an "Updated to", "Update failed" or "Rollback failed" notification.

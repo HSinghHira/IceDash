@@ -1,0 +1,10 @@
+[
+  {"title": "Storage pools and their health", "type": "feature", "status": "planned", "issue": 1,
+   "desc": "A view of every storage pool and disk, as in ZimaOS, with RAID or btrfs health, used and free space."},
+  {"title": "Other disks in Files", "type": "feature", "status": "done", "version": "v1.1.0", "issue": 1,
+   "desc": "USB sticks, second drives and shares under /media or /mnt show under Disks in the Files sidebar, with how much is free."},
+  {"title": "Easier window buttons", "type": "fix", "status": "done", "version": "v1.1.0",
+   "desc": "The dots are easier to hit and always show their signs, or switch to Classic − □ × buttons in Settings."},
+  {"title": "°C or °F", "type": "feature", "status": "done", "version": "v1.1.0",
+   "desc": "Choose the temperature unit in Settings → Appearance. Widgets, like the Weather card, follow it."}
+]
