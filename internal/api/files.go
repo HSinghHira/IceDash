@@ -27,6 +27,7 @@ const TerminalPath = Route + "/terminal"
 
 func (s *Server) fileRoutes(mux *http.ServeMux, admin func(http.HandlerFunc) http.Handler) {
 	if s.Files != nil {
+		mux.Handle("GET "+Route+"/files/disks", admin(s.filesDisks))
 		mux.Handle("GET "+Route+"/files/list", admin(s.filesList))
 		mux.Handle("GET "+Route+"/files/search", admin(s.filesSearch))
 		mux.Handle("POST "+Route+"/files/ticket", admin(s.filesTicket))
@@ -74,6 +75,11 @@ func writeFileErr(w http.ResponseWriter, err error) {
 	default:
 		httpx.WriteErr(w, err)
 	}
+}
+
+// filesDisks lists /DATA and the other disks Files can show.
+func (s *Server) filesDisks(w http.ResponseWriter, r *http.Request) {
+	httpx.WriteJSON(w, http.StatusOK, s.Files.Disks())
 }
 
 func (s *Server) filesList(w http.ResponseWriter, r *http.Request) {

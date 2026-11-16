@@ -513,6 +513,20 @@ const fr: Translation = {
   days: (n) => (n === 1 ? '1 jour' : `${n} jours`),
   hours: (n) => (n === 1 ? '1 heure' : `${n} heures`),
   minutes: (n) => (n === 1 ? '1 minute' : `${n} minutes`),
+
+  filesDisks: 'Disques',
+  filesDiskFree: (free, size) => `${free} libres sur ${size}`,
+  filesNoTrashConfirm: (n) =>
+    n === 1 ? 'Ce disque n’a pas de corbeille. Supprimer définitivement ? C’est irréversible.' : `Ce disque n’a pas de corbeille. Supprimer définitivement ces ${n} éléments ? C’est irréversible.`,
+  filesDeleted: (n) => (n === 1 ? 'Supprimé' : `${n} éléments supprimés`),
+  windowButtonsHeading: 'Boutons des fenêtres',
+  windowButtonsDots: 'Pastilles',
+  windowButtonsClassic: 'Classiques',
+  windowButtonsHint: 'Les pastilles sont à gauche de chaque barre de titre. Classiques affiche de plus grands boutons − □ × à droite.',
+  tempHeading: 'Température',
+  tempC: '°C',
+  tempF: '°F',
+  tempHint: 'Pour la carte Météo et tout widget qui affiche des températures.',
 }
 
 export default fr

@@ -159,7 +159,31 @@ const readBody = (req: NodeJS.ReadableStream) =>
     })
   })
 
+// Each user's choices, kept until the dev server stops.
+let prefs: Record<string, unknown> = {}
+
+// Files: /DATA and a USB stick beside it (internal/files/disks.go).
+const GB = 1024 ** 3
+const now = new Date().toISOString()
+const entry = (path: string, name: string, dir: boolean, size = 0, kind = dir ? 'folder' : 'other') => ({
+  name, path, dir, size, modified: now, mode: dir ? 'rwxr-xr-x' : 'rw-r--r--', kind,
+})
+const tree: Record<string, ReturnType<typeof entry>[]> = {
+  '/': ['AppData', 'Backup', 'Documents', 'Downloads', 'Gallery', 'Media'].map((n) => entry('/' + n, n, true)),
+  'USB_Stick:/': [
+    entry('USB_Stick:/Music', 'Music', true),
+    entry('USB_Stick:/Photos 2024', 'Photos 2024', true),
+    entry('USB_Stick:/notes.txt', 'notes.txt', false, 2048, 'text'),
+  ],
+}
+
 const dynamic: [RegExp, string, (m: RegExpMatchArray, body?: unknown) => unknown | Promise<unknown>][] = [
+  [/^\/v2\/icedash\/prefs$/, 'GET', () => prefs],
+  [/^\/v2\/icedash\/prefs$/, 'POST', (_m, body) => (prefs = { ...prefs, ...(body as object) })],
+  [/^\/v2\/icedash\/files\/disks$/, 'GET', () => [
+    { id: '', name: 'DATA', path: '/', main: true, trash: true, size: 222 * GB, free: 140 * GB },
+    { id: 'USB_Stick', name: 'USB Stick', path: 'USB_Stick:/', main: false, trash: false, size: 58 * GB, free: 31 * GB },
+  ]],
   [/^\/v2\/icedash\/catalog$/, 'GET', () => catalog()],
   [/^\/v2\/icedash\/catalog\/refresh$/, 'POST', () => catalog()],
   [/^\/v2\/icedash\/catalog\/([^/]+)\/setup$/, 'GET', (m) => setupView(m[1]!)],
@@ -226,6 +250,12 @@ export function mock(): Plugin {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const path = (req.url ?? '').split('?')[0] ?? ''
+        if (path === '/v2/icedash/files/list') {
+          const want = new URL(req.url ?? '', 'http://x').searchParams.get('path') || '/'
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ path: want, protected: false, entries: tree[want] ?? [], hidden: 0 }))
+          return
+        }
         const fn = routes[`${req.method} ${path}`]
         if (fn) {
           res.setHeader('Content-Type', 'application/json')

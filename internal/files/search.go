@@ -41,16 +41,16 @@ func (s *Service) Search(ctx context.Context, p, q string, hidden bool, lim Sear
 	if len(words) == 0 {
 		return Found{}, ErrBadPath
 	}
-	rel, err := Clean(p)
+	pl, rel, err := s.resolve(p)
 	if err != nil {
 		return Found{}, err
 	}
-	r, err := s.open()
+	r, err := pl.open()
 	if err != nil {
 		return Found{}, err
 	}
 	defer r.Close()
-	out := Found{Query: q, Path: apiPath(rel), Entries: []Entry{}}
+	out := Found{Query: q, Path: pl.api(rel), Entries: []Entry{}}
 	deadline := time.Now().Add(lim.Time)
 	visited := 0
 	err = fs.WalkDir(r.FS(), dotIfEmpty(rel), func(p string, de fs.DirEntry, err error) error {
@@ -81,7 +81,7 @@ func (s *Service) Search(ctx context.Context, p, q string, hidden bool, lim Sear
 				return nil
 			}
 		}
-		out.Entries = append(out.Entries, s.entry(r, p, de))
+		out.Entries = append(out.Entries, s.entry(pl, r, p, de))
 		if len(out.Entries) >= lim.Results {
 			out.More = true
 			return errStop

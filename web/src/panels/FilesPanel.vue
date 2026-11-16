@@ -1,11 +1,14 @@
 <script setup lang="ts">
-// The Files app (PLAN.md, Phase 3c): everything under /DATA, for admins.
-// System folders show a lock and can't be changed; delete goes to the Trash.
+// The Files app (PLAN.md, Phase 3c): everything under /DATA, and the other
+// disks beside it (USB sticks, drives, shares), for admins. System folders
+// show a lock and can't be changed; delete goes to the Trash on /DATA, and
+// is for good on the other disks, which have none.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ApiError } from '../api/client'
 import * as api from '../api/files'
-import type { Clash, Entry, Job, TrashItem, Upload } from '../api/files'
+import type { Clash, Disk, Entry, Job, TrashItem, Upload } from '../api/files'
 import Icon from '../components/Icon.vue'
+import { crumbPaths, parentPath, splitPath, within } from '../lib/filepath'
 import { bytes } from '../lib/format'
 import type { IconName } from '../lib/icons'
 import { filesView, toast } from '../store'
@@ -19,6 +22,12 @@ const listing = ref<api.Listing | null>(null)
 const loading = ref(false)
 const error = ref('')
 const top = ref<Entry[]>([])
+const disks = ref<Disk[]>([])
+const others = computed(() => disks.value.filter((d) => !d.main))
+/** The disk cwd is on; /DATA's while the list is still loading. */
+const disk = computed<Disk>(
+  () => disks.value.find((d) => d.path === splitPath(cwd.value).root) ?? { id: '', name: 'DATA', path: '/', main: true, trash: true, size: 0, free: 0 },
+)
 
 const readPref = (k: string, d: string) => {
   try {
@@ -43,10 +52,7 @@ watch(hidden, (v) => {
 watch(mode, (v) => writePref('icedash.files.view', v))
 
 const entries = computed(() => listing.value?.entries ?? [])
-const crumbs = computed(() => {
-  const parts = cwd.value.split('/').filter(Boolean)
-  return parts.map((name, i) => ({ name, path: '/' + parts.slice(0, i + 1).join('/') }))
-})
+const crumbs = computed(() => crumbPaths(cwd.value))
 
 let pick = ''
 async function load() {
@@ -78,6 +84,18 @@ async function loadTop() {
     top.value = []
   }
 }
+/** The refresh button: the folder, and the disks (a stick plugged in since). */
+function refreshAll() {
+  void load()
+  void loadDisks()
+}
+async function loadDisks() {
+  try {
+    disks.value = await api.disks()
+  } catch {
+    disks.value = []
+  }
+}
 
 function go(path: string, remember = true) {
   if (remember && (view.value !== 'files' || path !== cwd.value)) back.push(view.value === 'trash' ? '\0trash' : cwd.value)
@@ -92,7 +110,7 @@ function goBack() {
   if (p === '\0trash') return showTrash(false)
   go(p, false)
 }
-const parent = computed(() => (cwd.value === '/' ? null : cwd.value.slice(0, cwd.value.lastIndexOf('/')) || '/'))
+const parent = computed(() => parentPath(cwd.value))
 
 watch(
   () => filesView.value.seq,
@@ -264,14 +282,19 @@ function watchJobs() {
 async function del() {
   if (!selected.value.length || locked.value) return
   const paths = selected.value.map((e) => e.path)
-  try {
-    await api.remove(paths)
-    toast({ title: strings.filesMovedToTrash(paths.length), body: '' })
-    sel.value = new Set()
-    await load()
-  } catch (e) {
-    toast({ title: strings.filesDelete, body: msg(e) })
+  const run = async () => {
+    try {
+      await api.remove(paths)
+      toast({ title: disk.value.trash ? strings.filesMovedToTrash(paths.length) : strings.filesDeleted(paths.length), body: '' })
+      sel.value = new Set()
+      await load()
+    } catch (e) {
+      toast({ title: strings.filesDelete, body: msg(e) })
+    }
   }
+  // Other disks have no Trash: say so before anything goes for good.
+  if (disk.value.trash) await run()
+  else confirmBox.value = { text: strings.filesNoTrashConfirm(paths.length), ok: strings.filesDeleteForGood, run }
 }
 
 // ---- uploads ----
@@ -526,6 +549,7 @@ onMounted(() => {
     void load()
   }
   void loadTop()
+  void loadDisks()
   document.addEventListener('pointerdown', closeMenu)
 })
 onBeforeUnmount(() => {
@@ -559,6 +583,20 @@ onBeforeUnmount(() => {
       >
         <Icon name="folder" :size="16" /> {{ d.name }}
       </button>
+      <template v-if="others.length">
+        <h4 class="side-h">{{ strings.filesDisks }}</h4>
+        <button
+          v-for="d in others"
+          :key="d.path"
+          type="button"
+          class="place"
+          :class="{ on: view === 'files' && within(cwd, d.path) }"
+          :title="d.size ? strings.filesDiskFree(bytes(d.free), bytes(d.size)) : d.name"
+          @click="go(d.path)"
+        >
+          <Icon name="drive" :size="16" /> {{ d.name }}
+        </button>
+      </template>
       <span class="grow" />
       <button type="button" class="place" :class="{ on: view === 'trash' }" @click="showTrash()">
         <Icon name="trash" :size="16" /> {{ strings.filesTrash }}
@@ -576,7 +614,7 @@ onBeforeUnmount(() => {
             <Icon name="up" :size="16" />
           </button>
           <nav class="crumbs" aria-label="Path">
-            <button type="button" class="crumb" @click="go('/')">/DATA</button>
+            <button type="button" class="crumb" @click="go(disk.path)">{{ disk.main ? '/DATA' : disk.name }}</button>
             <template v-for="c in crumbs" :key="c.path">
               <Icon name="chevron" :size="12" class="sep" />
               <button type="button" class="crumb" @click="go(c.path)">{{ c.name }}</button>
@@ -600,7 +638,7 @@ onBeforeUnmount(() => {
           <button type="button" class="ic" :class="{ on: hidden }" :title="strings.filesShowHidden" :aria-label="strings.filesShowHidden" :aria-pressed="hidden" @click="hidden = !hidden">
             <Icon :name="hidden ? 'eye' : 'eyeOff'" :size="16" />
           </button>
-          <button type="button" class="ic" :title="strings.filesRefresh" :aria-label="strings.filesRefresh" @click="load">
+          <button type="button" class="ic" :title="strings.filesRefresh" :aria-label="strings.filesRefresh" @click="refreshAll">
             <Icon name="refresh" :size="16" />
           </button>
         </header>
@@ -721,7 +759,7 @@ onBeforeUnmount(() => {
         <li v-if="selected.length === 1"><button role="menuitem" type="button" :disabled="locked" @click="act(() => ask('rename', selected[0]))"><Icon name="edit" :size="15" /> {{ strings.filesRename }}</button></li>
         <li><button role="menuitem" type="button" @click="act(() => copy('copy'))"><Icon name="copy" :size="15" /> {{ strings.filesCopy }}</button></li>
         <li><button role="menuitem" type="button" :disabled="locked" @click="act(() => copy('move'))"><Icon name="cut" :size="15" /> {{ strings.filesCut }}</button></li>
-        <li><button role="menuitem" type="button" class="danger" :disabled="locked" @click="act(del)"><Icon name="trash" :size="15" /> {{ strings.filesDelete }}</button></li>
+        <li><button role="menuitem" type="button" class="danger" :disabled="locked" @click="act(del)"><Icon name="trash" :size="15" /> {{ disk.trash ? strings.filesDelete : strings.filesDeleteForGood }}</button></li>
       </template>
       <template v-else>
         <li><button role="menuitem" type="button" :disabled="listing?.protected" @click="act(() => ask('mkdir'))"><Icon name="folderPlus" :size="15" /> {{ strings.filesNewFolder }}</button></li>
@@ -827,6 +865,12 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.side-h {
+  margin: 12px 10px 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mut);
 }
 .place.sub {
   padding-left: 18px;

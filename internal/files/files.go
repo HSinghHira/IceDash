@@ -1,9 +1,10 @@
 // Package files is the Files app's backend (PLAN.md, Phase 3c, "Files app").
 //
-// Everything happens inside one folder, /DATA, through an os.Root: the kernel
-// refuses any path that leaves it, symlinks included. Paths in the API are
-// relative to that folder and written with "/" ("/Documents/a.txt"; "/" is
-// the folder itself).
+// Everything happens inside /DATA, or one of the other disks (disks.go),
+// through an os.Root: the kernel refuses any path that leaves it, symlinks
+// included. Paths in the API are relative to that folder and written with "/"
+// ("/Documents/a.txt"; "/" is the folder itself); a disk's start with its id
+// ("USB_Stick:/Music").
 //
 // /DATA is also where the system keeps its own things (measured on ZimaOS
 // 1.8.0: root's home, .docker with container mounts, .casaos, .icedash ...),
@@ -34,7 +35,7 @@ var (
 	ErrProtected = errors.New("that belongs to the system and can't be changed here")
 	ErrExists    = errors.New("something with that name is already there")
 	ErrBadName   = errors.New("that name can't be used")
-	ErrBadPath   = errors.New("that path is outside /DATA")
+	ErrBadPath   = errors.New("that path can't be used here")
 	ErrIsDir     = errors.New("that is a folder")
 	ErrNotDir    = errors.New("that isn't a folder")
 	ErrIntoSelf  = errors.New("a folder can't go inside itself")
@@ -48,17 +49,14 @@ const trashDir = ".icedash/trash"
 type Service struct {
 	Root string // /DATA
 
+	// Where other disks are found (disks.go); the defaults are
+	// /proc/self/mountinfo and /media, /mnt. Tests set their own.
+	MountInfo string
+	MountDirs []string
+
 	mu      sync.Mutex
 	tickets map[string]ticket
 	jobs    map[string]*job
-}
-
-func (s *Service) open() (*os.Root, error) {
-	r, err := os.OpenRoot(s.Root)
-	if err != nil {
-		return nil, fmt.Errorf("can't open %s: %w", s.Root, err)
-	}
-	return r, nil
 }
 
 // Clean turns an API path into one relative to the root: "" is the root.
@@ -79,9 +77,6 @@ func Clean(p string) (string, error) {
 	}
 	return rel, nil
 }
-
-// apiPath is rel as the API writes it.
-func apiPath(rel string) string { return "/" + rel }
 
 // ValidName reports whether n can be a file name.
 func ValidName(n string) bool {
@@ -156,11 +151,11 @@ type Listing struct {
 
 // List reads the folder p. Dot-entries are left out unless hidden.
 func (s *Service) List(p string, hidden bool) (Listing, error) {
-	rel, err := Clean(p)
+	pl, rel, err := s.resolve(p)
 	if err != nil {
 		return Listing{}, err
 	}
-	r, err := s.open()
+	r, err := pl.open()
 	if err != nil {
 		return Listing{}, err
 	}
@@ -181,7 +176,7 @@ func (s *Service) List(p string, hidden bool) (Listing, error) {
 	if err != nil {
 		return Listing{}, err
 	}
-	out := Listing{Path: apiPath(rel), Protected: rel != "" && Protected(rel), Entries: []Entry{}}
+	out := Listing{Path: pl.api(rel), Protected: rel != "" && Protected(rel), Entries: []Entry{}}
 	for _, de := range des {
 		name := de.Name()
 		if !hidden && strings.HasPrefix(name, ".") {
@@ -189,7 +184,7 @@ func (s *Service) List(p string, hidden bool) (Listing, error) {
 			continue
 		}
 		child := path.Join(rel, name)
-		out.Entries = append(out.Entries, s.entry(r, child, de))
+		out.Entries = append(out.Entries, s.entry(pl, r, child, de))
 	}
 	slices.SortFunc(out.Entries, func(a, b Entry) int {
 		if a.Dir != b.Dir {
@@ -210,8 +205,8 @@ func dotIfEmpty(rel string) string {
 	return rel
 }
 
-func (s *Service) entry(r *os.Root, rel string, de fs.DirEntry) Entry {
-	e := Entry{Name: de.Name(), Path: apiPath(rel), Protected: Protected(rel)}
+func (s *Service) entry(pl place, r *os.Root, rel string, de fs.DirEntry) Entry {
+	e := Entry{Name: de.Name(), Path: pl.api(rel), Protected: Protected(rel)}
 	info, err := de.Info()
 	if err != nil {
 		e.Broken = true
@@ -302,11 +297,11 @@ var mediaTypes = map[string]string{
 
 // Open opens a file for reading (downloads and previews).
 func (s *Service) Open(p string) (*os.File, fs.FileInfo, error) {
-	rel, err := Clean(p)
+	pl, rel, err := s.resolve(p)
 	if err != nil {
 		return nil, nil, err
 	}
-	r, err := s.open()
+	r, err := pl.open()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -331,14 +326,14 @@ func (s *Service) Open(p string) (*os.File, fs.FileInfo, error) {
 
 // Mkdir makes the folder name in p.
 func (s *Service) Mkdir(p, name string) (Entry, error) {
-	dir, err := Clean(p)
+	pl, dir, err := s.resolve(p)
 	if err != nil {
 		return Entry{}, err
 	}
 	if !ValidName(name) {
 		return Entry{}, ErrBadName
 	}
-	r, err := s.open()
+	r, err := pl.open()
 	if err != nil {
 		return Entry{}, err
 	}
@@ -354,27 +349,27 @@ func (s *Service) Mkdir(p, name string) (Entry, error) {
 		return Entry{}, notFound(err)
 	}
 	_ = r.Chmod(rel, 0o755) // the umask may have taken bits off
-	return s.stat(r, rel)
+	return s.stat(pl, r, rel)
 }
 
-func (s *Service) stat(r *os.Root, rel string) (Entry, error) {
+func (s *Service) stat(pl place, r *os.Root, rel string) (Entry, error) {
 	info, err := r.Lstat(rel)
 	if err != nil {
 		return Entry{}, notFound(err)
 	}
-	return s.entry(r, rel, fs.FileInfoToDirEntry(info)), nil
+	return s.entry(pl, r, rel, fs.FileInfoToDirEntry(info)), nil
 }
 
 // Rename gives p a new name in the same folder.
 func (s *Service) Rename(p, name string) (Entry, error) {
-	rel, err := Clean(p)
+	pl, rel, err := s.resolve(p)
 	if err != nil {
 		return Entry{}, err
 	}
 	if !ValidName(name) {
 		return Entry{}, ErrBadName
 	}
-	r, err := s.open()
+	r, err := pl.open()
 	if err != nil {
 		return Entry{}, err
 	}
@@ -393,7 +388,7 @@ func (s *Service) Rename(p, name string) (Entry, error) {
 		return Entry{}, ErrProtected
 	}
 	if to == rel {
-		return s.stat(r, rel)
+		return s.stat(pl, r, rel)
 	}
 	// A case-only change on a case-blind disk finds itself: allow it.
 	if _, err := r.Lstat(to); err == nil && !strings.EqualFold(to, rel) {
@@ -402,7 +397,7 @@ func (s *Service) Rename(p, name string) (Entry, error) {
 	if err := r.Rename(rel, to); err != nil {
 		return Entry{}, notFound(err)
 	}
-	return s.stat(r, to)
+	return s.stat(pl, r, to)
 }
 
 // Clash says what to do when the target name is taken.
@@ -435,7 +430,7 @@ func freeName(r *os.Root, dir, name string) string {
 // file is written beside its target and renamed at the end, so a cancelled
 // upload leaves nothing half-written. It reports the entry, or skipped.
 func (s *Service) Upload(p, name string, clash Clash, body io.Reader) (Entry, bool, error) {
-	dir, err := Clean(p)
+	pl, dir, err := s.resolve(p)
 	if err != nil {
 		return Entry{}, false, err
 	}
@@ -449,7 +444,7 @@ func (s *Service) Upload(p, name string, clash Clash, body io.Reader) (Entry, bo
 		}
 	}
 	rel := path.Join(dir, sub)
-	r, err := s.open()
+	r, err := pl.open()
 	if err != nil {
 		return Entry{}, false, err
 	}
@@ -497,7 +492,7 @@ func (s *Service) Upload(p, name string, clash Clash, body io.Reader) (Entry, bo
 		_ = r.Remove(tmp)
 		return Entry{}, false, err
 	}
-	e, err := s.stat(r, rel)
+	e, err := s.stat(pl, r, rel)
 	return e, false, err
 }
 

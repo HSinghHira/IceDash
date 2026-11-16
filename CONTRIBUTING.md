@@ -43,3 +43,7 @@ Releases are made by the maintainer from version tags (`vX.Y.Z`) only. A plain p
 ## License
 
 By contributing, you agree that your work is released under the [MIT License](LICENSE).
+
+## lintux-modkit stays on v0.1.3
+
+`lintux-modkit.ref` pins v0.1.3. From v0.1.4, its `auth.Verifier.Verify` refuses every role but `admin`, and tokens with no role claim (`ErrNotAdmin`, 403 `auth_forbidden`). IceDash lets ZimaOS `user` accounts in read-only, and CasaOS tokens carry no role, so v0.1.4 would lock out ZimaOS sub-accounts and every CasaOS sign-in. Don't bump the pin until IceDash checks roles itself, or modkit offers a way to let other roles through.

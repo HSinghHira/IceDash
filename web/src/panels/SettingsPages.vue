@@ -33,6 +33,7 @@ import {
   setPicture,
   systemLang,
   sys,
+  tempUnit,
   wallpaperUrl,
   toast,
   user,
@@ -510,6 +511,42 @@ watch(() => props.page, enter)
       </button>
     </div>
 
+    <h3 class="kicker" data-setting="window-buttons">{{ strings.windowButtonsHeading }}</h3>
+    <div class="seg" role="radiogroup" :aria-label="strings.windowButtonsHeading">
+      <button
+        type="button"
+        role="radio"
+        :aria-checked="prefs.window_buttons !== 'classic'"
+        :class="{ on: prefs.window_buttons !== 'classic' }"
+        @click="save({ window_buttons: '' }, strings.windowButtonsHeading)"
+      >
+        <span class="wbp dots" aria-hidden="true"><i /><i /><i /></span>
+        {{ strings.windowButtonsDots }}
+      </button>
+      <button
+        type="button"
+        role="radio"
+        :aria-checked="prefs.window_buttons === 'classic'"
+        :class="{ on: prefs.window_buttons === 'classic' }"
+        @click="save({ window_buttons: 'classic' }, strings.windowButtonsHeading)"
+      >
+        <span class="wbp cls" aria-hidden="true">− □ ×</span>
+        {{ strings.windowButtonsClassic }}
+      </button>
+    </div>
+    <p class="mut small">{{ strings.windowButtonsHint }}</p>
+
+    <h3 class="kicker" data-setting="temperature">{{ strings.tempHeading }}</h3>
+    <div class="seg" role="radiogroup" :aria-label="strings.tempHeading">
+      <button type="button" role="radio" :aria-checked="tempUnit === 'c'" :class="{ on: tempUnit === 'c' }" @click="save({ temp_unit: 'c' }, strings.tempHeading)">
+        {{ strings.tempC }}
+      </button>
+      <button type="button" role="radio" :aria-checked="tempUnit === 'f'" :class="{ on: tempUnit === 'f' }" @click="save({ temp_unit: 'f' }, strings.tempHeading)">
+        {{ strings.tempF }}
+      </button>
+    </div>
+    <p class="mut small">{{ strings.tempHint }}</p>
+
     <div class="rows">
       <div class="row">
         <div class="who">
@@ -952,6 +989,29 @@ h2 {
 .seg button.on {
   background: var(--ac);
   color: var(--ink);
+}
+/* The window buttons' looks, drawn small in their choice. */
+.wbp {
+  display: inline-flex;
+  gap: 3px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+.wbp.dots i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--dot-close);
+}
+.wbp.dots i:nth-child(2) {
+  background: var(--dot-min);
+}
+.wbp.dots i:nth-child(3) {
+  background: var(--dot-max);
+}
+.wbp.cls {
+  font-size: 12px;
+  letter-spacing: 0.08em;
 }
 .icon-btn {
   display: grid;

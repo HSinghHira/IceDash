@@ -22,18 +22,29 @@ type TrashItem struct {
 }
 
 // Delete moves each path to the Trash: .icedash/trash/<id>/<name>, with
-// meta.json saying where it came from.
+// meta.json saying where it came from. Other disks have no Trash: what is
+// deleted there is gone (the UI says so first). The paths share one place.
 func (s *Service) Delete(paths []string) error {
-	r, err := s.open()
+	if len(paths) == 0 {
+		return nil
+	}
+	pl, _, err := s.resolve(paths[0])
+	if err != nil {
+		return err
+	}
+	r, err := pl.open()
 	if err != nil {
 		return err
 	}
 	defer r.Close()
 	var rels []string
 	for _, p := range paths {
-		rel, err := Clean(p)
+		at, rel, err := s.resolve(p)
 		if err != nil {
 			return err
+		}
+		if at != pl {
+			return ErrBadPath
 		}
 		if err := s.writable(r, rel); err != nil {
 			return err
@@ -42,6 +53,14 @@ func (s *Service) Delete(paths []string) error {
 			return notFound(err)
 		}
 		rels = append(rels, rel)
+	}
+	if pl.id != "" {
+		for _, rel := range rels {
+			if err := r.RemoveAll(rel); err != nil {
+				return notFound(err)
+			}
+		}
+		return nil
 	}
 	if err := mkdirPrivate(r, trashDir); err != nil {
 		return err
@@ -52,7 +71,7 @@ func (s *Service) Delete(paths []string) error {
 			return notFound(err)
 		}
 		it := TrashItem{ID: time.Now().UTC().Format("20060102-150405") + "-" + randomID(), Name: path.Base(rel),
-			From: apiPath(path.Dir(rel)), Dir: info.IsDir(), Deleted: time.Now().UTC()}
+			From: pl.api(path.Dir(rel)), Dir: info.IsDir(), Deleted: time.Now().UTC()}
 		if it.From == "/." {
 			it.From = "/"
 		}
@@ -94,7 +113,8 @@ func mkdirPrivate(r *os.Root, rel string) error {
 
 // Trash lists the Trash, newest first.
 func (s *Service) Trash() ([]TrashItem, error) {
-	r, err := s.open()
+	pl := s.main()
+	r, err := pl.open()
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +160,8 @@ func (s *Service) item(r *os.Root, id string) (TrashItem, bool) {
 // Restore puts Trash items back where they were; a taken name gets "(2)",
 // and a folder that is gone is made again.
 func (s *Service) Restore(ids []string) ([]Entry, error) {
-	r, err := s.open()
+	pl := s.main()
+	r, err := pl.open()
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +193,7 @@ func (s *Service) Restore(ids []string) ([]Entry, error) {
 			return out, err
 		}
 		_ = r.RemoveAll(path.Join(trashDir, id))
-		e, err := s.stat(r, to)
+		e, err := s.stat(pl, r, to)
 		if err == nil {
 			out = append(out, e)
 		}
@@ -182,7 +203,8 @@ func (s *Service) Restore(ids []string) ([]Entry, error) {
 
 // Purge deletes Trash items for good; no ids means all of them.
 func (s *Service) Purge(ids []string) error {
-	r, err := s.open()
+	pl := s.main()
+	r, err := pl.open()
 	if err != nil {
 		return err
 	}

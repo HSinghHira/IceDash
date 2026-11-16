@@ -7,7 +7,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { widgetUrl, type Installed } from '../api/mods'
 import { ICE } from '../lib/theme'
 import { cityOf } from '../lib/timezone'
-import { activeTheme, apps, sys, util, zone } from '../store'
+import { activeTheme, apps, sys, tempUnit, util, zone } from '../store'
 
 const props = defineProps<{ mod: Installed }>()
 const frame = ref<HTMLIFrameElement | null>(null)
@@ -25,6 +25,10 @@ function post(icedash: string, data: unknown) {
 function sendTheme() {
   const t = activeTheme.value ?? ICE
   post('theme', { scheme: t.scheme, colors: t.colors })
+}
+// Display units need no permission: they say nothing about the server.
+function sendUnits() {
+  post('units', { temperature: tempUnit.value })
 }
 function sendSystem() {
   if (!grants.value.system || !util.value) return
@@ -48,6 +52,7 @@ function onMessage(e: MessageEvent) {
   if (m?.icedash === 'hello') {
     ready = true
     sendTheme()
+    sendUnits()
     sendSystem()
     sendApps()
   } else if (m?.icedash === 'location') {
@@ -58,6 +63,7 @@ function onMessage(e: MessageEvent) {
 onMounted(() => window.addEventListener('message', onMessage))
 onBeforeUnmount(() => window.removeEventListener('message', onMessage))
 watch(activeTheme, () => ready && sendTheme())
+watch(tempUnit, () => ready && sendUnits())
 watch([util, sys], () => ready && sendSystem())
 watch(apps, () => ready && sendApps(), { deep: true })
 </script>

@@ -51,6 +51,19 @@ export interface TrashItem {
 /** What to do when a name is taken; "" asks (the API answers 409 "exists"). */
 export type Clash = '' | 'replace' | 'keep' | 'skip'
 
+/** /DATA, then each other disk (USB sticks, drives, shares). Only /DATA has a Trash. */
+export interface Disk {
+  id: string
+  name: string
+  path: string
+  main: boolean
+  trash: boolean
+  size: number
+  free: number
+}
+
+export const disks = () => request<Disk[]>(`${base}/files/disks`)
+
 export const list = (path: string, hidden: boolean) =>
   request<Listing>(`${base}/files/list?path=${encodeURIComponent(path)}${hidden ? '&hidden=1' : ''}`)
 

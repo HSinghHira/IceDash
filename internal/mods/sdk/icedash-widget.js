@@ -9,6 +9,7 @@
  *   IceDash.on('apps', f)     installed apps: name, icon, state             (permission: apps)
  *   IceDash.location()        a promise of { city, zone } from the clock    (permission: location)
  *   IceDash.on('theme', f)    the active theme's colours (always)
+ *   IceDash.on('units', f)    { temperature: 'c' | 'f' }, the user's choice (always)
  *
  * The theme's colours are also set on this page as CSS variables (--bg,
  * --surface, --text, --mut, --line, --ac, --ac2, --warn), so a widget can

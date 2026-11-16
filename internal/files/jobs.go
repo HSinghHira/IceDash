@@ -53,25 +53,39 @@ func (e *ClashError) Error() string { return ErrExists.Error() }
 func (e *ClashError) Unwrap() error { return ErrExists }
 
 // Transfer starts moving or copying the items srcs into the folder to.
-// With ClashAsk it answers a *ClashError before starting when any name is
-// taken, so the UI can ask once for all of them.
+// The items share one place (a folder's selection); to may be on another
+// disk. With ClashAsk it answers a *ClashError before starting when any name
+// is taken, so the UI can ask once for all of them.
 func (s *Service) Transfer(kind string, srcs []string, to string, clash Clash) (Job, error) {
 	if kind != "move" && kind != "copy" {
 		return Job{}, errors.New("unknown job")
 	}
-	dir, err := Clean(to)
+	if len(srcs) == 0 {
+		return Job{}, ErrBadPath
+	}
+	dst, dir, err := s.resolve(to)
 	if err != nil {
 		return Job{}, err
 	}
-	r, err := s.open()
+	src, _, err := s.resolve(srcs[0])
 	if err != nil {
 		return Job{}, err
 	}
-	defer r.Close()
-	if err := s.dirWritable(r, dir); err != nil {
+	rd, err := dst.open()
+	if err != nil {
 		return Job{}, err
 	}
-	if info, err := r.Stat(dotIfEmpty(dir)); err != nil {
+	defer rd.Close()
+	rs, err := src.open()
+	if err != nil {
+		return Job{}, err
+	}
+	defer rs.Close()
+	same := src == dst
+	if err := s.dirWritable(rd, dir); err != nil {
+		return Job{}, err
+	}
+	if info, err := rd.Stat(dotIfEmpty(dir)); err != nil {
 		return Job{}, notFound(err)
 	} else if !info.IsDir() {
 		return Job{}, ErrNotDir
@@ -79,34 +93,37 @@ func (s *Service) Transfer(kind string, srcs []string, to string, clash Clash) (
 	var rels []string
 	var taken []string
 	for _, p := range srcs {
-		rel, err := Clean(p)
+		pl, rel, err := s.resolve(p)
 		if err != nil {
 			return Job{}, err
+		}
+		if pl != src {
+			return Job{}, ErrBadPath
 		}
 		if rel == "" {
 			return Job{}, ErrProtected
 		}
 		if kind == "move" {
-			if err := s.writable(r, rel); err != nil {
+			if err := s.writable(rs, rel); err != nil {
 				return Job{}, err
 			}
 		}
-		if _, err := r.Lstat(rel); err != nil {
+		if _, err := rs.Lstat(rel); err != nil {
 			return Job{}, notFound(err)
 		}
-		if dir == rel || strings.HasPrefix(dir+"/", rel+"/") {
+		if same && (dir == rel || strings.HasPrefix(dir+"/", rel+"/")) {
 			return Job{}, ErrIntoSelf
 		}
 		target := path.Join(dir, path.Base(rel))
 		if Protected(target) {
 			return Job{}, ErrProtected
 		}
-		if path.Dir(rel) == dir || (dir == "" && !strings.Contains(rel, "/")) {
+		if same && (path.Dir(rel) == dir || (dir == "" && !strings.Contains(rel, "/"))) {
 			if kind == "move" {
 				continue // already there
 			}
 		}
-		if _, err := r.Lstat(target); err == nil {
+		if _, err := rd.Lstat(target); err == nil {
 			taken = append(taken, path.Base(rel))
 		}
 		rels = append(rels, rel)
@@ -116,13 +133,13 @@ func (s *Service) Transfer(kind string, srcs []string, to string, clash Clash) (
 	}
 
 	var total int64
-	if kind == "copy" {
+	if kind == "copy" || !same {
 		for _, rel := range rels {
-			total += sizeOf(r, rel)
+			total += sizeOf(rs, rel)
 		}
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	j := &job{Job: Job{ID: randomID(), Kind: kind, To: apiPath(dir), Items: len(rels), Total: total,
+	j := &job{Job: Job{ID: randomID(), Kind: kind, To: dst.api(dir), Items: len(rels), Total: total,
 		State: "running", Started: time.Now().UTC()}, cancel: cancel}
 	s.mu.Lock()
 	if s.jobs == nil {
@@ -131,7 +148,7 @@ func (s *Service) Transfer(kind string, srcs []string, to string, clash Clash) (
 	s.gcJobs()
 	s.jobs[j.ID] = j
 	s.mu.Unlock()
-	go s.run(ctx, j, rels, dir, clash)
+	go s.run(ctx, j, src, rels, dst, dir, clash)
 	return j.snapshot(), nil
 }
 
@@ -144,24 +161,31 @@ func (s *Service) gcJobs() {
 	}
 }
 
-func (s *Service) run(ctx context.Context, j *job, rels []string, dir string, clash Clash) {
+func (s *Service) run(ctx context.Context, j *job, src place, rels []string, dst place, dir string, clash Clash) {
 	err := func() error {
-		r, err := s.open()
+		rs, err := src.open()
 		if err != nil {
 			return err
 		}
-		defer r.Close()
+		defer rs.Close()
+		rd := rs
+		if dst != src {
+			if rd, err = dst.open(); err != nil {
+				return err
+			}
+			defer rd.Close()
+		}
 		for _, rel := range rels {
 			name := path.Base(rel)
 			target := path.Join(dir, name)
-			if info, err := r.Lstat(target); err == nil {
+			if info, err := rd.Lstat(target); err == nil {
 				switch {
 				case clash == ClashSkip:
 					continue
 				case clash == ClashKeep:
-					target = path.Join(dir, freeName(r, dir, name))
+					target = path.Join(dir, freeName(rd, dir, name))
 				case clash == ClashReplace && !info.IsDir():
-					if err := r.Remove(target); err != nil {
+					if err := rd.Remove(target); err != nil {
 						return err
 					}
 				default:
@@ -169,23 +193,25 @@ func (s *Service) run(ctx context.Context, j *job, rels []string, dir string, cl
 				}
 			}
 			if j.Kind == "move" {
-				err := r.Rename(rel, target)
-				if err == nil {
-					continue
-				}
-				if !isCrossDevice(err) {
-					return err
+				if dst == src {
+					err := rs.Rename(rel, target)
+					if err == nil {
+						continue
+					}
+					if !isCrossDevice(err) {
+						return err
+					}
 				}
 				// Another disk: copy, then remove the original.
-				if err := copyTree(ctx, r, rel, target, j); err != nil {
+				if err := copyTree(ctx, rs, rel, rd, target, j); err != nil {
 					return err
 				}
-				if err := r.RemoveAll(rel); err != nil {
+				if err := rs.RemoveAll(rel); err != nil {
 					return err
 				}
 				continue
 			}
-			if err := copyTree(ctx, r, rel, target, j); err != nil {
+			if err := copyTree(ctx, rs, rel, rd, target, j); err != nil {
 				return err
 			}
 		}
@@ -222,15 +248,16 @@ func sizeOf(r *os.Root, rel string) int64 {
 	return n
 }
 
-// copyTree copies a file or folder, keeping permissions; links are copied as
-// links. A cancelled copy removes what it made.
-func copyTree(ctx context.Context, r *os.Root, src, dst string, j *job) (err error) {
+// copyTree copies a file or folder from rs to rd (the same root, or another
+// disk's), keeping permissions; links are copied as links. A cancelled copy
+// removes what it made.
+func copyTree(ctx context.Context, rs *os.Root, src string, rd *os.Root, dst string, j *job) (err error) {
 	defer func() {
 		if err != nil {
-			_ = r.RemoveAll(dst)
+			_ = rd.RemoveAll(dst)
 		}
 	}()
-	return fs.WalkDir(r.FS(), src, func(p string, d fs.DirEntry, werr error) error {
+	return fs.WalkDir(rs.FS(), src, func(p string, d fs.DirEntry, werr error) error {
 		if werr != nil {
 			return werr
 		}
@@ -244,30 +271,31 @@ func copyTree(ctx context.Context, r *os.Root, src, dst string, j *job) (err err
 		}
 		switch {
 		case d.IsDir():
-			if err := r.Mkdir(out, 0o755); err != nil && !errors.Is(err, fs.ErrExist) {
+			if err := rd.Mkdir(out, 0o755); err != nil && !errors.Is(err, fs.ErrExist) {
 				return err
 			}
-			return r.Chmod(out, info.Mode().Perm())
+			_ = rd.Chmod(out, info.Mode().Perm()) // vfat and exfat can't
+			return nil
 		case d.Type()&fs.ModeSymlink != 0:
-			target, err := r.Readlink(p)
+			target, err := rs.Readlink(p)
 			if err != nil {
 				return err
 			}
-			return r.Symlink(target, out)
+			return rd.Symlink(target, out)
 		case d.Type().IsRegular():
-			return copyFile(ctx, r, p, out, info.Mode().Perm(), j)
+			return copyFile(ctx, rs, p, rd, out, info.Mode().Perm(), j)
 		}
 		return nil // sockets, devices: left out
 	})
 }
 
-func copyFile(ctx context.Context, r *os.Root, src, dst string, perm fs.FileMode, j *job) error {
-	in, err := r.Open(src)
+func copyFile(ctx context.Context, rs *os.Root, src string, rd *os.Root, dst string, perm fs.FileMode, j *job) error {
+	in, err := rs.Open(src)
 	if err != nil {
 		return err
 	}
 	defer in.Close()
-	out, err := r.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm)
+	out, err := rd.OpenFile(dst, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm)
 	if err != nil {
 		return err
 	}
@@ -296,7 +324,8 @@ func copyFile(ctx context.Context, r *os.Root, src, dst string, perm fs.FileMode
 	if err := out.Close(); err != nil {
 		return err
 	}
-	return r.Chmod(dst, perm)
+	_ = rd.Chmod(dst, perm) // vfat and exfat can't
+	return nil
 }
 
 // Jobs lists the running jobs and those that ended in the last hour.

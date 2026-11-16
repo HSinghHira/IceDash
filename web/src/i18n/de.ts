@@ -513,6 +513,19 @@ const de: Translation = {
   days: (n) => (n === 1 ? '1 Tag' : `${n} Tage`),
   hours: (n) => (n === 1 ? '1 Stunde' : `${n} Stunden`),
   minutes: (n) => (n === 1 ? '1 Minute' : `${n} Minuten`),
+  filesDisks: 'Laufwerke',
+  filesDiskFree: (free, size) => `${free} von ${size} frei`,
+  filesNoTrashConfirm: (n) =>
+    n === 1 ? 'Dieses Laufwerk hat keinen Papierkorb. Endgültig löschen? Das lässt sich nicht rückgängig machen.' : `Dieses Laufwerk hat keinen Papierkorb. Diese ${n} Elemente endgültig löschen? Das lässt sich nicht rückgängig machen.`,
+  filesDeleted: (n) => (n === 1 ? 'Gelöscht' : `${n} Elemente gelöscht`),
+  windowButtonsHeading: 'Fensterknöpfe',
+  windowButtonsDots: 'Punkte',
+  windowButtonsClassic: 'Klassisch',
+  windowButtonsHint: 'Punkte sitzen links in jeder Titelleiste. Klassisch zeigt größere Knöpfe − □ × rechts.',
+  tempHeading: 'Temperatur',
+  tempC: '°C',
+  tempF: '°F',
+  tempHint: 'Für die Wetter-Karte und jedes Widget, das Temperaturen zeigt.',
 }
 
 export default de

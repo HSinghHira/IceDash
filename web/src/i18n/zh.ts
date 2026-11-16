@@ -511,6 +511,19 @@ const zh: Translation = {
   days: (n) => `${n} 天`,
   hours: (n) => `${n} 小时`,
   minutes: (n) => `${n} 分钟`,
+
+  filesDisks: '磁盘',
+  filesDiskFree: (free, size) => `可用 ${free}，共 ${size}`,
+  filesNoTrashConfirm: (n) => (n === 1 ? '此磁盘没有回收站。要永久删除吗？此操作无法撤销。' : `此磁盘没有回收站。要永久删除这 ${n} 项吗？此操作无法撤销。`),
+  filesDeleted: (n) => (n === 1 ? '已删除' : `已删除 ${n} 项`),
+  windowButtonsHeading: '窗口按钮',
+  windowButtonsDots: '圆点',
+  windowButtonsClassic: '经典',
+  windowButtonsHint: '圆点位于每个标题栏的左侧。经典样式在右侧显示更大的 − □ × 按钮。',
+  tempHeading: '温度',
+  tempC: '°C',
+  tempF: '°F',
+  tempHint: '用于天气卡片以及任何显示温度的小组件。',
 }
 
 export default zh

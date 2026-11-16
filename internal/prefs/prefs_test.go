@@ -34,10 +34,15 @@ func TestUnknownValuesRefused(t *testing.T) {
 		{Dock: Dock{Hidden: []string{"settings"}}},
 		{Dock: Dock{Pinned: []string{"../etc"}}},
 		{Notify: Notify{Off: []string{"everything"}}},
+		{WindowButtons: "round"},
+		{TempUnit: "k"},
 	} {
 		if _, err := s.Set("hira", p); !errors.Is(err, ErrInvalid) {
 			t.Errorf("%+v: %v", p, err)
 		}
+	}
+	if _, err := s.Set("hira", Prefs{WindowButtons: "classic", TempUnit: "f"}); err != nil {
+		t.Errorf("classic buttons, °F: %v", err)
 	}
 	if _, err := s.Set("", Prefs{}); err == nil {
 		t.Error("no user accepted")

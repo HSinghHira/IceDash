@@ -37,7 +37,7 @@ function backdrop(e: MouseEvent) {
       tabindex="-1"
       :style="{ width: wide ? 'min(1000px, 100%)' : `${width}px` }"
     >
-      <WindowDots class="dots" can-max :maxed="wide" @close="emit('close')" @max="wide = !wide" />
+      <WindowDots class="wb" can-max :maxed="wide" @close="emit('close')" @max="wide = !wide" />
       <div class="content"><slot /></div>
     </section>
   </div>
@@ -70,10 +70,15 @@ function backdrop(e: MouseEvent) {
   outline: none;
   transition: width 0.15s ease;
 }
-.dots {
+.wb {
   position: absolute;
   top: 14px;
   left: 16px;
+}
+.wb.classic {
+  top: 6px;
+  left: auto;
+  right: 6px;
 }
 @media (max-width: 600px) {
   .modal {

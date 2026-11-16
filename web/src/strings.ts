@@ -547,6 +547,20 @@ export const strings = {
   days: (n: number) => (n === 1 ? '1 day' : `${n} days`),
   hours: (n: number) => (n === 1 ? '1 hour' : `${n} hours`),
   minutes: (n: number) => (n === 1 ? '1 minute' : `${n} minutes`),
+  // After the release (2026-11-16): other disks in Files, window buttons, units
+  filesDisks: 'Disks',
+  filesDiskFree: (free: string, size: string) => `${free} free of ${size}`,
+  filesNoTrashConfirm: (n: number) =>
+    n === 1 ? 'This disk has no Trash. Delete this for good? It can’t be undone.' : `This disk has no Trash. Delete these ${n} items for good? It can’t be undone.`,
+  filesDeleted: (n: number) => (n === 1 ? 'Deleted' : `${n} items deleted`),
+  windowButtonsHeading: 'Window buttons',
+  windowButtonsDots: 'Dots',
+  windowButtonsClassic: 'Classic',
+  windowButtonsHint: 'Dots sit on the left of each title bar. Classic puts larger − □ × buttons on the right.',
+  tempHeading: 'Temperature',
+  tempC: '°C',
+  tempF: '°F',
+  tempHint: 'Used by the Weather card and any widget that shows temperatures.',
 } as const
 
 export type Strings = typeof strings

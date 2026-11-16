@@ -22,3 +22,12 @@ func otherDisk(r *os.Root, rel string) bool {
 	b, ok2 := here.Sys().(*syscall.Stat_t)
 	return ok1 && ok2 && a.Dev != b.Dev
 }
+
+// usage is a folder's disk size and free space, in bytes.
+func usage(dir string) (size, free uint64) {
+	var st syscall.Statfs_t
+	if syscall.Statfs(dir, &st) != nil {
+		return 0, 0
+	}
+	return st.Blocks * uint64(st.Bsize), st.Bavail * uint64(st.Bsize)
+}

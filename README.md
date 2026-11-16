@@ -37,7 +37,7 @@ curl -fsSL https://icedash.hsinghhira.me/install.sh | sudo sh
 
 Running it again repairs or reinstalls IceDash.
 
-**On ZimaOS**, open the **IceDash** tile on the ZimaOS dashboard, or go to `http://<your-server>/modules/icedash/`. Sign in with your ZimaOS account. There's nothing else to set up. To have IceDash open at `http://<your-server>/` itself, an admin turns on **Settings → General → Open IceDash at this server's address**. The ZimaOS dashboard then stays at `http://<your-server>/index.html`. Turning the setting off gives ZimaOS its address back within a few seconds.
+**On ZimaOS**, open the **IceDash** tile on the ZimaOS dashboard, or go to `http://<your-server>/modules/icedash/index.html`. Sign in with your ZimaOS account. There's nothing else to set up. To have IceDash open at `http://<your-server>/` itself, an admin turns on **Settings → General → Open IceDash at this server's address**. The ZimaOS dashboard then stays at `http://<your-server>/index.html`. Turning the setting off gives ZimaOS its address back within a few seconds.
 
 **On CasaOS**, open `http://<your-server>/`. IceDash is now the main page, and you sign in with your CasaOS account. The stock CasaOS UI is at `http://<your-server>/casaos/`, and IceDash links to it from its menu.
 

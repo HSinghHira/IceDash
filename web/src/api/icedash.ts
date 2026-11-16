@@ -105,6 +105,10 @@ export interface Prefs {
   avatar_seed: string
   /** Phase 5b: "" follows the system's language, then the browser's. */
   lang: '' | 'en' | 'de' | 'fr' | 'es' | 'zh'
+  /** Title bars: "" the coloured dots on the left, "classic" − □ × on the right. */
+  window_buttons: '' | 'classic'
+  /** Temperatures, widgets' too: "" follows the browser (°F for en-US). */
+  temp_unit: '' | 'c' | 'f'
 }
 
 export type WallpaperPreset = 'aurora' | 'glacier' | 'nightfall' | 'ember' | 'lagoon' | 'dune' | 'graphite' | 'mist'
@@ -132,12 +136,14 @@ export const defaultPrefs = (): Prefs => ({
   avatar_style: '',
   avatar_seed: '',
   lang: '',
+  window_buttons: '',
+  temp_unit: '',
 })
 
 /** Fills in what an older backend leaves out. */
 export const fullPrefs = (p: Partial<Prefs>): Prefs => {
   const d = defaultPrefs()
-  return { ...d, ...p, wallpaper: { ...d.wallpaper, ...(p.wallpaper ?? {}) }, avatar: p.avatar ?? 0, avatar_style: p.avatar_style ?? '', avatar_seed: p.avatar_seed ?? '', lang: p.lang ?? '' }
+  return { ...d, ...p, wallpaper: { ...d.wallpaper, ...(p.wallpaper ?? {}) }, avatar: p.avatar ?? 0, avatar_style: p.avatar_style ?? '', avatar_seed: p.avatar_seed ?? '', lang: p.lang ?? '', window_buttons: p.window_buttons ?? '', temp_unit: p.temp_unit ?? '' }
 }
 export const getPrefs = () => request<Prefs>(`${base}/prefs`).then(fullPrefs)
 export const savePrefs = (p: Partial<Prefs>) => request<Prefs>(`${base}/prefs`, { method: 'POST', body: p }).then(fullPrefs)

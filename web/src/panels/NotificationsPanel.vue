@@ -126,6 +126,11 @@ onBeforeUnmount(() => {
   padding: 10px 10px 10px 14px;
   border-bottom: 1px solid var(--line);
 }
+/* Classic window buttons go last, on the right. */
+.head > .classic {
+  order: 99;
+  margin: -6px -6px -6px 0;
+}
 h2 {
   display: flex;
   align-items: center;

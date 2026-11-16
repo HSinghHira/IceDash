@@ -513,6 +513,20 @@ const es: Translation = {
   days: (n) => (n === 1 ? '1 día' : `${n} días`),
   hours: (n) => (n === 1 ? '1 hora' : `${n} horas`),
   minutes: (n) => (n === 1 ? '1 minuto' : `${n} minutos`),
+
+  filesDisks: 'Discos',
+  filesDiskFree: (free, size) => `${free} libres de ${size}`,
+  filesNoTrashConfirm: (n) =>
+    n === 1 ? 'Este disco no tiene papelera. ¿Eliminarlo para siempre? No se puede deshacer.' : `Este disco no tiene papelera. ¿Eliminar para siempre estos ${n} elementos? No se puede deshacer.`,
+  filesDeleted: (n) => (n === 1 ? 'Eliminado' : `${n} elementos eliminados`),
+  windowButtonsHeading: 'Botones de ventana',
+  windowButtonsDots: 'Puntos',
+  windowButtonsClassic: 'Clásicos',
+  windowButtonsHint: 'Los puntos están a la izquierda de cada barra de título. Clásicos muestra botones − □ × más grandes a la derecha.',
+  tempHeading: 'Temperatura',
+  tempC: '°C',
+  tempF: '°F',
+  tempHint: 'Para la tarjeta del tiempo y cualquier widget que muestre temperaturas.',
 }
 
 export default es

@@ -33,6 +33,12 @@ type Prefs struct {
 	// Lang is the UI's language (PLAN.md 5b.2): "" follows the system's and
 	// the browser's.
 	Lang string `json:"lang"`
+	// WindowButtons is how title bars look (after the release, 2026-11-16):
+	// "" the coloured dots on the left, "classic" − □ × on the right.
+	WindowButtons string `json:"window_buttons"`
+	// TempUnit is for temperatures, widgets' too: "" follows the browser
+	// (°F for en-US), "c", "f".
+	TempUnit string `json:"temp_unit"`
 }
 
 // Langs are the languages the UI comes in.
@@ -102,7 +108,8 @@ func (p *Prefs) Check() error {
 	if p.Notify.Off, err = only(p.Notify.Off, func(s string) bool { return slices.Contains(Groups, s) }); err != nil {
 		return err
 	}
-	if !slices.Contains(AvatarStyles, p.AvatarStyle) || !seedRx.MatchString(p.AvatarSeed) || !slices.Contains(Langs, p.Lang) {
+	if !slices.Contains(AvatarStyles, p.AvatarStyle) || !seedRx.MatchString(p.AvatarSeed) || !slices.Contains(Langs, p.Lang) ||
+		!slices.Contains([]string{"", "classic"}, p.WindowButtons) || !slices.Contains([]string{"", "c", "f"}, p.TempUnit) {
 		return ErrInvalid
 	}
 	return p.Wallpaper.check()

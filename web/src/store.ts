@@ -465,6 +465,16 @@ export function applyRememberedTheme() {
 
 export const prefsLoaded = ref(false)
 
+/** Countries that measure temperature in °F. */
+const FAHRENHEIT = ['US', 'LR', 'BS', 'BZ', 'KY', 'PW', 'FM', 'MH']
+/** The temperature unit in use: the user's choice, else the browser's region's. */
+export const tempUnit = computed<'c' | 'f'>(() => {
+  if (prefs.value.temp_unit) return prefs.value.temp_unit
+  const lang = typeof navigator !== 'undefined' ? (navigator.languages?.[0] ?? navigator.language ?? '') : ''
+  const region = lang.split(/[-_]/)[1]?.toUpperCase() ?? ''
+  return FAHRENHEIT.includes(region) ? 'f' : 'c'
+})
+
 // ---- Phase 5b: the UI's language ----
 /** The system's own UI language (ZimaOS's saved choice), when IceDash has it. */
 export const systemLang = ref<Lang | null>(null)

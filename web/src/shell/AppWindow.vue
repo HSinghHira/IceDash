@@ -89,7 +89,7 @@ function towardDock(node: Element) {
         @contextmenu="openContext($event, win.title, windowMenu(win))"
       >
         <WindowDots
-          class="dots"
+          class="wb"
           can-min
           can-max
           :maxed="win.max"
@@ -167,9 +167,18 @@ function towardDock(node: Element) {
 .bar:active {
   cursor: grabbing;
 }
-.dots {
+.wb {
   position: absolute;
   left: 13px;
+}
+/* Classic buttons sit on the right; the new-tab link moves left of them. */
+.wb.classic {
+  left: auto;
+  right: 2px;
+}
+.wb.classic ~ .tab {
+  right: auto;
+  left: 10px;
 }
 h2 {
   margin: 0;
