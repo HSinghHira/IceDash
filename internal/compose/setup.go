@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -60,7 +61,9 @@ type Setup struct {
 	Address string  `json:"address"`
 	Inputs  []Input `json:"inputs"`
 	Ports   []Port  `json:"ports"`
-	Data    string  `json:"data"`
+	// Folders are the user's folders mounted into the app; more can be added.
+	Folders []Volume `json:"folders"`
+	Data    string   `json:"data"`
 	Access  Access  `json:"access"`
 }
 
@@ -106,7 +109,7 @@ func (d *Doc) Setup(c Context) Setup {
 
 	// Inputs and Ports start empty, not nil, so an app on the host network
 	// (no ports) or with no settings sends [] rather than null.
-	s := Setup{Name: d.Name(), Address: d.Address(c.Host), Inputs: []Input{}, Ports: append([]Port{}, d.Ports()...),
+	s := Setup{Name: d.Name(), Address: d.Address(c.Host), Inputs: []Input{}, Ports: append([]Port{}, d.Ports()...), Folders: append([]Volume{}, d.Volumes()...),
 		Data: "/DATA/AppData/" + d.Name(), Access: d.Access()}
 	for _, e := range d.Envs() {
 		in := Input{Env: e, Secret: secretWords.MatchString(e.Key)}
@@ -157,10 +160,21 @@ func NewSecret() string {
 }
 
 // Choices are what the user set in the popup: env values by "service/KEY",
-// published ports by "service/target/protocol".
+// published ports by "service/target/protocol", folders by "service/target"
+// (the server's folder for it) and folders added.
 type Choices struct {
-	Values map[string]string `json:"values"`
-	Ports  map[string]string `json:"ports"`
+	Values  map[string]string `json:"values"`
+	Ports   map[string]string `json:"ports"`
+	Folders map[string]string `json:"folders,omitempty"`
+	Add     []NewFolder       `json:"add,omitempty"`
+}
+
+// NewFolder is a folder of the server to mount into the app. Service is
+// empty for the main one.
+type NewFolder struct {
+	Service string `json:"service,omitempty"`
+	Source  string `json:"source"`
+	Target  string `json:"target"`
 }
 
 // PortKey names a port in Choices.
@@ -181,6 +195,43 @@ func (d *Doc) Apply(c Choices) error {
 			return fmt.Errorf("unknown port %q or bad number %q", k, v)
 		}
 	}
+	have := map[string]string{}
+	for _, v := range d.Volumes() {
+		have[VolumeKey(v)] = v.Source
+	}
+	for k, v := range c.Folders {
+		old, ok := have[k]
+		if !ok {
+			return fmt.Errorf("unknown folder %q", k)
+		}
+		if v == old {
+			continue
+		}
+		if err := checkSource(v); err != nil {
+			return err
+		}
+		svc, target, _ := strings.Cut(k, "/")
+		d.SetSource(svc, target, v)
+	}
+	for _, f := range c.Add {
+		svc := f.Service
+		if svc == "" {
+			svc = d.Main()
+		}
+		if d.service(svc) == nil {
+			return fmt.Errorf("unknown service %q", svc)
+		}
+		if err := checkSource(f.Source); err != nil {
+			return err
+		}
+		if err := checkTarget(f.Target); err != nil {
+			return err
+		}
+		if d.HasTarget(svc, f.Target) {
+			return &FolderError{fmt.Sprintf("the app already has a folder at %s", f.Target)}
+		}
+		d.AddBind(svc, f.Source, f.Target)
+	}
 	var left []string
 	for _, e := range d.Envs() {
 		if HasPlaceholder(e.Value) {
@@ -190,6 +241,32 @@ func (d *Doc) Apply(c Choices) error {
 	if len(left) > 0 {
 		sort.Strings(left)
 		return &MissingError{Keys: left}
+	}
+	return nil
+}
+
+// FolderError is a folder the user picked that can't be used.
+type FolderError struct{ Msg string }
+
+func (e *FolderError) Error() string { return e.Msg }
+
+// cleanPath: absolute, no "..", no doubled or trailing slash, one line.
+func cleanPath(p string) bool {
+	return strings.HasPrefix(p, "/") && path.Clean(p) == p && !strings.ContainsAny(p, "\n\r\x00$") && len(p) <= 1024
+}
+
+// checkSource: a folder of the server under FolderRoots.
+func checkSource(p string) error {
+	if !cleanPath(p) || !UnderRoots(p) {
+		return &FolderError{fmt.Sprintf("%q isn't a folder IceDash can give the app: use one under %s", p, strings.Join(FolderRoots, ", "))}
+	}
+	return nil
+}
+
+// checkTarget: a path inside the app, not its root.
+func checkTarget(p string) error {
+	if !cleanPath(p) || p == "/" || strings.Contains(p, ":") {
+		return &FolderError{fmt.Sprintf("%q isn't a folder path inside the app, like /media or /movies", p)}
 	}
 	return nil
 }
@@ -234,6 +311,16 @@ func (d *Doc) KeepFrom(old *Doc) {
 	for _, p := range d.Ports() {
 		if v, ok := pub[PortKey(p)]; ok && v != p.Published {
 			d.SetPublished(p.Service, p.Target, p.Protocol, v)
+		}
+	}
+	// Folders: a moved one stays where the user put it, an added one stays.
+	for _, v := range old.Volumes() {
+		switch {
+		case d.service(v.Service) == nil:
+		case d.HasTarget(v.Service, v.Target):
+			d.SetSource(v.Service, v.Target, v.Source)
+		default:
+			d.AddBind(v.Service, v.Source, v.Target)
 		}
 	}
 }

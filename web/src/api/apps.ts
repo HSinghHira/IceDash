@@ -68,6 +68,22 @@ export interface Port {
   description?: string
 }
 
+/** A folder of the server mounted into the app. */
+export interface Folder {
+  service: string
+  source: string
+  target: string
+  read_only?: boolean
+  description?: string
+}
+
+/** A folder to add: source on the server, target inside the app. */
+export interface NewFolder {
+  service?: string
+  source: string
+  target: string
+}
+
 export interface Access {
   privileged: boolean
   docker_socket: boolean
@@ -82,6 +98,7 @@ export interface SetupView {
   address: string
   inputs: Input[]
   ports: Port[]
+  folders?: Folder[]
   data: string
   access: Access
 }
@@ -89,6 +106,9 @@ export interface SetupView {
 export interface Choices {
   values: Record<string, string>
   ports: Record<string, string>
+  /** "service/target" → the server's folder */
+  folders?: Record<string, string>
+  add?: NewFolder[]
 }
 
 export interface CheckResult {
@@ -112,6 +132,7 @@ export interface Job {
 }
 
 export const inputKey = (i: Pick<Input, 'service' | 'key'>) => `${i.service}/${i.key}`
+export const folderKey = (f: Pick<Folder, 'service' | 'target'>) => `${f.service}/${f.target}`
 export const portKey = (p: Pick<Port, 'service' | 'target' | 'protocol'>) => `${p.service}/${p.target}/${p.protocol}`
 
 export const setup = (id: string) => request<SetupView>(`${base}/catalog/${encodeURIComponent(id)}/setup`)

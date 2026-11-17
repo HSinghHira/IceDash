@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v1.2.0 (2026-11-17)
+
+After the second round of comments from the ZimaOS forum:
+
+- **Apps from IceDash can be changed in ZimaOS.** Saving an app's settings in ZimaOS failed with "invalid user override: generated override does not reproduce submitted Compose" for apps IceDash installed. ZimaOS can't build changes on the folded text (`>-`) in IceStore files, so IceDash now writes that text as plain blocks. Apps installed before v1.2.0 keep the old file: to change one, uninstall it (keep its data) and install it again from IceStore.
+- **Updates work on ZimaOS.** IceDash updated an app by installing it again, which ZimaOS refuses for an app that is already there ("ports in use"). Updates now go through the same call as ZimaOS's own app settings, and keep the folders you moved or added.
+- **Shares connected in ZimaOS show in Files.** Shares you connect in ZimaOS's Files (SMB and cloud drives, mounted by rclone under `/media`) show under **Disks**, as do NFS and SSHFS mounts of a share's subfolder.
+- **Folders in setup.** The setup popup has a **Folders** section: point the app's folders somewhere else, or add one, like your media library at `/media/MEDIAS` for `/movies`. Folders under `/DATA`, `/media` or `/mnt` can be used.
+
 ## v1.1.0 (2026-11-16)
 
 After the first comments from the ZimaOS forum:

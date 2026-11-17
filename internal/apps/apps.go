@@ -241,7 +241,7 @@ func (m *Manager) freePort(ctx context.Context, id string, ch compose.Choices, p
 		return "", false
 	}
 	for n := start + 1; n <= start+30 && n <= 65535; n++ {
-		try := compose.Choices{Values: ch.Values, Ports: map[string]string{}}
+		try := compose.Choices{Values: ch.Values, Ports: map[string]string{}, Folders: ch.Folders, Add: ch.Add}
 		for k, v := range ch.Ports {
 			try.Ports[k] = v
 		}
@@ -281,6 +281,9 @@ func (m *Manager) Install(ctx context.Context, id string, ch compose.Choices) (J
 		if errors.Is(err, zima.ErrPortsInUse) {
 			return Job{}, &InputError{fmt.Errorf("port %s is in use now; check again", strings.Join(append(res.PortsInUse["TCP"], res.PortsInUse["UDP"]...), ", "))}
 		}
+		if errors.Is(err, zima.ErrOldInstall) {
+			return Job{}, &InputError{err}
+		}
 		return Job{}, err
 	}
 	j := m.start(name, a.Title, a.Icon, "install", res.TaskID)
@@ -319,6 +322,9 @@ func (m *Manager) Update(ctx context.Context, name string) (Job, error) {
 	res, err := m.Zima.Install(ctx, b, a.Icon, false)
 	if err != nil {
 		m.release(name)
+		if errors.Is(err, zima.ErrOldInstall) {
+			return Job{}, &InputError{err}
+		}
 		return Job{}, err
 	}
 	return m.start(name, a.Title, a.Icon, "update", res.TaskID), nil

@@ -170,6 +170,15 @@ describe('setup helpers', () => {
     expect(withHost('https://<your ZimaOS IP>:6119', '10.0.0.5')).toBe('https://10.0.0.5:6119')
   })
 
+  it('checks folders as the server does', async () => {
+    const { serverFolderOk, appFolderOk } = await import('./setup')
+    for (const ok of ['/DATA', '/DATA/Media', '/media/MEDIAS/SERIES-TV', '/mnt/nas/tv shows']) expect(serverFolderOk(ok)).toBe(true)
+    for (const bad of ['', 'DATA/Media', '/etc', '/DATAX', '/DATA/../etc', '/DATA//x', '/DATA/x/', '/DATA/$AppID', '/DATA/a\nb'])
+      expect(serverFolderOk(bad)).toBe(false)
+    expect(appFolderOk('/movies')).toBe(true)
+    for (const bad of ['/', 'movies', '/a:b', '/a/../b']) expect(appFolderOk(bad)).toBe(false)
+  })
+
   it('renders markdown safely', async () => {
     const { markdown } = await import('./markdown')
     const html = markdown(

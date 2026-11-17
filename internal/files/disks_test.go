@@ -12,14 +12,15 @@ import (
 
 // newDisks is newData plus a mount table shaped like ZimaOS 1.8.0's (/media
 // a bind of /DATA/.media, /mnt/boot the system disk's boot partition), with a
-// USB stick and an NVMe drive plugged in, and things that must not show.
+// USB stick, an NVMe drive and two network shares, and things that must not show.
 func newDisks(t *testing.T) (*Service, string, string) {
 	t.Helper()
 	s, data := newData(t)
 	base := filepath.ToSlash(filepath.Dir(data))
 	data = filepath.ToSlash(data)
 	usb := base + "/media/USB Stick"
-	for _, d := range []string{usb, base + "/mnt/fast", base + "/mnt/boot", base + "/media/ram", base + "/media/img"} {
+	for _, d := range []string{usb, base + "/mnt/fast", base + "/mnt/boot", base + "/media/ram", base + "/media/img",
+		base + "/media/MEDIAS", base + "/mnt/nas", base + "/media/part"} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -38,6 +39,11 @@ func newDisks(t *testing.T) (*Service, string, string) {
 		"42 31 7:3 / " + esc(base) + "/media/img rw - ext4 /dev/loop3 rw",
 		"43 26 259:1 / " + esc(base) + "/mnt/fast rw - ext4 /dev/nvme0n1p1 rw",
 		"44 31 8:17 / " + esc(base) + "/media/again rw - vfat /dev/sdb1 rw",
+		// A share from another server through ZimaOS Files (rclone), an NFS
+		// export's subfolder, and a bind of a disk's subfolder (not a disk).
+		"50 31 0:61 / " + esc(base) + "/media/MEDIAS rw,nosuid,nodev - fuse.rclone MEDIAS: rw,user_id=0,group_id=0",
+		"51 26 0:62 /exports/tv " + esc(base) + "/mnt/nas rw - nfs4 nas:/exports/tv rw",
+		"52 31 8:33 /sub " + esc(base) + "/media/part rw - ext4 /dev/sdc1 rw",
 	}, "\n") + "\n"
 	info := filepath.Join(t.TempDir(), "mountinfo")
 	if err := os.WriteFile(info, []byte(table), 0o644); err != nil {
@@ -53,7 +59,7 @@ func TestDisksFound(t *testing.T) {
 	for _, d := range s.Disks() {
 		got = append(got, d.Name+"="+d.Path)
 	}
-	want := []string{"DATA=/", "USB Stick=USB_Stick:/", "fast=fast:/"}
+	want := []string{"DATA=/", "USB Stick=USB_Stick:/", "fast=fast:/", "MEDIAS=MEDIAS:/", "nas=nas:/"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("Disks() = %v, want %v", got, want)
 	}

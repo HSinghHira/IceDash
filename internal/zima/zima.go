@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 // DefaultURLFile holds app management's address (world-readable, measured).
@@ -209,10 +211,26 @@ type InstallResult struct {
 // ErrPortsInUse comes with InstallResult.PortsInUse filled in.
 var ErrPortsInUse = errors.New("some ports are in use")
 
+// ErrOldInstall: ZimaOS can't change an app whose installed file it can't
+// build edits on (folded text from IceDash before v1.2.0).
+var ErrOldInstall = errors.New("ZimaOS can't change this app, because an older IceDash installed it. " +
+	"Uninstall it and keep its data, then install it again from IceStore")
+
 // Install hands a compose file to ZimaOS (POST /zimaapp/install, inline
-// source). dryRun only checks the file and its ports. An existing app of the
-// same name is rebuilt with the new file, which is how IceStore apps update.
+// source). dryRun only checks the file and its ports. An app that is already
+// installed is changed instead, as ZimaOS's own app settings do (PUT
+// /zimaapp/v2app/files/compose); that is how IceStore apps update. Installing
+// over it would fail: its own ports count as in use (measured 2026-11-17).
 func (c *Client) Install(ctx context.Context, yaml []byte, icon string, dryRun bool) (InstallResult, error) {
+	if !dryRun {
+		if name := projectName(yaml); name != "" {
+			if etag, ok, err := c.composeTag(ctx, name); err != nil {
+				return InstallResult{}, err
+			} else if ok {
+				return c.rebuild(ctx, name, yaml, etag)
+			}
+		}
+	}
 	src := map[string]any{"kind": "inline", "baseYAML": string(yaml)}
 	if icon != "" {
 		src["icon"] = icon
@@ -254,20 +272,91 @@ func (c *Client) Install(ctx context.Context, yaml []byte, icon string, dryRun b
 	return out, nil
 }
 
-func (c *Client) raw(ctx context.Context, method, path string, body any) ([]byte, int, error) {
-	base, err := c.base()
-	if err != nil {
-		return nil, 0, err
+// projectName is the compose file's top-level name, "" when it has none.
+func projectName(b []byte) string {
+	var v struct {
+		Name string `yaml:"name"`
 	}
+	if yaml.Unmarshal(b, &v) != nil {
+		return ""
+	}
+	return v.Name
+}
+
+func composePath(name string) string {
+	return "/zimaapp/v2app/files/compose?zimaapp_id=" + url.QueryEscape(ZimaAppID(name))
+}
+
+// composeTag reads an installed app's file version (its Etag); ok is false
+// when no app has that name (404 "package not found").
+func (c *Client) composeTag(ctx context.Context, name string) (etag string, ok bool, err error) {
+	_, status, h, err := c.send(ctx, http.MethodGet, composePath(name), nil, "", nil)
+	switch {
+	case err != nil:
+		return "", false, err
+	case status == http.StatusNotFound:
+		return "", false, nil
+	case status >= 300:
+		return "", false, &Error{Status: status}
+	}
+	return h.Get("Etag"), true, nil
+}
+
+// rebuild changes an installed app to the new file. ZimaOS answers 202 with
+// a task, tracked like an install's.
+func (c *Client) rebuild(ctx context.Context, name string, yaml []byte, etag string) (InstallResult, error) {
+	var hdr map[string]string
+	if etag != "" {
+		hdr = map[string]string{"If-Match": etag}
+	}
+	raw, status, _, err := c.send(ctx, http.MethodPut, composePath(name)+"&sync=false", yaml, "application/yaml", hdr)
+	if err != nil {
+		return InstallResult{}, err
+	}
+	var res struct {
+		Data    InstallResult `json:"data"`
+		Message string        `json:"message"`
+	}
+	_ = json.Unmarshal(raw, &res)
+	if status >= 300 {
+		if strings.Contains(res.Message, "invalid user override") {
+			return res.Data, ErrOldInstall
+		}
+		return res.Data, &Error{Status: status, Message: res.Message}
+	}
+	return res.Data, nil
+}
+
+func (c *Client) raw(ctx context.Context, method, path string, body any) ([]byte, int, error) {
 	j, err := json.Marshal(body)
 	if err != nil {
 		return nil, 0, err
 	}
-	req, err := http.NewRequestWithContext(ctx, method, base+path, bytes.NewReader(j))
+	b, status, _, err := c.send(ctx, method, path, j, "application/json", nil)
+	return b, status, err
+}
+
+// send makes one request with the caller's token and returns the body, the
+// status and the headers.
+func (c *Client) send(ctx context.Context, method, path string, body []byte, ctype string, hdr map[string]string) ([]byte, int, http.Header, error) {
+	base, err := c.base()
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	var rd io.Reader
+	if body != nil {
+		rd = bytes.NewReader(body)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, base+path, rd)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	if ctype != "" {
+		req.Header.Set("Content-Type", ctype)
+	}
+	for k, v := range hdr {
+		req.Header.Set(k, v)
+	}
 	if t, _ := ctx.Value(tokenKey{}).(string); t != "" {
 		req.Header.Set("Authorization", t)
 	}
@@ -277,11 +366,11 @@ func (c *Client) raw(ctx context.Context, method, path string, body any) ([]byte
 	}
 	res, err := hc.Do(req)
 	if err != nil {
-		return nil, 0, fmt.Errorf("%s app management: %w", c.SystemName(), err)
+		return nil, 0, nil, fmt.Errorf("%s app management: %w", c.SystemName(), err)
 	}
 	defer res.Body.Close()
 	b, err := io.ReadAll(io.LimitReader(res.Body, 4<<20))
-	return b, res.StatusCode, err
+	return b, res.StatusCode, res.Header, err
 }
 
 // Task is a ZimaOS app task (install, start, stop, update…).

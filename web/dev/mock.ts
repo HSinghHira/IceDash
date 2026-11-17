@@ -110,6 +110,9 @@ const setupView = (id: string) => ({
   data: '/DATA/AppData/documenso',
   access: { privileged: true, docker_socket: false, host_network: false },
   ports: [{ service: 'documenso', target: '8080', published: id.endsWith('.clash') ? '6101' : '6142', protocol: 'tcp', description: 'Documenso web app' }],
+  folders: [
+    { service: 'documenso', source: '/DATA/AppData/$AppID/data', target: '/data', description: 'The database and uploaded documents.' },
+  ],
   inputs: [
     { service: 'documenso', key: 'TZ', value: '$TZ', description: 'Your time zone.', required: false, main: false, secret: false },
     { service: 'documenso', key: 'PUBLIC_URL', value: 'http://192.168.68.17:6142', fill: 'auto', description: 'The address you open Documenso at.', required: false, main: true, secret: false },

@@ -8,6 +8,31 @@ import (
 	"testing"
 )
 
+// Folded text comes out as a literal block with the same value: ZimaOS can't
+// build edits on an installed file with folded text (HOST-NOTES, 2026-11-17).
+func TestBytesUnfolds(t *testing.T) {
+	in := "name: a\nservices:\n  a:\n    image: x\nx-casaos:\n  description:\n    en_US: >-\n      One line\n      goes on.\n\n\n      - a list\n        item\n"
+	d, err := Parse([]byte(in))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := str(get(get(d.X(), "description"), "en_US"))
+	b, err := d.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), ">-") || !strings.Contains(string(b), "en_US: |-") {
+		t.Errorf("still folded:\n%s", b)
+	}
+	d2, err := Parse(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := str(get(get(d2.X(), "description"), "en_US")); got != want {
+		t.Errorf("value changed:\n%q\n%q", got, want)
+	}
+}
+
 func load(t *testing.T, name string) *Doc {
 	t.Helper()
 	b, err := os.ReadFile("testdata/" + name)
@@ -246,5 +271,99 @@ x-casaos:
 		if !strings.Contains(string(b), want) {
 			t.Errorf("setup %s: want %s", b, want)
 		}
+	}
+}
+
+func TestFolders(t *testing.T) {
+	d := load(t, "autoxpose.yml")
+	vs := d.Volumes()
+	// The Docker socket is a system mount, not one of the user's folders.
+	if len(vs) != 1 || vs[0].Source != "/DATA/AppData/$AppID/data" || vs[0].Target != "/app/packages/backend/data" ||
+		vs[0].Service != "autoxpose" || !strings.Contains(vs[0].Description, "SQLite") {
+		t.Fatalf("volumes %+v", vs)
+	}
+	if s := d.Setup(Context{Host: "h"}); len(s.Folders) != 1 {
+		t.Errorf("setup folders %+v", s.Folders)
+	}
+	ch := Choices{
+		Values:  map[string]string{"autoxpose/SERVER_IP": "1.2.3.4", "autoxpose/LAN_IP": "10.0.0.2"},
+		Folders: map[string]string{"autoxpose//app/packages/backend/data": "/DATA/AppData/autoxpose/db"},
+		Add:     []NewFolder{{Source: "/media/MEDIAS/SERIES-TV", Target: "/series"}},
+	}
+	if err := d.Apply(ch); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, v := range d.Volumes() {
+		got[v.Target] = v.Source
+	}
+	if got["/app/packages/backend/data"] != "/DATA/AppData/autoxpose/db" || got["/series"] != "/media/MEDIAS/SERIES-TV" {
+		t.Errorf("after apply %v", got)
+	}
+	b, _ := d.Bytes()
+	if !strings.Contains(string(b), "source: /media/MEDIAS/SERIES-TV\n        target: /series") {
+		t.Errorf("added bind not in the file:\n%s", b)
+	}
+}
+
+func TestFoldersRefused(t *testing.T) {
+	vals := map[string]string{"autoxpose/SERVER_IP": "1.2.3.4", "autoxpose/LAN_IP": "10.0.0.2"}
+	key := "autoxpose//app/packages/backend/data"
+	for name, ch := range map[string]Choices{
+		"outside roots": {Values: vals, Folders: map[string]string{key: "/etc"}},
+		"climbs out":    {Values: vals, Folders: map[string]string{key: "/DATA/../etc"}},
+		"unknown":       {Values: vals, Folders: map[string]string{"autoxpose//nope": "/DATA/x"}},
+		"two lines":     {Values: vals, Add: []NewFolder{{Source: "/DATA/a\nb", Target: "/a"}}},
+		"root target":   {Values: vals, Add: []NewFolder{{Source: "/DATA/a", Target: "/"}}},
+		"taken target":  {Values: vals, Add: []NewFolder{{Source: "/DATA/a", Target: "/var/run/docker.sock"}}},
+		"no service":    {Values: vals, Add: []NewFolder{{Service: "db", Source: "/DATA/a", Target: "/a"}}},
+	} {
+		if err := load(t, "autoxpose.yml").Apply(ch); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	// A folder left as it was passes, even with ZimaOS's $AppID in it.
+	ok := Choices{Values: vals, Folders: map[string]string{key: "/DATA/AppData/$AppID/data"}}
+	if err := load(t, "autoxpose.yml").Apply(ok); err != nil {
+		t.Errorf("unchanged folder: %v", err)
+	}
+}
+
+func TestShortFolders(t *testing.T) {
+	d, err := Parse([]byte("name: a\nservices:\n  a:\n    image: x\n    volumes:\n      - /DATA/Media:/media:ro\n      - data:/var/lib/a\n      - /etc/localtime:/etc/localtime:ro\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	vs := d.Volumes()
+	if len(vs) != 1 || vs[0].Source != "/DATA/Media" || !vs[0].ReadOnly {
+		t.Fatalf("%+v", vs)
+	}
+	if !d.SetSource("a", "/media", "/media/USB") {
+		t.Fatal("not set")
+	}
+	b, _ := d.Bytes()
+	if !strings.Contains(string(b), "- /media/USB:/media:ro") {
+		t.Errorf("%s", b)
+	}
+}
+
+// An update keeps the folders the user moved or added (ZimaOS reports the
+// installed file in its long JSON form).
+func TestKeepFromFolders(t *testing.T) {
+	old, err := Parse([]byte(`{"name":"autoxpose","services":{"autoxpose":{"image":"x","volumes":[
+		{"type":"bind","source":"/DATA/AppData/autoxpose/db","target":"/app/packages/backend/data"},
+		{"type":"bind","source":"/var/run/docker.sock","target":"/var/run/docker.sock"},
+		{"type":"bind","source":"/media/MEDIAS/SERIES-TV","target":"/series"}]}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := load(t, "autoxpose.yml")
+	d.KeepFrom(old)
+	got := map[string]string{}
+	for _, v := range d.Volumes() {
+		got[v.Target] = v.Source
+	}
+	if len(got) != 2 || got["/app/packages/backend/data"] != "/DATA/AppData/autoxpose/db" || got["/series"] != "/media/MEDIAS/SERIES-TV" {
+		t.Errorf("%v", got)
 	}
 }

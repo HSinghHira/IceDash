@@ -96,6 +96,15 @@ var diskTypes = map[string]bool{
 	"ext2": true, "ext3": true, "ext4": true, "xfs": true, "btrfs": true, "f2fs": true, "zfs": true,
 	"vfat": true, "exfat": true, "ntfs": true, "ntfs3": true, "fuseblk": true, "hfsplus": true,
 	"cifs": true, "smb3": true, "nfs": true, "nfs4": true, "fuse.mergerfs": true,
+	// ZimaOS's Files connects SMB shares and cloud drives through an rclone
+	// daemon (rclone.service, "rclone rcd"), mounted at /media/<name>.
+	"fuse.rclone": true, "fuse.sshfs": true,
+}
+
+// shareTypes are network mounts. Their root in the mount table can be a
+// folder of the share rather than "/".
+var shareTypes = map[string]bool{
+	"cifs": true, "smb3": true, "nfs": true, "nfs4": true, "fuse.rclone": true, "fuse.sshfs": true,
 }
 
 // mounted reads the mount table for disks in a folder of their own right
@@ -137,7 +146,7 @@ func (s *Service) mounted() []mount {
 	var out []mount
 	seen := map[string]bool{}
 	for _, r := range rows {
-		if !slices.Contains(dirs, path.Dir(r.at)) || r.root != "/" || !diskTypes[r.fstype] {
+		if !slices.Contains(dirs, path.Dir(r.at)) || !diskTypes[r.fstype] || (r.root != "/" && !shareTypes[r.fstype]) {
 			continue
 		}
 		if r.dev == dataDev || seen[r.dev] || strings.HasPrefix(r.source, "/dev/loop") {

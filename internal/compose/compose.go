@@ -11,6 +11,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"path"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -37,8 +39,12 @@ func Parse(b []byte) (*Doc, error) {
 	return d, nil
 }
 
-// Bytes writes the file back out.
+// Bytes writes the file back out. Folded text (">-") is written as a literal
+// block: ZimaOS 1.8 refuses every later edit of an app whose installed file
+// has folded text with blank lines ("invalid user override: generated
+// override does not reproduce submitted Compose", measured 2026-11-17).
 func (d *Doc) Bytes() ([]byte, error) {
+	unfold(d.root)
 	var b bytes.Buffer
 	e := yaml.NewEncoder(&b)
 	e.SetIndent(2)
@@ -47,6 +53,17 @@ func (d *Doc) Bytes() ([]byte, error) {
 	}
 	_ = e.Close()
 	return b.Bytes(), nil
+}
+
+// unfold gives every folded scalar the literal style. The value stays the
+// same; the encoder quotes it instead when a block can't hold it.
+func unfold(n *yaml.Node) {
+	if n.Kind == yaml.ScalarNode && n.Style&yaml.FoldedStyle != 0 {
+		n.Style = n.Style&^yaml.FoldedStyle | yaml.LiteralStyle
+	}
+	for _, c := range n.Content {
+		unfold(c)
+	}
 }
 
 func (d *Doc) top() *yaml.Node { return d.root.Content[0] }
@@ -313,6 +330,164 @@ func (d *Doc) SetPublished(svc, target, protocol, published string) bool {
 		return true
 	}
 	return false
+}
+
+// Volume is one folder of the server mounted into a service.
+type Volume struct {
+	Service     string `json:"service"`
+	Source      string `json:"source"` // the server's folder
+	Target      string `json:"target"` // where the app sees it
+	ReadOnly    bool   `json:"read_only,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+// FolderRoots are where the user's own folders live: the data disk, other
+// disks and network shares. Only folders under these show in setup, and only
+// these can be picked.
+var FolderRoots = []string{"/DATA", "/media", "/mnt"}
+
+// UnderRoots reports whether p is one of FolderRoots or inside one.
+func UnderRoots(p string) bool {
+	for _, r := range FolderRoots {
+		if p == r || strings.HasPrefix(p, r+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// Volumes lists the bind mounts of the user's folders (sources under
+// FolderRoots), in file order. System mounts like the Docker socket or
+// /etc/localtime, and named volumes, are left out.
+func (d *Doc) Volumes() []Volume {
+	var out []Volume
+	for _, s := range d.services() {
+		desc := volumeDescriptions(s.node)
+		vols := get(s.node, "volumes")
+		if vols == nil || vols.Kind != yaml.SequenceNode {
+			continue
+		}
+		for _, v := range vols.Content {
+			if vol, ok := readVolume(v); ok && UnderRoots(vol.Source) {
+				vol.Service, vol.Description = s.name, desc[vol.Target]
+				out = append(out, vol)
+			}
+		}
+	}
+	return out
+}
+
+// readVolume reads a long-form bind ({type: bind, source, target}) or a short
+// "source:target[:ro]" whose source is a path.
+func readVolume(v *yaml.Node) (Volume, bool) {
+	switch v.Kind {
+	case yaml.MappingNode:
+		if t := str(get(v, "type")); t != "" && t != "bind" {
+			return Volume{}, false
+		}
+		src, dst := str(get(v, "source")), str(get(v, "target"))
+		if !strings.HasPrefix(src, "/") || dst == "" {
+			return Volume{}, false
+		}
+		return Volume{Source: src, Target: dst, ReadOnly: str(get(v, "read_only")) == "true"}, true
+	case yaml.ScalarNode:
+		parts := strings.Split(v.Value, ":")
+		if len(parts) < 2 || !strings.HasPrefix(parts[0], "/") {
+			return Volume{}, false
+		}
+		vol := Volume{Source: parts[0], Target: parts[1]}
+		if len(parts) > 2 {
+			vol.ReadOnly = slices.Contains(strings.Split(parts[2], ","), "ro")
+		}
+		return vol, true
+	}
+	return Volume{}, false
+}
+
+func volumeDescriptions(svc *yaml.Node) map[string]string {
+	out := map[string]string{}
+	vols := get(get(svc, "x-casaos"), "volumes")
+	if vols == nil || vols.Kind != yaml.SequenceNode {
+		return out
+	}
+	for _, e := range vols.Content {
+		if k := str(get(e, "container")); k != "" {
+			out[k] = strings.TrimSpace(str(get(get(e, "description"), "en_US")))
+		}
+	}
+	return out
+}
+
+// VolumeKey names a folder in Choices.
+func VolumeKey(v Volume) string { return v.Service + "/" + v.Target }
+
+// SetSource points the bind at target in svc to another folder of the server.
+func (d *Doc) SetSource(svc, target, source string) bool {
+	vols := get(d.service(svc), "volumes")
+	if vols == nil || vols.Kind != yaml.SequenceNode {
+		return false
+	}
+	for _, v := range vols.Content {
+		vol, ok := readVolume(v)
+		if !ok || vol.Target != target {
+			continue
+		}
+		if v.Kind == yaml.MappingNode {
+			n := get(v, "source")
+			n.Kind, n.Tag, n.Value, n.Style = yaml.ScalarNode, "!!str", source, 0
+		} else {
+			v.Value = source + strings.TrimPrefix(v.Value, vol.Source)
+			v.Style = 0
+		}
+		return true
+	}
+	return false
+}
+
+// HasTarget reports whether a service already mounts something at target.
+func (d *Doc) HasTarget(svc, target string) bool {
+	vols := get(d.service(svc), "volumes")
+	if vols == nil {
+		return false
+	}
+	for _, v := range vols.Content {
+		t := str(get(v, "target"))
+		if v.Kind == yaml.ScalarNode {
+			if parts := strings.Split(v.Value, ":"); len(parts) > 1 {
+				t = parts[1]
+			}
+		}
+		if path.Clean(t) == path.Clean(target) {
+			return true
+		}
+	}
+	return false
+}
+
+// AddBind mounts another folder of the server into svc, in the long form
+// ZimaOS's own app settings write.
+func (d *Doc) AddBind(svc, source, target string) bool {
+	s := d.service(svc)
+	if s == nil {
+		return false
+	}
+	vols := get(s, "volumes")
+	if vols == nil {
+		s.Content = append(s.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "volumes"},
+			&yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"})
+		vols = s.Content[len(s.Content)-1]
+	}
+	if vols.Kind != yaml.SequenceNode {
+		return false
+	}
+	scalar := func(v string) *yaml.Node { return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: v} }
+	vols.Content = append(vols.Content, &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map", Content: []*yaml.Node{
+		scalar("type"), scalar("bind"),
+		scalar("source"), scalar(source),
+		scalar("target"), scalar(target),
+	}})
+	return true
 }
 
 // Access is what the app asks of the server beyond its own container.

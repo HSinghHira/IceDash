@@ -7,7 +7,7 @@ import * as api from '../api/apps'
 import AppIcon from '../components/AppIcon.vue'
 import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
-import { inputLabel, placeholderIn } from '../lib/setup'
+import { appFolderOk, inputLabel, placeholderIn, serverFolderOk } from '../lib/setup'
 import { apps, bundleRun, nextInBundle, setupFor, stopBundle, toast, trackJob } from '../store'
 import { strings } from '../strings'
 
@@ -19,6 +19,12 @@ const values = reactive<Record<string, string>>({})
 const ports = reactive<Record<string, string>>({})
 const shown = reactive<Record<string, boolean>>({})
 const advancedOpen = ref(false)
+// Folders: the app's own (moved by editing the server side) and added ones.
+const folders = reactive<Record<string, string>>({})
+const added = ref<api.NewFolder[]>([])
+const foldersOpen = ref(false)
+const newSource = ref('')
+const newTarget = ref('')
 const checking = ref(false)
 const result = ref<api.CheckResult | null>(null)
 const busy = ref(false)
@@ -29,6 +35,7 @@ onMounted(async () => {
     const v = await api.setup(props.id)
     for (const i of v.inputs) values[api.inputKey(i)] = i.value
     for (const p of v.ports) ports[api.portKey(p)] = p.published
+    for (const f of v.folders ?? []) folders[api.folderKey(f)] = f.source
     view.value = v
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e)
@@ -49,11 +56,43 @@ const portState = (key: string) => {
   if (checking.value || !result.value) return 'checking'
   return result.value.ports_in_use.includes(ports[key] ?? '') ? 'busy' : 'free'
 }
+/** A folder of the app's own moved somewhere IceDash can't give it. */
+const folderBad = (f: api.Folder) => {
+  const v = folders[api.folderKey(f)] ?? ''
+  return v !== f.source && !serverFolderOk(v)
+}
+const badFolders = computed(() => (view.value?.folders ?? []).some(folderBad))
+const targetTaken = (t: string) =>
+  (view.value?.folders ?? []).some((f) => f.target === t) || added.value.some((f) => f.target === t)
+const newProblem = computed(() => {
+  const src = newSource.value
+  const dst = newTarget.value
+  if (!src && !dst) return ''
+  if (src && !serverFolderOk(src)) return strings.badServerFolder
+  if (dst && !appFolderOk(dst)) return strings.badAppFolder
+  if (dst && targetTaken(dst)) return strings.folderTaken(dst)
+  return ''
+})
+const canAdd = computed(() => !!newSource.value && !!newTarget.value && !newProblem.value)
+function addFolder() {
+  if (!canAdd.value) return
+  added.value.push({ source: newSource.value, target: newTarget.value })
+  newSource.value = ''
+  newTarget.value = ''
+}
+const folderCount = computed(() => (view.value?.folders?.length ?? 0) + added.value.length)
+
 const canInstall = computed(
-  () => !!view.value && !busy.value && !checking.value && missing.value.length === 0 && !!result.value?.ok,
+  () =>
+    !!view.value && !busy.value && !checking.value && missing.value.length === 0 && !badFolders.value && !!result.value?.ok,
 )
 
-const choices = (): api.Choices => ({ values: { ...values }, ports: { ...ports } })
+const choices = (): api.Choices => ({
+  values: { ...values },
+  ports: { ...ports },
+  folders: { ...folders },
+  add: added.value.map((f) => ({ ...f })),
+})
 
 let timer: ReturnType<typeof setTimeout> | undefined
 let seq = 0
@@ -61,7 +100,7 @@ function scheduleCheck() {
   clearTimeout(timer)
   result.value = null
   error.value = ''
-  if (!view.value || missing.value.length) return
+  if (!view.value || missing.value.length || badFolders.value) return
   checking.value = true
   timer = setTimeout(async () => {
     const mine = ++seq
@@ -77,7 +116,7 @@ function scheduleCheck() {
     }
   }, 450)
 }
-watch([values, ports, () => view.value], scheduleCheck, { deep: true })
+watch([values, ports, folders, added, () => view.value], scheduleCheck, { deep: true })
 onBeforeUnmount(() => clearTimeout(timer))
 
 /** The installed app that answers on this port, when IceDash knows it. */
@@ -228,6 +267,63 @@ const fillMark = (f?: string) =>
         <li v-if="view.access.privileged"><Icon name="alert" :size="15" /> {{ strings.accessPrivileged }}</li>
         <li v-if="view.access.host_network"><Icon name="alert" :size="15" /> {{ strings.accessHost }}</li>
       </ul>
+
+      <div class="advanced" :class="{ open: foldersOpen }">
+        <button type="button" class="adv-head" :aria-expanded="foldersOpen" @click="foldersOpen = !foldersOpen">
+          <span>
+            <strong>{{ strings.folders }}</strong>
+            <span class="adv-sub">
+              <template v-if="folderCount">{{ strings.foldersSummary(folderCount) }} · </template>{{ strings.addFolder }}
+            </span>
+          </span>
+          <Icon name="chevron" :size="18" class="chev" />
+        </button>
+        <div v-if="foldersOpen" class="adv-body">
+          <div v-for="f in view.folders ?? []" :key="api.folderKey(f)" class="field small-field">
+            <label :for="`folder-${api.folderKey(f)}`">{{ f.target }}</label>
+            <input
+              :id="`folder-${api.folderKey(f)}`"
+              v-model.trim="folders[api.folderKey(f)]"
+              class="mono"
+              spellcheck="false"
+              autocomplete="off"
+            />
+            <p v-if="folderBad(f)" class="warn small-note">{{ strings.badServerFolder }}</p>
+            <p v-else-if="f.description" class="hint">{{ f.description }}</p>
+          </div>
+          <div v-for="(f, i) in added" :key="f.target" class="added">
+            <span class="mono">{{ f.target }}</span>
+            <span class="mono mut grow-text" :title="f.source">{{ f.source }}</span>
+            <button type="button" class="icon-btn small-btn" :aria-label="strings.removeFolder(f.target)" @click="added.splice(i, 1)">
+              <Icon name="close" :size="15" />
+            </button>
+          </div>
+          <div class="add-row">
+            <input
+              v-model.trim="newSource"
+              class="mono"
+              :aria-label="strings.folderOnServer"
+              :placeholder="`${strings.folderOnServer}: /DATA/Media`"
+              spellcheck="false"
+              autocomplete="off"
+            />
+            <input
+              v-model.trim="newTarget"
+              class="mono"
+              :aria-label="strings.folderInApp"
+              :placeholder="`${strings.folderInApp}: /movies`"
+              spellcheck="false"
+              autocomplete="off"
+              @keydown.enter.prevent="addFolder"
+            />
+            <button type="button" class="switch" :disabled="!canAdd" @click="addFolder">
+              {{ strings.addFolder }}
+            </button>
+          </div>
+          <p v-if="newProblem" class="warn small-note">{{ newProblem }}</p>
+          <p v-else class="hint">{{ strings.foldersHint }}</p>
+        </div>
+      </div>
 
       <div v-if="otherInputs.length" class="advanced" :class="{ open: advancedOpen }">
         <button type="button" class="adv-head" :aria-expanded="advancedOpen" @click="advancedOpen = !advancedOpen">
@@ -508,6 +604,48 @@ input:focus {
   display: grid;
   gap: 12px;
   padding: 2px 14px 14px;
+}
+.added {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 12px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+.grow-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.small-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+.add-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+}
+.add-row input {
+  padding: 8px 12px;
+  border-color: var(--line);
+}
+.switch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.small-note {
+  font-size: 12.5px;
+}
+@media (max-width: 600px) {
+  .add-row {
+    grid-template-columns: 1fr;
+  }
 }
 .foot {
   display: flex;

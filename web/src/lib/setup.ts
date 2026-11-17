@@ -29,3 +29,20 @@ export function inputLabel(key: string, app: string): string {
 export function withHost(text: string, host: string): string {
   return text.replace(/\[ZIMAOS-IP-ADDRESS\]|\[SERVER-IP\]|your-zimaos-ip|<your[ -](?:zimaos|casaos|server)[ -]ip>/gi, host)
 }
+
+/** A clean absolute path: no "..", no doubled or trailing slash, one line. */
+function cleanPath(p: string): boolean {
+  if (!p.startsWith('/') || /[\n\r\0$]/.test(p) || p.length > 1024) return false
+  if (p === '/') return true
+  return !p.endsWith('/') && !p.split('/').slice(1).some((part) => part === '' || part === '.' || part === '..')
+}
+
+/** Roots for the user's folders, as internal/compose FolderRoots. */
+export const folderRoots = ['/DATA', '/media', '/mnt']
+
+/** A folder of the server IceDash can give an app. */
+export const serverFolderOk = (p: string) =>
+  cleanPath(p) && folderRoots.some((r) => p === r || p.startsWith(r + '/'))
+
+/** A path inside the app: absolute, not its root, no colon. */
+export const appFolderOk = (p: string) => cleanPath(p) && p !== '/' && !p.includes(':')

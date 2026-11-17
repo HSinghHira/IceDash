@@ -33,6 +33,19 @@ func box(t *testing.T, seen *[]string) *Client {
 			_, _ = w.Write([]byte(`{"data":{"app_id":"opensignup","id":"57","phase":"starting","state":"running","type":"start"},"message":"OK"}`))
 		case p == "/zimaapp/v2app/stop":
 			_, _ = w.Write([]byte(`{"data":{"items":[{"error":"not found"}],"summary":{"accepted":0,"failed":1,"succeeded":0,"total":1}},"message":"batch stop accepted"}`))
+		case p == "/zimaapp/v2app/files/compose" && r.Method == http.MethodGet && r.URL.Query().Get("zimaapp_id") == "zimaapp://v2app/gitsave":
+			w.Header().Set("Etag", `"sha256:2fc3"`)
+			_, _ = w.Write([]byte(`{"name":"gitsave","services":{}}`))
+		case p == "/zimaapp/v2app/files/compose" && r.Method == http.MethodGet:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"message":"package not found"}`))
+		case p == "/zimaapp/v2app/files/compose" && r.Method == http.MethodPut && strings.Contains(string(b), "old"):
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"message":"invalid user override: generated override does not reproduce submitted Compose"}`))
+		case p == "/zimaapp/v2app/files/compose" && r.Method == http.MethodPut:
+			*seen = append(*seen, "if-match="+r.Header.Get("If-Match")+" type="+r.Header.Get("Content-Type"))
+			w.WriteHeader(http.StatusAccepted)
+			_, _ = w.Write([]byte(`{"data":{"accepted":true,"app_id":"gitsave","rebuilt":false,"task_id":"b34b","zimaapp_id":"zimaapp://v2app/gitsave"},"message":"compose rebuild accepted"}`))
 		case p == "/compose/gitsave/logs":
 			_, _ = w.Write([]byte(`{"data":"gitsave  | Server running on port 3000\n"}`))
 		case p == "/compose":
@@ -67,6 +80,42 @@ func TestInstallAnswers(t *testing.T) {
 	var ze *Error
 	if !errors.As(err, &ze) || ze.Message != "compose file is invalid" {
 		t.Errorf("invalid: %v", err)
+	}
+}
+
+// An installed app is changed through the app settings call, not installed
+// over (its own ports would count as in use).
+func TestInstallOverInstalledRebuilds(t *testing.T) {
+	var seen []string
+	c := box(t, &seen)
+	ctx := context.Background()
+	res, err := c.Install(ctx, []byte("name: gitsave\nservices: {}\n"), "", false)
+	if err != nil || res.TaskID != "b34b" || !res.Accepted {
+		t.Fatalf("%+v %v", res, err)
+	}
+	put := seen[len(seen)-2]
+	if !strings.HasPrefix(put, "PUT /v2/app_management/zimaapp/v2app/files/compose?zimaapp_id=zimaapp%3A%2F%2Fv2app%2Fgitsave&sync=false name: gitsave") {
+		t.Errorf("put %s", put)
+	}
+	if seen[len(seen)-1] != `if-match="sha256:2fc3" type=application/yaml` {
+		t.Errorf("headers %s", seen[len(seen)-1])
+	}
+	for _, s := range seen {
+		if strings.Contains(s, "/zimaapp/install") {
+			t.Errorf("installed over: %s", s)
+		}
+	}
+	if _, err := c.Install(ctx, []byte("name: gitsave\n# old\n"), "", false); !errors.Is(err, ErrOldInstall) {
+		t.Errorf("old install: %v", err)
+	}
+	// A new app, and any dry run, still go to install.
+	seen = nil
+	if _, err := c.Install(ctx, []byte("name: autoxpose\n"), "", false); err != nil || !strings.Contains(seen[len(seen)-1], "/zimaapp/install") {
+		t.Errorf("new app: %v %v", err, seen)
+	}
+	seen = nil
+	if _, err := c.Install(ctx, []byte("name: gitsave\n"), "", true); err != nil || len(seen) != 1 || !strings.Contains(seen[0], "/zimaapp/install") {
+		t.Errorf("dry run: %v %v", err, seen)
 	}
 }
 
