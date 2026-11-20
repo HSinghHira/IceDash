@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v1.2.2 (2026-11-20)
+
+- **The Weather card changes at once.** Picking a weather place now restarts the cards that use your location, so the new place shows without reloading the page. This also works for a Weather card installed before v1.2.1.
+- The weather place search has space below it; it was touching the settings under it.
+
 ## v1.2.1 (2026-11-20)
 
 v1.2.0 was tagged but never released: its build stopped at a formatting check, so IceDash's updater kept offering v1.1.0 as the latest. v1.2.1 brings everything in v1.2.0 below, plus, after the third round of comments from the ZimaOS forum:

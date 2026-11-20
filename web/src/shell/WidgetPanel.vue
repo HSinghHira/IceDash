@@ -24,6 +24,7 @@ import {
   openContext,
   openIceStore,
   panelCards,
+  prefs,
   setPanelCards,
   sys,
   util,
@@ -43,6 +44,17 @@ const accepts = (e: DragEvent) => !!e.dataTransfer && (e.dataTransfer.types.incl
 const savePanel = (ids: string[]) => setPanelCards(ids)
 /** A widget reloads by remounting its frame. */
 const reloads = reactive<Record<string, number>>({})
+// A new weather place: cards that may read the location start again with it.
+// Remounting reaches every widget, also ones installed before they could
+// hear IceDash.on('location').
+watch(
+  () => `${prefs.value.place.name}|${prefs.value.place.lat}|${prefs.value.place.lon}`,
+  () => {
+    for (const c of panelCards.value) {
+      if (!c.builtin && c.mod.permissions?.location) reloads[c.id] = (reloads[c.id] ?? 0) + 1
+    }
+  },
+)
 function menuFor(e: MouseEvent | KeyboardEvent, c: PanelCard, i: number) {
   openContext(e, cardTitle(c), cardMenu(c, i, panelCards.value.length, c.builtin ? undefined : () => (reloads[c.id] = (reloads[c.id] ?? 0) + 1)))
 }

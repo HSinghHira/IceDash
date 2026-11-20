@@ -579,21 +579,23 @@ watch(() => props.page, enter)
       <template v-if="prefs.place.name">{{ strings.placeNow(prefs.place.name) }}</template>
       <template v-else>{{ strings.placeFollowsZone(cityOf(zone)) }}</template>
     </p>
-    <form class="addpin" role="search" @submit.prevent="searchPlaces">
-      <input v-model="placeQuery" class="place-q" type="search" :placeholder="strings.placePlaceholder" :aria-label="strings.placeHeading" autocomplete="off" />
-      <button type="submit" class="ghost" :disabled="placeQuery.trim().length < 2 || placeBusy">
-        <Icon name="search" :size="15" /> {{ placeBusy ? strings.placeSearching : strings.placeSearch }}
-      </button>
-    </form>
-    <ul v-if="placeResults.length" class="places" :aria-label="strings.placeHeading">
-      <li v-for="p in placeResults" :key="`${p.lat},${p.lon}`">
-        <button type="button" class="place" @click="pickPlace(p)">
-          <Icon name="map" :size="15" /> <span>{{ p.label }}</span>
+    <div class="place-box">
+      <form class="addpin" role="search" @submit.prevent="searchPlaces">
+        <input v-model="placeQuery" class="place-q" type="search" :placeholder="strings.placePlaceholder" :aria-label="strings.placeHeading" autocomplete="off" />
+        <button type="submit" class="ghost" :disabled="placeQuery.trim().length < 2 || placeBusy">
+          <Icon name="search" :size="15" /> {{ placeBusy ? strings.placeSearching : strings.placeSearch }}
         </button>
-      </li>
-    </ul>
-    <p v-else-if="placeNone" class="mut small">{{ strings.placeNone(placeNone) }}</p>
-    <button v-if="prefs.place.name" type="button" class="link" @click="clearPlace">{{ strings.placeUseZone(cityOf(zone)) }}</button>
+      </form>
+      <ul v-if="placeResults.length" class="places" :aria-label="strings.placeHeading">
+        <li v-for="p in placeResults" :key="`${p.lat},${p.lon}`">
+          <button type="button" class="place" @click="pickPlace(p)">
+            <Icon name="map" :size="15" /> <span>{{ p.label }}</span>
+          </button>
+        </li>
+      </ul>
+      <p v-else-if="placeNone" class="mut small">{{ strings.placeNone(placeNone) }}</p>
+      <button v-if="prefs.place.name" type="button" class="link" @click="clearPlace">{{ strings.placeUseZone(cityOf(zone)) }}</button>
+    </div>
 
     <div class="rows">
       <div class="row">
@@ -1099,6 +1101,10 @@ h2 {
   flex-wrap: wrap;
   margin-top: 12px;
 }
+/* The cards below have no margin of their own. */
+.place-box {
+  margin-bottom: 20px;
+}
 .place-q {
   flex: 1;
   min-width: 0;
@@ -1113,7 +1119,7 @@ h2 {
 .places {
   display: grid;
   gap: 4px;
-  margin: 8px 0 12px;
+  margin: 8px 0 0;
   padding: 0;
   list-style: none;
 }

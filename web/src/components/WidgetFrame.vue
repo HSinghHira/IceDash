@@ -47,9 +47,6 @@ function whereabouts() {
   if (p.name) return { city: p.name.split(',')[0], place: p.name, latitude: p.lat, longitude: p.lon, zone: zone.value }
   return { city: cityOf(zone.value), zone: zone.value }
 }
-function sendLocation() {
-  if (grants.value.location) post('location', whereabouts())
-}
 function sendApps() {
   if (!grants.value.apps) return
   post('apps', apps.value.map((a) => ({ name: a.name, icon: a.icon ?? '', status: a.status })))
@@ -75,8 +72,6 @@ watch(activeTheme, () => ready && sendTheme())
 watch(tempUnit, () => ready && sendUnits())
 watch([util, sys], () => ready && sendSystem())
 watch(apps, () => ready && sendApps(), { deep: true })
-// A new place: widgets that asked once hear it again.
-watch(() => prefs.value.place, () => ready && sendLocation(), { deep: true })
 </script>
 
 <template>
