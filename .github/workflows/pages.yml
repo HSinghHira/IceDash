@@ -11,7 +11,7 @@ name: Pages
 on:
   push:
     branches: [main]
-    paths: ['site/**', '.github/workflows/pages.yml']
+    paths: ['site/**', 'CHANGELOG.md', '.github/workflows/pages.yml']
   # A release made with GITHUB_TOKEN starts no `release` event, so follow CI.
   workflow_run:
     workflows: [CI]

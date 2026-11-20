@@ -459,6 +459,31 @@ td:first-child code,td:nth-child(2) code{word-break:normal;overflow-wrap:anywher
 .faq details>div p code{overflow-wrap:anywhere}
 @media(max-width:700px){.icmd code{font-size:13px;-webkit-mask-image:linear-gradient(90deg,#000 80%,transparent);mask-image:linear-gradient(90deg,#000 80%,transparent);padding-right:24px}}
 
+/* changelog: one release per row, its version and date on the left, the notes on the right */
+.rel{display:grid;grid-template-columns:200px minmax(0,1fr);gap:16px 40px;padding:32px 0;border-top:1px solid var(--line);scroll-margin-top:16px}
+.bhero+.rel{margin-top:40px}
+.rel:last-child{padding-bottom:24px}
+.rel header{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.rel h2{margin:0;font:500 20px/28px var(--mono);letter-spacing:0}
+.rel h2 a:hover{color:var(--ac2)}
+.rel time{font:400 13px/20px var(--mono);color:var(--mut)}
+.rel .now,.rel .off{padding:0 8px;border-radius:6px;font-size:12px;line-height:22px}
+.rel .now{background:rgba(76,201,240,.14);color:var(--ac2)}
+.rel .off{border:1px solid var(--line2);color:var(--tx2)}
+.rel .gh{display:inline-flex;align-items:center;gap:6px;margin-top:4px;font-size:13px;color:var(--mut);transition:color .15s var(--ease)}
+.rel .gh:hover{color:var(--tx)}
+.rel .gh .i{width:14px;height:14px}
+.notes{display:grid;gap:12px;max-width:72ch;color:var(--tx2);font-size:15px;line-height:24px}
+.notes ul{margin:0;padding-left:20px;display:grid;gap:10px}
+.notes li::marker{color:var(--mut)}
+.notes b{color:var(--tx);font-weight:500}
+.notes code{font:400 13px var(--mono);background:var(--raised);padding:2px 6px;border-radius:4px;color:var(--ac2);overflow-wrap:anywhere}
+@media(max-width:720px){
+  .rel{grid-template-columns:1fr}
+  .rel header{flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px 12px}
+  .rel .gh{margin:0 0 0 auto}
+}
+
 /* roadmap: groups by status, an icon per kind, done tiles fade as in IceStore */
 .rmg{padding-top:48px}
 .rmg h2{display:flex;align-items:center;gap:12px;font-size:22px;margin-bottom:16px}

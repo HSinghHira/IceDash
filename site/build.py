@@ -212,6 +212,87 @@ def roadmap_page(cfg, layout):
                 root="../", url=url, jsonld=json.dumps(ld, ensure_ascii=False))
 
 
+def inline_md(s):
+    """The changelog's inline Markdown: `code`, **bold** and [text](url), escaped first."""
+    s = e(s)
+    codes = []
+
+    def keep(m):
+        codes.append(f"<code>{m.group(1)}</code>")
+        return f"\x00{len(codes) - 1}\x00"
+    s = re.sub(r"`([^`]+)`", keep, s)
+    s = re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r'<a class="lnk" href="\2">\1</a>', s)
+    s = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", s)
+    return re.sub(r"\x00(\d+)\x00", lambda m: codes[int(m.group(1))], s)
+
+
+def releases():
+    """CHANGELOG.md as (version, date, note, body lines), newest first; "Unreleased" is left out."""
+    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    out = []
+    for block in re.split(r"^## ", text, flags=re.M)[1:]:
+        head, _, body = block.partition("\n")
+        m = re.match(r"(v[\d.]+)\s*\(([\d-]+)\)\s*,?\s*(.*)", head.strip())
+        if not m:
+            continue  # Unreleased
+        out.append((m.group(1), m.group(2), m.group(3), [ln.rstrip() for ln in body.strip().splitlines()]))
+    return out
+
+
+def changelog_page(cfg, layout):
+    """changelog/: every release from CHANGELOG.md, each with its own anchor (#v1.2.4)."""
+    base, repo = cfg["base_url"], cfg["repo"]
+    url = base + "changelog/"
+    rels = releases()
+
+    def body(lines):
+        html, items = [], []
+        for ln in lines + [""]:
+            if ln.startswith("- "):
+                items.append(f"<li>{inline_md(ln[2:])}</li>")
+                continue
+            if items:
+                html.append(f'<ul>{"".join(items)}</ul>')
+                items = []
+            if ln:
+                html.append(f"<p>{inline_md(ln)}</p>")
+        return "".join(html)
+
+    def section(i, r):
+        ver, date, note, lines = r
+        released = "not released" not in note
+        tags = []
+        if i == 0:
+            tags.append('<span class="now">Latest</span>')
+        if not released:
+            tags.append('<span class="off">Not released</span>')
+        gh = (f'<a class="gh" href="{e(repo)}/releases/tag/{e(ver)}">{icon("github")}On GitHub</a>'
+              if released else "")
+        return (f'    <section class="rel" id="{e(ver)}" aria-labelledby="h-{e(ver)}">\n'
+                f'      <header><h2 id="h-{e(ver)}"><a href="#{e(ver)}">{e(ver)}</a></h2>'
+                f'<time datetime="{e(date)}">{e(date)}</time>{"".join(tags)}{gh}</header>\n'
+                f'      <div class="notes">{body(lines)}</div>\n'
+                '    </section>\n')
+
+    content = (
+        '<div class="wrap">\n'
+        f'  <div class="top"><a class="logo" href="../">{e(cfg["site_name"])}</a>'
+        f'<a class="back" href="../">{icon("arrow-left")}Home</a></div>\n'
+        '  <main id="main" tabindex="-1" data-page="changelog">\n'
+        '    <section class="bhero" aria-labelledby="c-h">\n'
+        '      <h1 id="c-h">Changelog</h1>\n'
+        f'      <p class="lead">What changed in each release of {e(cfg["site_name"])}, newest first. '
+        f'IceDash shows <b>Update now</b> in its menu when a new one is out. '
+        f'What is coming next is on the <a class="lnk" href="../roadmap/">roadmap</a>.</p>\n'
+        '    </section>\n'
+        + "".join(section(i, r) for i, r in enumerate(rels)) +
+        '  </main>\n</div>')
+    ld = {"@context": "https://schema.org", "@type": "WebPage", "name": "Changelog", "url": url}
+    return page(layout, content, {**cfg, "title": f'Changelog – {cfg["site_name"]}',
+                                  "description": f'Every release of {cfg["site_name"]} and what changed in it.'},
+                root="../", url=url, jsonld=json.dumps(ld, ensure_ascii=False))
+
+
 def page(layout, content, cfg, **head):
     values = {**cfg, "content": content, "robots": "index,follow,max-image-preview:large", **head}
     return new_tab(fill(layout, values), cfg["base_url"])
@@ -256,6 +337,8 @@ def main():
 
     (out / "roadmap").mkdir(parents=True, exist_ok=True)
     (out / "roadmap" / "index.html").write_text(roadmap_page(cfg, layout), encoding="utf-8")
+    (out / "changelog").mkdir(parents=True, exist_ok=True)
+    (out / "changelog" / "index.html").write_text(changelog_page(cfg, layout), encoding="utf-8")
 
     # 404: served for any missing path, so its links start at the site's root
     base_nf = "/"
@@ -287,7 +370,8 @@ def main():
     (out / "robots.txt").write_text(f"User-agent: *\nAllow: /\nSitemap: {base}sitemap.xml\n", encoding="utf-8")
     (out / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        f"  <url><loc>{base}</loc></url>\n  <url><loc>{base}roadmap/</loc></url>\n</urlset>\n", encoding="utf-8")
+        f"  <url><loc>{base}</loc></url>\n  <url><loc>{base}roadmap/</loc></url>\n"
+        f"  <url><loc>{base}changelog/</loc></url>\n</urlset>\n", encoding="utf-8")
     (out / ".nojekyll").write_text("", encoding="utf-8")
     print(f"built {out} ({version})")
 
