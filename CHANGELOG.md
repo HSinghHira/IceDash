@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v1.2.3 (2026-11-20)
+
+- **A quieter look.** Small labels are no longer in spaced-out capitals: the cards on the panel (System, Network, Apps), the search groups, the right-click menu, setup, Credentials, First launch, IceStore, Settings and About use ordinary sentence case. Buttons no longer glow, windows and dialogs lose the blue wash in their corner, and apps without an icon get a flat tile. Themes that set `--glow` still work.
+
 ## v1.2.2 (2026-11-20)
 
 - **The Weather card changes at once.** Picking a weather place now restarts the cards that use your location, so the new place shows without reloading the page. This also works for a Weather card installed before v1.2.1.
