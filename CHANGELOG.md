@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v1.2.4 (2026-11-20)
+
+- **A live demo.** Try IceDash in your browser at [icedash.hsinghhira.me/demo/](https://icedash.hsinghhira.me/demo/), with no server: a sample desktop with IceStore apps like WatchYourLAN, Ente and AppFlowy, installs from the real IceStore catalog, Files, a small Terminal, Settings, and the official themes and weather card. Nothing is installed anywhere; apps in the demo show what they are instead of running.
+- The website opens the demo from its main button, and is a little quieter: no "best viewed on desktop" screen on phones, no drifting background lights, and the tour's tabs wrap on small screens.
+
 ## v1.2.3 (2026-11-20)
 
 - **A quieter look.** Small labels are no longer in spaced-out capitals: the cards on the panel (System, Network, Apps), the search groups, the right-click menu, setup, Credentials, First launch, IceStore, Settings and About use ordinary sentence case. Buttons no longer glow, windows and dialogs lose the blue wash in their corner, and apps without an icon get a flat tile. Themes that set `--glow` still work.

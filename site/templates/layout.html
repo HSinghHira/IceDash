@@ -36,18 +36,18 @@
 <script type="application/ld+json">{{{jsonld}}}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Unbounded:wght@800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Unbounded:wght@800&text=IceDash&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{root}}css/style.css?v={{asset_v}}">
 <script defer src="{{root}}js/icons.js?v={{asset_v}}"></script>
 <script defer src="{{root}}js/site.js?v={{asset_v}}"></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
-<div class="bg" aria-hidden="true"><i></i><i></i></div>
+<div class="bg" aria-hidden="true"></div>
 <div id="app">
 {{{content}}}
 <footer class="foot">
-  <p class="m">Made with <span class="heart">🩵</span> by <a href="{{author_url}}">{{author}}</a> in New Zealand</p>
+  <p class="m">Made with <span role="img" aria-label="love">🩵</span> by <a href="{{author_url}}">{{author}}</a> in New Zealand</p>
   <p>A community project, not affiliated with ZimaOS or CasaOS.</p>
   <p class="fl"><a href="{{icestore_url}}" aria-label="IceStore" title="IceStore">{{icon:package}}</a><a href="{{repo}}/releases" aria-label="Releases" title="Releases">{{icon:tag}}</a><a href="{{repo}}/issues" aria-label="Issues" title="Issues">{{icon:issues}}</a><a href="{{repo}}" aria-label="GitHub" title="GitHub">{{icon:github}}</a></p>
 </footer>

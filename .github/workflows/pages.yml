@@ -3,7 +3,8 @@
 # Built on every push to main that touches site/, and again after each
 # release, so the version it shows and its install.sh and uninstall.sh are
 # always the latest release's. The scripts come from the release, not from
-# main, so what people run changes only with a version tag.
+# main, so what people run changes only with a version tag. The live demo at
+# /demo/ is built from that release too.
 
 name: Pages
 
@@ -43,6 +44,22 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release download --repo "$GITHUB_REPOSITORY" --pattern install.sh --pattern uninstall.sh --dir _site --clobber
+      - uses: actions/setup-node@v7
+        with: { node-version: 24 }
+      # The live demo at /demo/, built from the latest release like the scripts,
+      # with the official themes and widgets copied beside it (web/demo/).
+      - name: Live demo from the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(git describe --tags --abbrev=0 --match 'v*')
+          git worktree add -q "$RUNNER_TEMP/release" "$TAG"
+          cd "$RUNNER_TEMP/release/web"
+          if [ ! -d src/demo ]; then echo "$TAG has no demo yet"; exit 0; fi
+          npm ci --no-audit --no-fund
+          npm run demo
+          cp -r dist-demo "$GITHUB_WORKSPACE/_site/demo"
+          node demo/snapshot.mjs "$GITHUB_WORKSPACE/_site"
       - uses: actions/upload-pages-artifact@v3
         with: { path: _site }
 

@@ -1,4 +1,4 @@
-/* IceDash site: cursor background, copy buttons, tabs and the small-screen notice.
+/* IceDash site: cursor background, copy buttons and tabs.
    Taken from the IceStore site's core.js, without its router and cookies. */
 (()=>{
   'use strict';
@@ -42,17 +42,6 @@
     if(h>-1)setTimeout(()=>ts[h].scrollIntoView({block:'center'}),60);
   });
 
-  /* ---- "best viewed on desktop" notice, small phones only ---- */
-  const mobile=()=>{
-    let seen;try{seen=sessionStorage.getItem('ice-desk')}catch(_){}
-    if(innerWidth>480||seen)return;
-    const m=document.createElement('div');m.className='mob';m.setAttribute('role','dialog');m.setAttribute('aria-modal','true');m.setAttribute('aria-labelledby','mob-t');
-    m.innerHTML=`<div>${ICE.icon('monitor')}<h2 id="mob-t">Best viewed on desktop</h2><p>IceDash is a desktop for your server, so this site works best on a larger screen.</p><button class="btn p" type="button">View anyway</button></div>`;
-    document.body.append(m);document.body.style.overflow='hidden';
-    const b=$('button',m);b.focus();
-    b.onclick=()=>{m.remove();document.body.style.overflow='';try{sessionStorage.setItem('ice-desk','1')}catch(_){}};
-  };
-
-  const init=()=>{tabs();mobile()};
+  const init=()=>{tabs()};
   if(document.readyState==='loading')addEventListener('DOMContentLoaded',init);else init();
 })();

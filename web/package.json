@@ -7,7 +7,8 @@
     "mock": "vite --mode mock --host 127.0.0.1 --port 5199 --strictPort --open /modules/icedash/",
     "build": "vite build",
     "typecheck": "vue-tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "demo": "vite build --mode demo"
   },
   "dependencies": {
     "@dicebear/core": "10.7.0",

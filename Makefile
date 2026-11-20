@@ -22,7 +22,7 @@ LDFLAGS := -s -w -X main.version=$(VERSION:v%=%) $(if $(BROKEN),-X main.broken=1
 
 CASAOS  := build/casaos-$(ARCH)
 
-.PHONY: build check deploy d modkit vet test web-deps web-test rootfs binary web image casaos casaos-all preview site clean
+.PHONY: build check deploy d modkit vet test web-deps web-test rootfs binary web image casaos casaos-all preview site demo clean
 
 build: check image casaos-all
 
@@ -97,5 +97,14 @@ preview: web-deps
 site:
 	python site/serve.py
 
+# The website with the live demo at /demo/, built from this checkout:
+# http://localhost:8000/demo/ (Pages builds it from the latest release).
+demo: web-deps
+	python site/build.py
+	cd web && npm run demo
+	cp -r web/dist-demo _site/demo
+	node web/demo/snapshot.mjs _site
+	cd _site && python -m http.server 8000
+
 clean:
-	rm -rf build dist _site
+	rm -rf build dist _site web/dist-demo
