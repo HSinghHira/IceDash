@@ -7,7 +7,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { widgetUrl, type Installed } from '../api/mods'
 import { ICE } from '../lib/theme'
 import { cityOf } from '../lib/timezone'
-import { activeTheme, apps, sys, tempUnit, util, zone } from '../store'
+import { activeTheme, apps, prefs, sys, tempUnit, util, zone } from '../store'
 
 const props = defineProps<{ mod: Installed }>()
 const frame = ref<HTMLIFrameElement | null>(null)
@@ -41,6 +41,15 @@ function sendSystem() {
     uptime: sys.value?.uptime_sec ?? 0,
   })
 }
+/** The user's weather place when they picked one, else the clock's city. */
+function whereabouts() {
+  const p = prefs.value.place
+  if (p.name) return { city: p.name.split(',')[0], place: p.name, latitude: p.lat, longitude: p.lon, zone: zone.value }
+  return { city: cityOf(zone.value), zone: zone.value }
+}
+function sendLocation() {
+  if (grants.value.location) post('location', whereabouts())
+}
 function sendApps() {
   if (!grants.value.apps) return
   post('apps', apps.value.map((a) => ({ name: a.name, icon: a.icon ?? '', status: a.status })))
@@ -56,7 +65,7 @@ function onMessage(e: MessageEvent) {
     sendSystem()
     sendApps()
   } else if (m?.icedash === 'location') {
-    post('location', grants.value.location ? { city: cityOf(zone.value), zone: zone.value } : null)
+    post('location', grants.value.location ? whereabouts() : null)
   }
 }
 
@@ -66,6 +75,8 @@ watch(activeTheme, () => ready && sendTheme())
 watch(tempUnit, () => ready && sendUnits())
 watch([util, sys], () => ready && sendSystem())
 watch(apps, () => ready && sendApps(), { deep: true })
+// A new place: widgets that asked once hear it again.
+watch(() => prefs.value.place, () => ready && sendLocation(), { deep: true })
 </script>
 
 <template>

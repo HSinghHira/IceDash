@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/HSinghHira/IceDash/internal/host"
 )
 
 // Placeholders IceStore leaves in env values for the user (PLAN.md, Phase 2,
@@ -19,6 +21,8 @@ var (
 	emailKey    = regexp.MustCompile(`(^|_)E?MAIL$`)
 	adminKey    = regexp.MustCompile(`ADMIN`)
 	secretWords = regexp.MustCompile(`PASSWORD|PASSWD|SECRET|TOKEN|_KEY$|^KEY$`)
+	// ifaceKey is a setting that names network interfaces (IFACES, INTERFACE…).
+	ifaceKey = regexp.MustCompile(`IFACE|INTERFACE`)
 )
 
 // HasPlaceholder reports whether a value still needs the user.
@@ -37,6 +41,9 @@ type Context struct {
 	Email string // the ZimaOS account's email, often empty
 	// Secret makes a new random value; nil uses crypto/rand.
 	Secret func() string
+	// Interfaces are the server's network interfaces, offered for settings
+	// that ask for one.
+	Interfaces []host.Iface
 }
 
 // Fill sources, shown as marks in the setup popup.
@@ -53,6 +60,9 @@ type Input struct {
 	Required bool   `json:"required"` // still has a placeholder only the user can replace
 	Main     bool   `json:"main"`     // shown first; the rest go under Advanced
 	Secret   bool   `json:"secret"`
+	// Interfaces are offered to pick from when the setting names network
+	// interfaces; a pick adds or removes a name in a space-separated list.
+	Interfaces []host.Iface `json:"interfaces,omitempty"`
 }
 
 // Setup is everything the setup popup shows before an install.
@@ -64,7 +74,7 @@ type Setup struct {
 	// Folders are the user's folders mounted into the app; more can be added.
 	Folders []Volume `json:"folders"`
 	Data    string   `json:"data"`
-	Access  Access  `json:"access"`
+	Access  Access   `json:"access"`
 }
 
 // Address is where the app will answer: scheme://host:port_map/index.
@@ -131,6 +141,18 @@ func (d *Doc) Setup(c Context) Setup {
 			v, in.Fill, in.Secret = strings.ReplaceAll(v, "CHANGEME_PASSWORD", secret()), FillGenerated, true
 		case v == "" && c.Email != "" && emailKey.MatchString(e.Key) && adminKey.MatchString(e.Key):
 			v, in.Fill = c.Email, FillAccount
+		}
+		if ifaceKey.MatchString(e.Key) && len(c.Interfaces) > 0 {
+			in.Interfaces = c.Interfaces
+			// CHANGEME_IFACE and the like: the interface of the default route.
+			if HasPlaceholder(v) && strings.Contains(strings.ToUpper(v), "IFACE") {
+				for _, ni := range c.Interfaces {
+					if ni.Default {
+						v, in.Fill = changeMe.ReplaceAllString(v, ni.Name), FillAuto
+						break
+					}
+				}
+			}
 		}
 		in.Value = v
 		in.Required = HasPlaceholder(v)

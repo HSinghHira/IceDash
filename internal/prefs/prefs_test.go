@@ -36,6 +36,9 @@ func TestUnknownValuesRefused(t *testing.T) {
 		{Notify: Notify{Off: []string{"everything"}}},
 		{WindowButtons: "round"},
 		{TempUnit: "k"},
+		{Place: Place{Lat: 47.9}},
+		{Place: Place{Name: "Nowhere", Lat: 91}},
+		{Place: Place{Name: "Bad" + string(rune(10)), Lat: 1}},
 	} {
 		if _, err := s.Set("hira", p); !errors.Is(err, ErrInvalid) {
 			t.Errorf("%+v: %v", p, err)
@@ -43,6 +46,9 @@ func TestUnknownValuesRefused(t *testing.T) {
 	}
 	if _, err := s.Set("hira", Prefs{WindowButtons: "classic", TempUnit: "f"}); err != nil {
 		t.Errorf("classic buttons, °F: %v", err)
+	}
+	if _, err := s.Set("hira", Prefs{Place: Place{Name: "Everett, Washington, United States", Lat: 47.97898, Lon: -122.20208}}); err != nil {
+		t.Errorf("a weather place: %v", err)
 	}
 	if _, err := s.Set("", Prefs{}); err == nil {
 		t.Error("no user accepted")

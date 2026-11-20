@@ -58,6 +58,14 @@ export interface Input {
   required: boolean
   main: boolean
   secret: boolean
+  /** The server's network interfaces, when the setting names some. */
+  interfaces?: Iface[]
+}
+
+export interface Iface {
+  name: string
+  addr?: string
+  default?: boolean
 }
 
 export interface Port {
@@ -115,6 +123,8 @@ export interface CheckResult {
   ok: boolean
   ports_in_use: string[]
   suggest: Record<string, string>
+  /** Ports in use the setup has no field for (host network); Install still works. */
+  taken?: string[]
   error?: string
 }
 

@@ -102,7 +102,29 @@ const appInfo = [
   { name: 'homeassistant', store_id: 'org.icewhale.homeassistant', icestore: false, version: '2026.5.4', update: false, first_launch: false },
 ]
 
-const setupView = (id: string) => ({
+// WatchYourLAN: host network, no ports, asks for interfaces (2026-11-20).
+const NICS = [
+  { name: 'eth1', addr: '192.168.68.21' },
+  { name: 'eth2', addr: '10.0.0.4' },
+  { name: 'eth3', addr: '192.168.68.17', default: true },
+]
+const hostNetSetup = (id: string) => ({
+  app: { id, name: 'watchyourlan', title: 'WatchYourLAN', category: 'Networking', version: '2.1.4', icon: `${SITE}/apps/com.icestore.watchyourlan/assets/icon.png` },
+  installed: false,
+  name: 'watchyourlan',
+  address: 'http://192.168.68.17:6121',
+  data: '/DATA/AppData/watchyourlan',
+  access: { privileged: false, docker_socket: false, host_network: true },
+  ports: [],
+  folders: [{ service: 'watchyourlan', source: '/DATA/AppData/$AppID', target: '/data/WatchYourLAN', description: 'The app’s SQLite database, settings file and scan history.' }],
+  inputs: [
+    { service: 'watchyourlan', key: 'TZ', value: '$TZ', description: 'Your time zone. ZimaOS fills this in for you.', required: false, main: false, secret: false },
+    { service: 'watchyourlan', key: 'IFACES', value: 'eth3', fill: 'auto', interfaces: NICS, description: 'The network interface to scan, like eth0 or enp3s0. List more than one with a space between them. It must be a real interface name on this server.', required: false, main: true, secret: false },
+    { service: 'watchyourlan', key: 'PORT', value: '6121', description: 'The port the web UI uses. Keep it at 6121.', required: false, main: false, secret: false },
+  ],
+})
+
+const setupView = (id: string) => (id.includes('watchyourlan') ? hostNetSetup(id) : {
   app: { id, name: 'documenso', title: 'Documenso', category: 'Productivity', version: 'v2.21.1', icon: `${SITE}/apps/com.icestore.documenso/assets/icon.png` },
   installed: false,
   name: 'documenso',
@@ -191,7 +213,13 @@ const dynamic: [RegExp, string, (m: RegExpMatchArray, body?: unknown) => unknown
   [/^\/v2\/icedash\/catalog\/refresh$/, 'POST', () => catalog()],
   [/^\/v2\/icedash\/catalog\/([^/]+)\/setup$/, 'GET', (m) => setupView(m[1]!)],
   // Ports AppFlowy holds clash, as the dry run says on the box.
-  [/^\/v2\/icedash\/catalog\/([^/]+)\/check$/, 'POST', (_m, body) => {
+  [/^\/v2\/icedash\/places$/, 'GET', () => ({ items: [
+    { name: 'Everett', region: 'Washington', country: 'United States', lat: 47.97898, lon: -122.20208, label: 'Everett, Washington, United States' },
+    { name: 'Everett', region: 'Massachusetts', country: 'United States', lat: 42.40843, lon: -71.05366, label: 'Everett, Massachusetts, United States' },
+  ] })],
+  [/^\/v2\/icedash\/catalog\/([^/]+)\/check$/, 'POST', (m, body) => {
+    // On the host network ZimaOS calls 6121 taken; the popup only warns.
+    if (m[1]!.includes('watchyourlan')) return { ok: true, ports_in_use: [], suggest: {}, taken: ['6121'] }
     const ports = ((body as { ports?: Record<string, string> })?.ports ?? {}) as Record<string, string>
     const busy = Object.entries(ports).filter(([, p]) => p === '6101')
     return busy.length

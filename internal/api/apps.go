@@ -18,6 +18,7 @@ import (
 	"github.com/HSinghHira/IceDash/internal/catalog"
 	"github.com/HSinghHira/IceDash/internal/compose"
 	"github.com/HSinghHira/IceDash/internal/creds"
+	"github.com/HSinghHira/IceDash/internal/host"
 	"github.com/HSinghHira/IceDash/internal/session"
 	"github.com/HSinghHira/IceDash/internal/zima"
 )
@@ -145,7 +146,7 @@ func (s *Server) catalogSetup(w http.ResponseWriter, r *http.Request) {
 	if !s.appsReady(w) {
 		return
 	}
-	c := compose.Context{Host: compose.HostOnly(r.Host)}
+	c := compose.Context{Host: compose.HostOnly(r.Host), Interfaces: host.Interfaces()}
 	if s.Email != nil {
 		c.Email = s.Email(r.Context(), session.Token(r))
 	}

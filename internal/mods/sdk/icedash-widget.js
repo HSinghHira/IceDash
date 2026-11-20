@@ -7,7 +7,9 @@
  *
  *   IceDash.on('system', f)   CPU, memory, storage and network, every 5 s  (permission: system)
  *   IceDash.on('apps', f)     installed apps: name, icon, state             (permission: apps)
- *   IceDash.location()        a promise of { city, zone } from the clock    (permission: location)
+ *   IceDash.location()        a promise of { city, zone }, plus place, latitude and longitude
+ *                             when the user picked a weather place in Settings (permission: location)
+ *   IceDash.on('location', f) the same, again whenever the user picks another place
  *   IceDash.on('theme', f)    the active theme's colours (always)
  *   IceDash.on('units', f)    { temperature: 'c' | 'f' }, the user's choice (always)
  *
@@ -61,6 +63,11 @@
       w.forEach(function (r) {
         r(m.data)
       })
+      // A changed place also reaches on('location') listeners; the same
+      // answer again doesn't, so a listener may call location() itself.
+      var was = 'location' in last ? JSON.stringify(last.location) : null
+      if (was !== null && was !== JSON.stringify(m.data)) emit('location', m.data)
+      else last.location = m.data
       return
     }
     emit(m.icedash, m.data)

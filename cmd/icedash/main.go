@@ -43,6 +43,7 @@ import (
 	"github.com/HSinghHira/IceDash/internal/media"
 	"github.com/HSinghHira/IceDash/internal/mods"
 	"github.com/HSinghHira/IceDash/internal/notify"
+	"github.com/HSinghHira/IceDash/internal/places"
 	userprefs "github.com/HSinghHira/IceDash/internal/prefs"
 	"github.com/HSinghHira/IceDash/internal/session"
 	"github.com/HSinghHira/IceDash/internal/settings"
@@ -181,6 +182,8 @@ func main() {
 		Prefs: userprefs.Open(filepath.Join(state.Dir, "prefs.json")),
 		Users: accounts,
 		Media: &media.Store{Dir: filepath.Join(state.Dir, "media")},
+		// The weather location's place search (Open-Meteo, as the widget uses).
+		Places: &places.Search{HTTP: &http.Client{Timeout: 10 * time.Second}},
 	}
 	if kind == host.CasaOS {
 		srv.StockURL = casa.StockPath

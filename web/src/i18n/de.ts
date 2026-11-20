@@ -440,6 +440,10 @@ const de: Translation = {
   useFreePort: (p) => `Zu ${p} wechseln`,
   portTakenBy: (p, app) => `Port ${p} wird schon von ${app} genutzt.`,
   portTaken: (p) => `Port ${p} wird auf diesem Server schon genutzt.`,
+  portsTakenOutside: (ports) =>
+    `Port ${ports} wird auf diesem Server schon genutzt. Diese App nutzt das Netzwerk des Servers direkt und kann hier nicht auf einen anderen Port wechseln. Startet sie nicht, beende zuerst die App, die ihn nutzt.`,
+  pickInterfaces: 'Netzwerkschnittstellen dieses Servers:',
+  defaultInterface: 'Haupt',
   portFreeOffer: (p) => `${p} ist frei.`,
   portPickOther: 'Wähle einen anderen Port.',
   data: 'Daten',
@@ -536,6 +540,14 @@ const de: Translation = {
   tempC: '°C',
   tempF: '°F',
   tempHint: 'Für die Wetter-Karte und jedes Widget, das Temperaturen zeigt.',
+  placeHeading: 'Wetterort',
+  placeFollowsZone: (city) => `Das Wetter gilt für ${city}, die Stadt deiner Zeitzone. Suche deinen eigenen Ort, um das zu ändern.`,
+  placeNow: (name) => `Das Wetter gilt für ${name}.`,
+  placePlaceholder: 'Ort oder Stadt, z. B. Freiburg',
+  placeSearch: 'Suchen',
+  placeSearching: 'Suche läuft…',
+  placeNone: (q) => `Kein Ort namens „${q}“ gefunden. Versuch es nur mit dem Ortsnamen.`,
+  placeUseZone: (city) => `Wieder die Stadt der Zeitzone (${city}) nutzen`,
 }
 
 export default de

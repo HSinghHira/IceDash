@@ -440,6 +440,10 @@ const es: Translation = {
   useFreePort: (p) => `Cambiar a ${p}`,
   portTakenBy: (p, app) => `El puerto ${p} ya lo usa ${app}.`,
   portTaken: (p) => `El puerto ${p} ya está en uso en este servidor.`,
+  portsTakenOutside: (ports) =>
+    `El puerto ${ports} ya está en uso en este servidor. Esta app usa directamente la red del servidor y no puede cambiar de puerto aquí. Si no arranca, detén primero la app que lo usa.`,
+  pickInterfaces: 'Interfaces de red de este servidor:',
+  defaultInterface: 'principal',
   portFreeOffer: (p) => `${p} está libre.`,
   portPickOther: 'Elige otro puerto.',
   data: 'Datos',
@@ -537,6 +541,14 @@ const es: Translation = {
   tempC: '°C',
   tempF: '°F',
   tempHint: 'Para la tarjeta del tiempo y cualquier widget que muestre temperaturas.',
+  placeHeading: 'Lugar del tiempo',
+  placeFollowsZone: (city) => `El tiempo es el de ${city}, la ciudad de tu zona horaria. Busca tu propia ciudad para cambiarlo.`,
+  placeNow: (name) => `El tiempo es el de ${name}.`,
+  placePlaceholder: 'Pueblo o ciudad, p. ej. Sevilla',
+  placeSearch: 'Buscar',
+  placeSearching: 'Buscando…',
+  placeNone: (q) => `No se encontró ningún lugar llamado «${q}». Prueba solo con el nombre.`,
+  placeUseZone: (city) => `Volver a la ciudad de la zona horaria (${city})`,
 }
 
 export default es

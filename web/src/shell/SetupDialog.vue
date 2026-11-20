@@ -133,6 +133,13 @@ const takenText = (port: string) => {
   return by ? strings.portTakenBy(port, by) : strings.portTaken(port)
 }
 
+/** Interfaces as a space-separated list: a pick adds or removes one. */
+const ifaceList = (key: string) => (values[key] ?? '').split(/[\s,]+/).filter((n) => n && !placeholderIn(n))
+function toggleIface(key: string, name: string) {
+  const list = ifaceList(key)
+  values[key] = (list.includes(name) ? list.filter((n) => n !== name) : [...list, name]).join(' ')
+}
+
 function usePort(key: string, p: string) {
   ports[key] = p
 }
@@ -220,6 +227,22 @@ const fillMark = (f?: string) =>
             @click="shown[i.key] = !shown[i.key]"
           >
             <Icon :name="shown[i.key] ? 'eyeOff' : 'eye'" :size="18" />
+          </button>
+        </div>
+        <div v-if="i.interfaces?.length" class="ifaces" role="group" :aria-label="strings.pickInterfaces">
+          <span class="hint">{{ strings.pickInterfaces }}</span>
+          <button
+            v-for="n in i.interfaces"
+            :key="n.name"
+            type="button"
+            class="iface"
+            :class="{ on: ifaceList(api.inputKey(i)).includes(n.name) }"
+            :aria-pressed="ifaceList(api.inputKey(i)).includes(n.name)"
+            @click="toggleIface(api.inputKey(i), n.name)"
+          >
+            <span class="mono">{{ n.name }}</span>
+            <span v-if="n.addr" class="mut">{{ n.addr }}</span>
+            <span v-if="n.default" class="chip ok">{{ strings.defaultInterface }}</span>
           </button>
         </div>
         <p v-if="i.description" class="hint">{{ i.description }}</p>
@@ -350,6 +373,7 @@ const fillMark = (f?: string) =>
       </div>
 
       <p v-if="missing.length" class="warn small">{{ strings.fillRequired(missing.join(', ')) }}</p>
+      <p v-if="result?.taken?.length" class="warn small" role="status">{{ strings.portsTakenOutside(result.taken.join(', ')) }}</p>
       <p v-if="error" class="error" role="alert">{{ error }}</p>
 
       <footer class="foot">
@@ -366,6 +390,32 @@ const fillMark = (f?: string) =>
 </template>
 
 <style scoped>
+.ifaces {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.iface {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.iface.on {
+  border-color: var(--ac);
+  background: color-mix(in srgb, var(--ac) 14%, transparent);
+}
+.iface .chip {
+  font-size: 11px;
+}
 .setup {
   display: grid;
   gap: 16px;

@@ -2,7 +2,15 @@
 
 ## Unreleased
 
-## v1.2.0 (2026-11-17)
+## v1.2.1 (2026-11-20)
+
+v1.2.0 was tagged but never released: its build stopped at a formatting check, so IceDash's updater kept offering v1.1.0 as the latest. v1.2.1 brings everything in v1.2.0 below, plus, after the third round of comments from the ZimaOS forum:
+
+- **Weather location.** **Settings → Appearance → Weather location**: search for your town and pick it from the list (with its state and country, so you get the right Everett). The Weather card then shows that place instead of the city of your time zone. Widgets with the location permission get the place's coordinates too, and hear when it changes (`IceDash.on('location')`).
+- **Apps on the host network install from IceDash.** WatchYourLAN's Install button stayed off without saying why: ZimaOS reported its port as in use, and the popup had no port field to change. A clash the popup can't fix now shows as a warning, and Install goes ahead as it does in ZimaOS's own store.
+- **Pick network interfaces.** Settings that ask for network interfaces (like WatchYourLAN's) list this server's interfaces with their addresses: click to add or remove one. The interface of the main network is filled in for you.
+
+## v1.2.0 (2026-11-17), not released
 
 After the second round of comments from the ZimaOS forum:
 

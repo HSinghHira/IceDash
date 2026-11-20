@@ -470,6 +470,10 @@ export const strings = {
   portTaken: (p: string) => `Port ${p} is already used on this server.`,
   portFreeOffer: (p: string) => `${p} is free.`,
   portPickOther: 'Pick another port.',
+  portsTakenOutside: (ports: string) =>
+    `${ports.includes(',') ? 'Ports' : 'Port'} ${ports} ${ports.includes(',') ? 'are' : 'is'} already used on this server. This app uses the server’s network directly, so it can’t move to another port here. If it doesn’t start, stop the app using ${ports.includes(',') ? 'them' : 'it'} first.`,
+  pickInterfaces: 'Interfaces on this server:',
+  defaultInterface: 'main',
   data: 'Data',
   advanced: 'Advanced',
   folders: 'Folders',
@@ -571,6 +575,14 @@ export const strings = {
   tempC: '°C',
   tempF: '°F',
   tempHint: 'Used by the Weather card and any widget that shows temperatures.',
+  placeHeading: 'Weather location',
+  placeFollowsZone: (city: string) => `The weather is for ${city}, the city of your time zone. Search for your own town to change it.`,
+  placeNow: (name: string) => `The weather is for ${name}.`,
+  placePlaceholder: 'Town or city, like Everett',
+  placeSearch: 'Search',
+  placeSearching: 'Searching…',
+  placeNone: (q: string) => `No place called “${q}” found. Try the town’s name on its own.`,
+  placeUseZone: (city: string) => `Use the time zone’s city (${city}) again`,
 } as const
 
 export type Strings = typeof strings

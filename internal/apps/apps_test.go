@@ -55,6 +55,10 @@ type fakeZima struct {
 	mu        sync.Mutex
 	installed map[string]zima.Installed
 	busy      []string // published ports in use
+	// hostBusy are ports in use that no published port names, as ZimaOS
+	// reports for an app on the host network; skipped without the check.
+	hostBusy  []string
+	unchecked int // installs and dry runs sent without the port check
 	installs  [][]byte
 	task      zima.Task
 	grid      []zima.Grid
@@ -71,7 +75,7 @@ func (f *fakeZima) List(context.Context) (map[string]zima.Installed, error) {
 	return out, nil
 }
 
-func (f *fakeZima) Install(_ context.Context, b []byte, _ string, dry bool) (zima.InstallResult, error) {
+func (f *fakeZima) Install(ctx context.Context, b []byte, _ string, dry bool) (zima.InstallResult, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	d, err := compose.Parse(b)
@@ -86,7 +90,9 @@ func (f *fakeZima) Install(_ context.Context, b []byte, _ string, dry bool) (zim
 			}
 		}
 	}
-	if len(clash) > 0 {
+	if !zima.PortCheck(ctx) {
+		f.unchecked++
+	} else if clash = append(clash, f.hostBusy...); len(clash) > 0 {
 		return zima.InstallResult{PortsInUse: map[string][]string{"TCP": clash}}, zima.ErrPortsInUse
 	}
 	if dry {
@@ -377,5 +383,28 @@ func TestTarGz(t *testing.T) {
 	}
 	if err := TarGz(context.Background(), filepath.Join(dir, "missing"), "x", io.Discard); !errors.Is(err, ErrNoData) {
 		t.Errorf("missing dir: %v", err)
+	}
+}
+
+// A clash on a port the popup has no field for (WatchYourLAN on the host
+// network, community feedback 2026-11-20) warns instead of blocking Install.
+func TestPortsTakenOutsideSetup(t *testing.T) {
+	m, z, _ := newManager(t)
+	ctx := context.Background()
+	z.hostBusy = []string{"6121"}
+	res, err := m.Check(ctx, "autoxpose", choices)
+	if err != nil || !res.OK || len(res.Taken) != 1 || res.Taken[0] != "6121" || len(res.PortsInUse) != 0 {
+		t.Fatalf("check %+v %v", res, err)
+	}
+	if _, err := m.Install(ctx, "autoxpose", choices); err != nil {
+		t.Fatal(err)
+	}
+	if j := waitJob(t, m, "autoxpose"); j.State != "succeeded" || z.unchecked != 2 {
+		t.Fatalf("job %+v, unchecked %d", j, z.unchecked)
+	}
+	// A clash the popup can fix still blocks, with the check on.
+	z.busy, z.unchecked = []string{"6103"}, 0
+	if res, err := m.Check(ctx, "autoxpose", choices); err != nil || res.OK || z.unchecked != 0 {
+		t.Fatalf("fixable clash %+v %v unchecked %d", res, err, z.unchecked)
 	}
 }

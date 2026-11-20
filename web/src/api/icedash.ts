@@ -109,7 +109,26 @@ export interface Prefs {
   window_buttons: '' | 'classic'
   /** Temperatures, widgets' too: "" follows the browser (°F for en-US). */
   temp_unit: '' | 'c' | 'f'
+  /** Where the weather is for; no name follows the clock's time zone. */
+  place: Place
 }
+
+/** A town picked in Settings, with its coordinates. */
+export interface Place {
+  name: string
+  lat: number
+  lon: number
+}
+export const noPlace = (): Place => ({ name: '', lat: 0, lon: 0 })
+
+/** A match from the place search. */
+export interface FoundPlace extends Place {
+  region?: string
+  country?: string
+  label: string
+}
+export const findPlaces = (q: string, lang: string) =>
+  request<{ items: FoundPlace[] }>(`${base}/places?q=${encodeURIComponent(q)}&lang=${encodeURIComponent(lang)}`).then((r) => r.items)
 
 export type WallpaperPreset = 'aurora' | 'glacier' | 'nightfall' | 'ember' | 'lagoon' | 'dune' | 'graphite' | 'mist'
 export interface Wallpaper {
@@ -138,12 +157,13 @@ export const defaultPrefs = (): Prefs => ({
   lang: '',
   window_buttons: '',
   temp_unit: '',
+  place: noPlace(),
 })
 
 /** Fills in what an older backend leaves out. */
 export const fullPrefs = (p: Partial<Prefs>): Prefs => {
   const d = defaultPrefs()
-  return { ...d, ...p, wallpaper: { ...d.wallpaper, ...(p.wallpaper ?? {}) }, avatar: p.avatar ?? 0, avatar_style: p.avatar_style ?? '', avatar_seed: p.avatar_seed ?? '', lang: p.lang ?? '', window_buttons: p.window_buttons ?? '', temp_unit: p.temp_unit ?? '' }
+  return { ...d, ...p, wallpaper: { ...d.wallpaper, ...(p.wallpaper ?? {}) }, avatar: p.avatar ?? 0, avatar_style: p.avatar_style ?? '', avatar_seed: p.avatar_seed ?? '', lang: p.lang ?? '', window_buttons: p.window_buttons ?? '', temp_unit: p.temp_unit ?? '', place: { ...noPlace(), ...(p.place ?? {}) } }
 }
 export const getPrefs = () => request<Prefs>(`${base}/prefs`).then(fullPrefs)
 export const savePrefs = (p: Partial<Prefs>) => request<Prefs>(`${base}/prefs`, { method: 'POST', body: p }).then(fullPrefs)

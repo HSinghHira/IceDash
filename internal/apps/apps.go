@@ -199,7 +199,35 @@ type CheckResult struct {
 	OK         bool              `json:"ok"`
 	PortsInUse []string          `json:"ports_in_use"`
 	Suggest    map[string]string `json:"suggest"` // port key → a free published port
-	Error      string            `json:"error,omitempty"`
+	// Taken are ports in use that the setup has no field for, as with an
+	// app on the host network: the install goes ahead, with a warning.
+	Taken []string `json:"taken"`
+	Error string   `json:"error,omitempty"`
+}
+
+func inUse(res zima.InstallResult) []string {
+	return append(append([]string{}, res.PortsInUse["TCP"]...), res.PortsInUse["UDP"]...)
+}
+
+// outsideClash reports a port clash the setup can't fix: ports in use that
+// no port field names, or ZimaOS's "install validation failed: port
+// conflict" (HOST-NOTES, 2026-11-17) for an app with no port fields.
+func outsideClash(doc *compose.Doc, res zima.InstallResult, err error) bool {
+	if errors.Is(err, zima.ErrPortsInUse) {
+		return !fixable(doc, inUse(res))
+	}
+	var ze *zima.Error
+	return errors.As(err, &ze) && strings.Contains(strings.ToLower(ze.Message), "port conflict") && len(doc.Ports()) == 0
+}
+
+// fixable reports whether a clash is on a port the setup can change.
+func fixable(doc *compose.Doc, used []string) bool {
+	for _, p := range doc.Ports() {
+		if slices.Contains(used, p.Published) {
+			return true
+		}
+	}
+	return false
 }
 
 // Check is a dry run of the install; clashing ports get a free suggestion.
@@ -209,10 +237,19 @@ func (m *Manager) Check(ctx context.Context, id string, ch compose.Choices) (Che
 		return CheckResult{}, err
 	}
 	res, err := m.Zima.Install(ctx, b, "", true)
-	out := CheckResult{PortsInUse: []string{}, Suggest: map[string]string{}}
+	out := CheckResult{PortsInUse: []string{}, Suggest: map[string]string{}, Taken: []string{}}
+	if outsideClash(doc, res, err) {
+		// Nothing in the popup could free them (WatchYourLAN on the host
+		// network, community feedback 2026-11-20): check the rest without.
+		out.Taken = inUse(res)
+		if pm := doc.XString("port_map"); len(out.Taken) == 0 && pm != "" {
+			out.Taken = []string{pm}
+		}
+		res, err = m.Zima.Install(zima.WithoutPortCheck(ctx), b, "", true)
+	}
 	switch {
 	case errors.Is(err, zima.ErrPortsInUse):
-		inUse := append(append([]string{}, res.PortsInUse["TCP"]...), res.PortsInUse["UDP"]...)
+		inUse := inUse(res)
 		out.PortsInUse = inUse
 		for _, p := range doc.Ports() {
 			if slices.Contains(inUse, p.Published) {
@@ -276,6 +313,9 @@ func (m *Manager) Install(ctx context.Context, id string, ch compose.Choices) (J
 		return Job{}, ErrBusy
 	}
 	res, err := m.Zima.Install(ctx, b, a.Icon, false)
+	if outsideClash(doc, res, err) {
+		res, err = m.Zima.Install(zima.WithoutPortCheck(ctx), b, a.Icon, false)
+	}
 	if err != nil {
 		m.release(name)
 		if errors.Is(err, zima.ErrPortsInUse) {

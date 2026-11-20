@@ -20,6 +20,7 @@ import (
 	"github.com/HSinghHira/IceDash/internal/media"
 	"github.com/HSinghHira/IceDash/internal/mods"
 	"github.com/HSinghHira/IceDash/internal/notify"
+	"github.com/HSinghHira/IceDash/internal/places"
 	"github.com/HSinghHira/IceDash/internal/prefs"
 	"github.com/HSinghHira/IceDash/internal/session"
 	"github.com/HSinghHira/IceDash/internal/settings"
@@ -88,6 +89,8 @@ type Server struct {
 	Users UsersFunc
 	// Each user's wallpaper and avatar (nil: not offered).
 	Media *media.Store
+	// The place search for the weather location (nil: not offered).
+	Places *places.Search
 }
 
 // Health is the answer of GET /v2/icedash/health. The updater and the UI poll

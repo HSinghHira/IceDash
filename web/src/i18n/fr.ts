@@ -440,6 +440,10 @@ const fr: Translation = {
   useFreePort: (p) => `Passer à ${p}`,
   portTakenBy: (p, app) => `Le port ${p} est déjà utilisé par ${app}.`,
   portTaken: (p) => `Le port ${p} est déjà utilisé sur ce serveur.`,
+  portsTakenOutside: (ports) =>
+    `Le port ${ports} est déjà utilisé sur ce serveur. Cette app utilise directement le réseau du serveur et ne peut pas changer de port ici. Si elle ne démarre pas, arrête d’abord l’app qui l’utilise.`,
+  pickInterfaces: 'Interfaces réseau de ce serveur :',
+  defaultInterface: 'principale',
   portFreeOffer: (p) => `${p} est libre.`,
   portPickOther: 'Choisis un autre port.',
   data: 'Données',
@@ -537,6 +541,14 @@ const fr: Translation = {
   tempC: '°C',
   tempF: '°F',
   tempHint: 'Pour la carte Météo et tout widget qui affiche des températures.',
+  placeHeading: 'Lieu de la météo',
+  placeFollowsZone: (city) => `La météo est celle de ${city}, la ville de ton fuseau horaire. Cherche ta propre ville pour la changer.`,
+  placeNow: (name) => `La météo est celle de ${name}.`,
+  placePlaceholder: 'Ville ou commune, par ex. Lyon',
+  placeSearch: 'Chercher',
+  placeSearching: 'Recherche…',
+  placeNone: (q) => `Aucun lieu nommé « ${q} ». Essaie le nom de la ville seul.`,
+  placeUseZone: (city) => `Reprendre la ville du fuseau horaire (${city})`,
 }
 
 export default fr

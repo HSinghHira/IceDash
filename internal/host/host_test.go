@@ -45,3 +45,19 @@ func TestDetect(t *testing.T) {
 		t.Error("names")
 	}
 }
+
+func TestDefaultRoute(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "route")
+	write(t, p, "Iface\tDestination\tGateway\tFlags\nbr-1a2b\t0012A8C0\t00000000\t0001\neth3\t00000000\t0144A8C0\t0003\n")
+	if got := defaultRoute(p); got != "eth3" {
+		t.Fatalf("default route %q", got)
+	}
+	if got := defaultRoute(filepath.Join(t.TempDir(), "none")); got != "" {
+		t.Fatalf("no file: %q", got)
+	}
+	for name, want := range map[string]bool{"eth0": false, "enp3s0": false, "docker0": true, "veth12ab": true, "br-1a2b": true, "wlan0": false} {
+		if isVirtual(name) != want {
+			t.Errorf("isVirtual(%q) = %v", name, !want)
+		}
+	}
+}

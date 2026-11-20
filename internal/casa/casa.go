@@ -160,7 +160,7 @@ func (c *Client) Install(ctx context.Context, b []byte, _ string, dryRun bool) (
 	if err != nil {
 		return zima.InstallResult{}, err
 	}
-	q := url.Values{"check_port_conflict": {"true"}}
+	q := url.Values{"check_port_conflict": {strconv.FormatBool(zima.PortCheck(ctx))}}
 	if dryRun {
 		q.Set("dry_run", "true")
 	}

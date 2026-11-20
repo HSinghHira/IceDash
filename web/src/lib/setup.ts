@@ -16,6 +16,7 @@ export function inputLabel(key: string, app: string): string {
   const words = k
     .split(/_+/)
     .filter(Boolean)
+    .map((w) => (/^IFACES?$/.test(w) ? (w.endsWith('S') ? 'network interfaces' : 'network interface') : w))
     .map((w) => (/^(IP|URL|ID|API|SMTP|OIDC|TZ|DNS|LAN|RP|UI|DB|HTTP|HTTPS|SSO)$/.test(w) ? w : w.toLowerCase()))
   if (!words.length) return key
   words[0] = words[0]!.charAt(0).toUpperCase() + words[0]!.slice(1)

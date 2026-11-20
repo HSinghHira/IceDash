@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/HSinghHira/IceDash/internal/host"
 )
 
 // Folded text comes out as a literal block with the same value: ZimaOS can't
@@ -365,5 +367,44 @@ func TestKeepFromFolders(t *testing.T) {
 	}
 	if len(got) != 2 || got["/app/packages/backend/data"] != "/DATA/AppData/autoxpose/db" || got["/series"] != "/media/MEDIAS/SERIES-TV" {
 		t.Errorf("%v", got)
+	}
+}
+
+// WatchYourLAN is on the host network and asks for interfaces (community
+// feedback, 2026-11-20): the default route's is filled in, all are offered.
+func TestSetupInterfaces(t *testing.T) {
+	b, err := os.ReadFile("testdata/watchyourlan.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := Parse(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nics := []host.Iface{{Name: "eth1", Addr: "192.168.1.4"}, {Name: "eth3", Addr: "192.168.1.5", Default: true}}
+	s := d.Setup(Context{Host: "192.168.1.5", Interfaces: nics})
+	var in *Input
+	for i := range s.Inputs {
+		if s.Inputs[i].Key == "IFACES" {
+			in = &s.Inputs[i]
+		}
+	}
+	if in == nil || in.Value != "eth3" || in.Fill != FillAuto || in.Required || !in.Main || len(in.Interfaces) != 2 {
+		t.Fatalf("IFACES: %+v", in)
+	}
+	for _, i := range s.Inputs {
+		if i.Key != "IFACES" && i.Interfaces != nil {
+			t.Errorf("%s offered interfaces", i.Key)
+		}
+	}
+	if len(s.Ports) != 0 || !s.Access.HostNetwork {
+		t.Fatalf("ports %v access %+v", s.Ports, s.Access)
+	}
+	// Without a default route nothing is guessed; the user still picks.
+	s = d.Setup(Context{Host: "192.168.1.5", Interfaces: nics[:1]})
+	for _, i := range s.Inputs {
+		if i.Key == "IFACES" && (!i.Required || len(i.Interfaces) != 1) {
+			t.Fatalf("IFACES without a default: %+v", i)
+		}
 	}
 }

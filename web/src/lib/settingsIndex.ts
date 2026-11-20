@@ -46,6 +46,7 @@ export function settingsIndex(opts: { zimaos: boolean }): SettingHit[] {
     ['clock', strings.clockHeading, 'appearance', `${strings.clock12} ${strings.clock24}`],
     ['window-buttons', strings.windowButtonsHeading, 'appearance', `${strings.windowButtonsDots} ${strings.windowButtonsClassic} ${strings.close} ${strings.maximize}`],
     ['temperature', strings.tempHeading, 'appearance', '°C °F Celsius Fahrenheit'],
+    ['weather-place', strings.placeHeading, 'appearance', 'weather location city town place'],
     ['panel', strings.panelShow, 'appearance', strings.panelHeading],
     ['motion', strings.motionReduce, 'appearance', strings.motionHeading],
     ['p-widgets', strings.settingsWidgets, 'widgets', `${strings.addCollection} ${strings.tabCards(0)}`],

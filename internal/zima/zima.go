@@ -221,6 +221,18 @@ var ErrOldInstall = errors.New("ZimaOS can't change this app, because an older I
 // installed is changed instead, as ZimaOS's own app settings do (PUT
 // /zimaapp/v2app/files/compose); that is how IceStore apps update. Installing
 // over it would fail: its own ports count as in use (measured 2026-11-17).
+type noPortCheck struct{}
+
+// WithoutPortCheck asks Install not to refuse ports in use. IceDash uses it
+// only when the clash is on ports the setup can't change, as with apps on
+// the host network; the stock store installs those too.
+func WithoutPortCheck(ctx context.Context) context.Context {
+	return context.WithValue(ctx, noPortCheck{}, true)
+}
+
+// PortCheck reports whether Install should refuse ports in use.
+func PortCheck(ctx context.Context) bool { return ctx.Value(noPortCheck{}) == nil }
+
 func (c *Client) Install(ctx context.Context, yaml []byte, icon string, dryRun bool) (InstallResult, error) {
 	if !dryRun {
 		if name := projectName(yaml); name != "" {
@@ -235,14 +247,14 @@ func (c *Client) Install(ctx context.Context, yaml []byte, icon string, dryRun b
 	if icon != "" {
 		src["icon"] = icon
 	}
+	opts := map[string]any{"dryRun": dryRun, "checkPortConflict": true, "failureClean": false, "sync": dryRun}
+	if !PortCheck(ctx) {
+		// As the stock store sends it (HOST-NOTES, "Install (store)").
+		opts["checkPortConflict"], opts["autoResolvePortConflicts"] = false, true
+	}
 	body := map[string]any{
-		"type": "v2app",
-		"v2app": map[string]any{
-			"source": src,
-			"options": map[string]any{
-				"dryRun": dryRun, "checkPortConflict": true, "failureClean": false, "sync": dryRun,
-			},
-		},
+		"type":  "v2app",
+		"v2app": map[string]any{"source": src, "options": opts},
 	}
 	raw, status, err := c.raw(ctx, http.MethodPost, "/zimaapp/install", body)
 	if err != nil {

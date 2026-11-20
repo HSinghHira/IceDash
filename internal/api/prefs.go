@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/HSinghHira/IceDash/internal/media"
+	"github.com/HSinghHira/IceDash/internal/places"
 	"github.com/HSinghHira/IceDash/internal/prefs"
 	"github.com/HSinghHira/IceDash/internal/session"
 	"github.com/chicohaager/lintux-modkit/httpx"
@@ -32,6 +33,9 @@ func (s *Server) prefsRoutes(mux *http.ServeMux, user func(http.HandlerFunc) htt
 	}
 	if s.Users != nil {
 		mux.Handle("GET "+Route+"/users", user(s.users))
+	}
+	if s.Places != nil {
+		mux.Handle("GET "+Route+"/places", user(s.findPlaces))
 	}
 	if s.Media != nil && s.Prefs != nil {
 		for _, k := range []media.Kind{media.Wallpaper, media.Avatar} {
@@ -155,3 +159,27 @@ func (s *Server) users(w http.ResponseWriter, r *http.Request) {
 
 // UsersFunc reads the system's accounts with the signed-in user's token.
 type UsersFunc func(ctx context.Context, token string) ([]Account, error)
+
+// findPlaces looks up towns by name for the weather location.
+func (s *Server) findPlaces(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	found, err := s.Places.Find(ctx, r.URL.Query().Get("q"), r.URL.Query().Get("lang"))
+	if errors.Is(err, places.ErrQuery) {
+		httpx.WriteError(w, http.StatusBadRequest, "bad_query", err.Error())
+		return
+	}
+	if err != nil {
+		httpx.WriteError(w, http.StatusBadGateway, "places_unreachable", err.Error())
+		return
+	}
+	type item struct {
+		places.Place
+		Label string `json:"label"`
+	}
+	out := make([]item, 0, len(found))
+	for _, p := range found {
+		out = append(out, item{p, p.Label()})
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": out})
+}

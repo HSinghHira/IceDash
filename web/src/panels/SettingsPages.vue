@@ -52,6 +52,33 @@ async function save(change: Partial<ice.Prefs>, title: string) {
   if (err) toast({ title, body: err })
 }
 
+// ---- the weather's place ----
+const placeQuery = ref('')
+const placeResults = ref<ice.FoundPlace[]>([])
+const placeNone = ref('')
+const placeBusy = ref(false)
+async function searchPlaces() {
+  const q = placeQuery.value.trim()
+  if (q.length < 2 || placeBusy.value) return
+  placeBusy.value = true
+  placeNone.value = ''
+  try {
+    placeResults.value = await ice.findPlaces(q, uiLang())
+    if (!placeResults.value.length) placeNone.value = q
+  } catch (e) {
+    placeResults.value = []
+    toast({ title: strings.placeHeading, body: e instanceof Error ? e.message : String(e) })
+  } finally {
+    placeBusy.value = false
+  }
+}
+async function pickPlace(p: ice.FoundPlace) {
+  placeResults.value = []
+  placeQuery.value = ''
+  await save({ place: { name: p.label, lat: p.lat, lon: p.lon } }, strings.placeHeading)
+}
+const clearPlace = () => save({ place: ice.noPlace() }, strings.placeHeading)
+
 // ---- General ----
 const settings = ref<ice.Settings | null>(null)
 async function loadSettings() {
@@ -546,6 +573,27 @@ watch(() => props.page, enter)
       </button>
     </div>
     <p class="mut small">{{ strings.tempHint }}</p>
+
+    <h3 class="kicker" data-setting="weather-place">{{ strings.placeHeading }}</h3>
+    <p class="mut small">
+      <template v-if="prefs.place.name">{{ strings.placeNow(prefs.place.name) }}</template>
+      <template v-else>{{ strings.placeFollowsZone(cityOf(zone)) }}</template>
+    </p>
+    <form class="addpin" role="search" @submit.prevent="searchPlaces">
+      <input v-model="placeQuery" class="place-q" type="search" :placeholder="strings.placePlaceholder" :aria-label="strings.placeHeading" autocomplete="off" />
+      <button type="submit" class="ghost" :disabled="placeQuery.trim().length < 2 || placeBusy">
+        <Icon name="search" :size="15" /> {{ placeBusy ? strings.placeSearching : strings.placeSearch }}
+      </button>
+    </form>
+    <ul v-if="placeResults.length" class="places" :aria-label="strings.placeHeading">
+      <li v-for="p in placeResults" :key="`${p.lat},${p.lon}`">
+        <button type="button" class="place" @click="pickPlace(p)">
+          <Icon name="map" :size="15" /> <span>{{ p.label }}</span>
+        </button>
+      </li>
+    </ul>
+    <p v-else-if="placeNone" class="mut small">{{ strings.placeNone(placeNone) }}</p>
+    <button v-if="prefs.place.name" type="button" class="link" @click="clearPlace">{{ strings.placeUseZone(cityOf(zone)) }}</button>
 
     <div class="rows">
       <div class="row">
@@ -1050,6 +1098,43 @@ h2 {
   gap: 10px;
   flex-wrap: wrap;
   margin-top: 12px;
+}
+.place-q {
+  flex: 1;
+  min-width: 0;
+  max-width: 320px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(var(--surface-rgb), 0.9);
+  color: var(--text);
+  font: inherit;
+}
+.places {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.place {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 460px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(var(--fg-rgb), 0.03);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.place:hover,
+.place:focus-visible {
+  border-color: var(--ac);
 }
 .addpin select {
   min-width: 200px;

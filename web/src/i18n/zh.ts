@@ -438,6 +438,9 @@ const zh: Translation = {
   useFreePort: (p) => `改用 ${p}`,
   portTakenBy: (p, app) => `端口 ${p} 已被 ${app} 使用。`,
   portTaken: (p) => `端口 ${p} 在此服务器上已被占用。`,
+  portsTakenOutside: (ports) => `端口 ${ports} 已在此服务器上使用。此应用直接使用服务器的网络，无法在这里换用其他端口。如果它无法启动，请先停止占用该端口的应用。`,
+  pickInterfaces: '此服务器的网络接口：',
+  defaultInterface: '主',
   portFreeOffer: (p) => `${p} 可用。`,
   portPickOther: '请选择其他端口。',
   data: '数据',
@@ -534,6 +537,14 @@ const zh: Translation = {
   tempC: '°C',
   tempF: '°F',
   tempHint: '用于天气卡片以及任何显示温度的小组件。',
+  placeHeading: '天气位置',
+  placeFollowsZone: (city) => `天气显示的是 ${city}，即你所在时区的城市。搜索你自己的城镇即可更改。`,
+  placeNow: (name) => `天气显示的是 ${name}。`,
+  placePlaceholder: '城镇或城市，例如 杭州',
+  placeSearch: '搜索',
+  placeSearching: '正在搜索…',
+  placeNone: (q) => `没有找到名为“${q}”的地点。请只输入地名再试。`,
+  placeUseZone: (city) => `重新使用时区的城市（${city}）`,
 }
 
 export default zh

@@ -9,7 +9,9 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/HSinghHira/IceDash/internal/state"
 )
@@ -39,6 +41,29 @@ type Prefs struct {
 	// TempUnit is for temperatures, widgets' too: "" follows the browser
 	// (°F for en-US), "c", "f".
 	TempUnit string `json:"temp_unit"`
+	// Place is where the weather is for (community feedback, 2026-11-20);
+	// the zero value follows the clock's time zone.
+	Place Place `json:"place"`
+}
+
+// Place is a town picked in Settings, with its coordinates.
+type Place struct {
+	Name string  `json:"name"` // as the list showed it: "Everett, Washington, United States"
+	Lat  float64 `json:"lat"`
+	Lon  float64 `json:"lon"`
+}
+
+func (p Place) check() error {
+	if p.Name == "" {
+		if p.Lat != 0 || p.Lon != 0 {
+			return ErrInvalid
+		}
+		return nil
+	}
+	if len(p.Name) > 200 || strings.ContainsFunc(p.Name, unicode.IsControl) || p.Lat < -90 || p.Lat > 90 || p.Lon < -180 || p.Lon > 180 {
+		return ErrInvalid
+	}
+	return nil
 }
 
 // Langs are the languages the UI comes in.
@@ -111,6 +136,9 @@ func (p *Prefs) Check() error {
 	if !slices.Contains(AvatarStyles, p.AvatarStyle) || !seedRx.MatchString(p.AvatarSeed) || !slices.Contains(Langs, p.Lang) ||
 		!slices.Contains([]string{"", "classic"}, p.WindowButtons) || !slices.Contains([]string{"", "c", "f"}, p.TempUnit) {
 		return ErrInvalid
+	}
+	if err := p.Place.check(); err != nil {
+		return err
 	}
 	return p.Wallpaper.check()
 }
