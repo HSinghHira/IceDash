@@ -123,9 +123,7 @@ function towardDock(node: Element) {
   display: flex;
   flex-direction: column;
   border-radius: 18px;
-  background:
-    radial-gradient(120% 60% at 100% 0%, rgba(var(--ac-rgb), 0.12), transparent 55%),
-    rgba(var(--surface-rgb), 0.92);
+  background: rgba(var(--surface-rgb), 0.92);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--line);

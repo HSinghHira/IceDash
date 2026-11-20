@@ -388,10 +388,8 @@ kbd {
 }
 .results .ghead {
   padding: 10px 10px 4px;
-  color: var(--ac2);
-  font: 700 10.5px var(--font-mono);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  color: var(--mut);
+  font: 500 12px var(--font);
   cursor: default;
 }
 .results .txt {

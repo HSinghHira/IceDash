@@ -167,12 +167,9 @@ const idx = (f: api.Field) => creds.value?.fields.indexOf(f) ?? -1
 }
 .kicker {
   margin: 0 0 2px;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--ac2);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mut);
 }
 h3 {
   margin: 0;

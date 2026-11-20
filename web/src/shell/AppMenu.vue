@@ -205,10 +205,10 @@ onBeforeUnmount(() => {
   font-size: 10.5px;
 }
 .name {
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ac2);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
 }
 .state {
   display: inline-flex;

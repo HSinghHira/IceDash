@@ -164,10 +164,9 @@ h3 {
   margin: 0;
 }
 .versions dt {
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ac2);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mut);
 }
 .versions dd {
   margin: 2px 0 0;
@@ -220,11 +219,9 @@ h3 {
 }
 .notes h4 {
   margin: 0 0 4px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ac2);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mut);
 }
 .notes p {
   margin: 0;

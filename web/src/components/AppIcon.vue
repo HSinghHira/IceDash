@@ -39,7 +39,7 @@ watch(
   display: grid;
   place-items: center;
   border-radius: var(--radius-tile);
-  background: linear-gradient(145deg, rgba(var(--ac-rgb), 0.28), rgba(var(--ac-rgb), 0.08));
+  background: rgba(var(--ac-rgb), 0.14);
   border: 1px solid var(--line);
   color: var(--ac2);
   font-family: var(--font-display);

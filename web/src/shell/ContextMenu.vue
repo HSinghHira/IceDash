@@ -113,10 +113,8 @@ onBeforeUnmount(() => {
 }
 .head {
   padding: 7px 10px 6px;
-  color: var(--ac2);
-  font: 700 10.5px var(--font-mono);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  color: var(--mut);
+  font: 500 12px var(--font);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

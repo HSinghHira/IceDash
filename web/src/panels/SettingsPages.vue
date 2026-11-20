@@ -847,11 +847,9 @@ h2 {
   font-family: var(--font-mono);
 }
 .kicker {
-  margin: 24px 0 10px;
-  color: var(--ac2);
-  font: 600 11px var(--font-mono);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  margin: 24px 0 8px;
+  color: var(--mut);
+  font: 500 12px var(--font);
 }
 .rows {
   display: grid;

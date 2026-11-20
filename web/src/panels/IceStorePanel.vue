@@ -444,12 +444,9 @@ const views = computed(() => [
   min-width: 0;
 }
 .kicker {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ac2);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mut);
 }
 .title {
   font-size: 15px;
