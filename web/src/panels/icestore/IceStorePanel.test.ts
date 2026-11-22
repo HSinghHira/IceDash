@@ -23,9 +23,10 @@ const app = (id: string, o: Partial<CatalogApp> = {}): CatalogApp => ({
 })
 
 const apps = [
-  app('alpha', { stars: 10, added: 100 }),
-  app('beta', { stars: 500, added: 300, featured: true, thumbnail: 'https://x/beta.webp' }),
-  app('gamma', { stars: 50, added: 200 }),
+  app('alpha', { stars: 10, forks: 40, added: 100, thumbnail: 'https://x/alpha.webp' }),
+  app('beta', { stars: 500, forks: 20, added: 300, featured: true, thumbnail: 'https://x/beta.webp' }),
+  app('gamma', { stars: 50, added: 200, thumbnail: 'https://x/gamma.webp' }),
+  app('plain', { stars: 9000, forks: 9000 }),
   app('intelonly', { architectures: ['amd64'] }),
 ]
 
@@ -63,12 +64,12 @@ afterEach(() => {
 describe('IceStore', () => {
   it('sorts the list as chosen', async () => {
     const w = mount(IceStorePanel)
-    expect(cardIds(w)).toEqual(['com.icestore.alpha', 'com.icestore.beta', 'com.icestore.gamma'])
+    expect(cardIds(w)).toEqual(['com.icestore.alpha', 'com.icestore.beta', 'com.icestore.gamma', 'com.icestore.plain'])
     await w.find('.sort select').setValue('stars')
     expect(iceStoreSort.value).toBe('stars')
-    expect(cardIds(w)).toEqual(['com.icestore.beta', 'com.icestore.gamma', 'com.icestore.alpha'])
+    expect(cardIds(w)).toEqual(['com.icestore.plain', 'com.icestore.beta', 'com.icestore.gamma', 'com.icestore.alpha'])
     await w.find('.sort select').setValue('za')
-    expect(cardIds(w)).toEqual(['com.icestore.gamma', 'com.icestore.beta', 'com.icestore.alpha'])
+    expect(cardIds(w)).toEqual(['com.icestore.plain', 'com.icestore.gamma', 'com.icestore.beta', 'com.icestore.alpha'])
   })
 
   it('opens on Discover: the featured banner, rows, and categories', async () => {
@@ -77,13 +78,16 @@ describe('IceStore', () => {
     expect(w.find('.hero-card .info').attributes('data-app')).toBe('com.icestore.beta')
     const rows = w.findAll('.showcase')
     expect(rows.map((r) => r.find('h3').text())).toEqual(['Popular', 'New in IceStore'])
+    // Rows show screenshots: plain, with none, is left out though it has the most stars.
     expect(rows[0]!.findAll('.tile').map((t) => t.attributes('data-app'))).toEqual(['com.icestore.beta', 'com.icestore.gamma', 'com.icestore.alpha'])
-    expect(w.findAll('.cat-tile').map((c) => c.text())).toEqual(['Tools3'])
+    expect(w.find('.ranked h3').text()).toBe('Most forked')
+    expect(w.findAll('.ranked .entry').map((e) => e.attributes('data-app'))).toEqual(['com.icestore.alpha', 'com.icestore.beta'])
+    expect(w.findAll('.cat-tile').map((c) => c.text())).toEqual(['Tools4'])
     // See all on Popular: every app, most stars first.
     await rows[0]!.find('.link').trigger('click')
     expect(iceStoreView.value).toBe('all')
     expect(iceStoreSort.value).toBe('stars')
-    expect(cardIds(w)).toEqual(['com.icestore.beta', 'com.icestore.gamma', 'com.icestore.alpha'])
+    expect(cardIds(w)).toEqual(['com.icestore.plain', 'com.icestore.beta', 'com.icestore.gamma', 'com.icestore.alpha'])
   })
 
   it('searching on Discover lists the matches', async () => {

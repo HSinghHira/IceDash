@@ -12,6 +12,8 @@ import { act, button, installedOf } from './actions'
 
 const props = defineProps<{
   title: string
+  /** A short line under the title. */
+  hint?: string
   apps: CatalogApp[]
   /** What the small line under each name shows. */
   fact?: 'stars' | 'added' | 'updated'
@@ -35,7 +37,10 @@ function factOf(a: CatalogApp): string {
 <template>
   <section class="showcase" :aria-label="title">
     <header class="sec-head">
-      <h3>{{ title }}</h3>
+      <div>
+        <h3>{{ title }}</h3>
+        <p v-if="hint" class="hint">{{ hint }}</p>
+      </div>
       <span class="tools">
         <button type="button" class="link" @click="$emit('all')">{{ strings.seeAll }}</button>
         <button type="button" class="arrow" :aria-label="strings.previous" @click="step(-1)"><Icon name="arrowLeft" :size="15" /></button>
@@ -79,11 +84,16 @@ function factOf(a: CatalogApp): string {
 <style scoped src="./shared.css"></style>
 <style scoped>
 .showcase {
-  margin-top: 34px;
+  margin-top: 40px;
+}
+.hint {
+  margin: 3px 0 0;
+  color: var(--mut);
+  font-size: 12.5px;
 }
 .sec-head {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 14px;

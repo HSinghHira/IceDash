@@ -463,6 +463,13 @@ export const strings = {
   recentlyUpdated: 'Recently updated',
   browseCategories: 'Browse by category',
   searchResults: (q: string) => `Results for “${q}”`,
+  statApps: 'Apps',
+  popularHint: 'The most-starred projects on GitHub',
+  mostForked: 'Most forked',
+  mostForkedHint: 'Projects people build on the most',
+  newHint: 'Just arrived in IceStore',
+  updatedHint: 'Fresh versions of apps',
+  bundlesShort: 'Apps that work well together, set up one after the other',
   sortBy: 'Sort',
   sortNames: {
     az: 'A–Z',

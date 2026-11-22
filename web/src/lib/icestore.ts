@@ -92,6 +92,12 @@ export const updatedApps = (all: CatalogApp[], n = 10) => sortApps(all.filter((a
 /** The n most-starred apps. Empty when the index has no stars. */
 export const popularApps = (all: CatalogApp[], n = 10) => sortApps(all.filter((a) => a.stars != null), 'stars').slice(0, n)
 
+/** The n most-forked apps. Empty when the index has no forks. */
+export const forkedApps = (all: CatalogApp[], n = 10) => sortApps(all.filter((a) => (a.forks ?? 0) > 0), 'forks').slice(0, n)
+
+/** The apps with a screenshot to show, for the picture-led rows. */
+export const withShots = (all: CatalogApp[]) => all.filter((a) => a.thumbnail)
+
 /** 950 → "950", 12345 → "12.3k", 1520000 → "1.5M". */
 export function shortNum(n: number): string {
   if (!Number.isFinite(n)) return '–'

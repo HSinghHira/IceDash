@@ -47,6 +47,23 @@ onBeforeUnmount(() => clearInterval(timer))
     <div class="art" :class="{ empty: !app.thumbnail }">
       <img v-if="app.thumbnail" :key="app.id" class="thumb" :src="app.thumbnail" alt="" referrerpolicy="no-referrer" />
       <AppIcon v-else :src="app.icon" :name="app.title" :size="96" />
+      <div v-if="n > 1" class="controls">
+        <span class="dots" role="tablist">
+          <button
+            v-for="(a, k) in apps"
+            :key="a.id"
+            type="button"
+            role="tab"
+            class="dot"
+            :class="{ on: k === i }"
+            :aria-selected="k === i"
+            :aria-label="a.title"
+            @click.stop="i = k"
+          />
+        </span>
+        <button type="button" class="arrow" :aria-label="strings.previous" @click.stop="go(-1)"><Icon name="arrowLeft" :size="15" /></button>
+        <button type="button" class="arrow" :aria-label="strings.next" @click.stop="go(1)"><Icon name="arrowRight" :size="15" /></button>
+      </div>
     </div>
     <div class="info" :data-app="app.id">
       <AppIcon :src="app.icon" :name="app.title" :size="52" />
@@ -60,23 +77,6 @@ onBeforeUnmount(() => clearInterval(timer))
       <button v-if="b" type="button" class="pill" :class="b.kind" :disabled="b.disabled" :title="b.title" @click.stop="act(app)">
         {{ b.label }}
       </button>
-    </div>
-    <div v-if="n > 1" class="controls">
-      <span class="dots" role="tablist">
-        <button
-          v-for="(a, k) in apps"
-          :key="a.id"
-          type="button"
-          role="tab"
-          class="dot"
-          :class="{ on: k === i }"
-          :aria-selected="k === i"
-          :aria-label="a.title"
-          @click.stop="i = k"
-        />
-      </span>
-      <button type="button" class="arrow" :aria-label="strings.previous" @click.stop="go(-1)"><Icon name="arrowLeft" :size="15" /></button>
-      <button type="button" class="arrow" :aria-label="strings.next" @click.stop="go(1)"><Icon name="arrowRight" :size="15" /></button>
     </div>
   </section>
 </template>
@@ -165,8 +165,8 @@ onBeforeUnmount(() => clearInterval(timer))
 }
 .controls {
   position: absolute;
-  top: 12px;
   right: 12px;
+  bottom: 12px;
   z-index: 2;
   display: flex;
   align-items: center;
