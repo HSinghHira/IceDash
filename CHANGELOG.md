@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **A better-looking IceStore.** All apps opens on a **Featured** row, with a screenshot of each app, and **Recently added**. A new **Sort** menu next to the search lists apps A–Z, Z–A, newest first, recently updated, or by the most GitHub stars or forks; IceDash remembers your choice. Cards show stars and forks, and say when an app is installed or has an update.
+- **Bigger app pages.** An app's page shows its stars, forks, when it was added and last updated, the memory it needs and the CPUs it runs on. Click a screenshot to see it full size, and step through them with the arrow keys. At the bottom are the bundles it belongs to and more apps from its category.
+- **Uninstall from IceStore.** An installed app's page has an **Uninstall** button next to Open, with the same question about its data as the right-click menu.
+- **Update all.** The Updates list has an **Update all** button that updates every waiting app, one after the other.
+- **Only apps for your server.** Apps that don't list your server's CPU (for example amd64-only apps on an ARM board) are hidden, with a count and a **Show apps for other devices** box to list them anyway.
+
 ## v1.2.4 (2026-11-20)
 
 - **A live demo.** Try IceDash in your browser at [icedash.hsinghhira.me/demo/](https://icedash.hsinghhira.me/demo/), with no server: a sample desktop with IceStore apps like WatchYourLAN, Ente and AppFlowy, installs from the real IceStore catalog, Files, a small Terminal, Settings, and the official themes and weather card. Nothing is installed anywhere; apps in the demo show what they are instead of running.

@@ -11,12 +11,15 @@ export interface HostInfo {
   id: 'zimaos' | 'casaos'
   name: string
   stock: string
+  /** The box's CPU as Go names it (amd64, arm64); '' until health answers. */
+  arch: string
 }
 
-export const host = reactive<HostInfo>({ id: 'zimaos', name: 'ZimaOS', stock: '/' })
+export const host = reactive<HostInfo>({ id: 'zimaos', name: 'ZimaOS', stock: '/', arch: '' })
 
-export function setHost(h: { host?: string; host_name?: string; stock_url?: string }) {
+export function setHost(h: { host?: string; host_name?: string; stock_url?: string; arch?: string }) {
   if (h.host === 'casaos' || h.host === 'zimaos') host.id = h.host
+  if (h.arch) host.arch = h.arch
   if (h.host_name) host.name = h.host_name
   if (h.stock_url && h.stock_url.startsWith('/')) host.stock = h.stock_url
 }

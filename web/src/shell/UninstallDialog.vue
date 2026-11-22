@@ -103,7 +103,7 @@ footer {
 }
 .danger {
   border: 0;
-  background: #ff6b6b;
+  background: var(--danger);
   color: #1a0505;
 }
 .btn:disabled {

@@ -18,6 +18,13 @@ export interface CatalogApp {
   thumbnail: string
   version: string
   content_hash: string
+  /** From the IceStore site build; an older index has none of these. */
+  stars?: number
+  forks?: number
+  /** Unix seconds: when the app joined IceStore, and its last version bump. */
+  added?: number
+  updated?: number
+  featured?: boolean
 }
 
 export interface CatalogList {

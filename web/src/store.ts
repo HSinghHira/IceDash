@@ -7,6 +7,7 @@ import * as ice from './api/icedash'
 import * as zima from './api/zimaos'
 import { toApps, type App } from './lib/apps'
 import { host, setHost } from './lib/host'
+import { isSortKey, type SortKey } from './lib/icestore'
 import type { IconName } from './lib/icons'
 import { applyTheme, FROST, FROST_ID } from './lib/theme'
 import { poll, type Poller } from './lib/poll'
@@ -652,6 +653,71 @@ export function nextInBundle(installed: boolean) {
 export function stopBundle() {
   bundleRun.value = null
   setupFor.value = null
+}
+
+// ---- IceStore: sort, other devices, update all ----
+const SORT_KEY = 'icedash.icestore.sort'
+const OTHER_KEY = 'icedash.icestore.otherDevices'
+function remembered(key: string): string | null {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+function remember(key: string, v: string) {
+  try {
+    localStorage.setItem(key, v)
+  } catch {
+    // no storage: the choice lasts until the page reloads
+  }
+}
+const savedSort = remembered(SORT_KEY)
+/** The IceStore list order; this browser remembers it. */
+export const iceStoreSort = ref<SortKey>(isSortKey(savedSort) ? savedSort : 'az')
+watch(iceStoreSort, (v) => remember(SORT_KEY, v))
+/** Also list apps that don't run on this box's CPU. */
+export const showOtherDevices = ref(remembered(OTHER_KEY) === '1')
+watch(showOtherDevices, (v) => remember(OTHER_KEY, v ? '1' : '0'))
+
+/** A job's end (done or failed), or after max ms. */
+function jobEnds(name: string, max = 30 * 60_000): Promise<void> {
+  return new Promise((resolve) => {
+    let stop: (() => void) | undefined
+    const finish = () => {
+      stop?.()
+      clearTimeout(timer)
+      resolve()
+    }
+    const timer = setTimeout(finish, max)
+    stop = watch(
+      () => jobFor(name)?.state,
+      (s) => {
+        if (s !== 'running') finish()
+      },
+    )
+    if (jobFor(name)?.state !== 'running') finish()
+  })
+}
+
+/** Update all, running: how far along. */
+export const updateRun = ref<{ done: number; total: number } | null>(null)
+/** Updates the named apps one after the other, each once the one before ends. */
+export async function updateAll(names: string[]) {
+  if (updateRun.value || !names.length) return
+  const run = (updateRun.value = { done: 0, total: names.length })
+  for (const name of names) {
+    try {
+      trackJob(await appsApi.updateApp(name))
+      await jobEnds(name)
+    } catch (e) {
+      toast({ title: strings.update, body: `${name}: ${e instanceof Error ? e.message : String(e)}` })
+    }
+    run.done++
+    updateRun.value = { ...run }
+  }
+  updateRun.value = null
+  toast({ title: strings.updateAllDone(run.total), body: '' })
 }
 
 export function openIceStore(view = 'all') {

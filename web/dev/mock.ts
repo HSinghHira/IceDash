@@ -84,7 +84,10 @@ const SITE = 'https://icestore.hsinghhira.me'
 let indexCache: unknown = null
 async function catalog() {
   if (!indexCache) {
-    const idx = (await (await fetch(`${SITE}/index.json`)).json()) as { apps: Record<string, string>[]; updated_at: string }
+    // ICEDASH_MOCK_INDEX: a local index.json instead (say, from a test build of the IceStore site)
+    const local = process.env.ICEDASH_MOCK_INDEX
+    const raw = local ? (await import('node:fs')).readFileSync(local, 'utf8') : await (await fetch(`${SITE}/index.json`)).text()
+    const idx = JSON.parse(raw) as { apps: Record<string, string>[]; updated_at: string }
     for (const a of idx.apps) {
       a.name = a.id!.replace('com.icestore.', '')
       for (const k of ['icon', 'thumbnail', 'meta_url', 'compose_url']) if (a[k]?.startsWith('/')) a[k] = SITE + a[k]

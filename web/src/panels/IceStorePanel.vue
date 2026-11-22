@@ -1,61 +1,75 @@
 <script setup lang="ts">
 // The built-in IceStore (mock-up screen 2, behind the popup): categories on
-// the left, search, app cards with Install / Open / Update, and an app page.
+// the left; search and sort; Featured and Recently added on All apps; app
+// cards with Install / Open / Update; and an app page (icestore/AppPage.vue).
 import { computed, ref, watch } from 'vue'
 import * as api from '../api/apps'
 import AppIcon from '../components/AppIcon.vue'
 import Icon from '../components/Icon.vue'
 import { availableBundles } from '../lib/bundles'
-import { bytes } from '../lib/format'
+import { ago } from '../lib/format'
 import { dashboardUrl } from '../lib/host'
-import { markdown } from '../lib/markdown'
+import { featuredApps, newestApps, SORTS, sortApps } from '../lib/icestore'
 import {
-  appInfo,
-  apps,
   catalogError,
   catalogList,
   iceStoreFocus,
+  iceStoreSort,
   iceStoreView,
-  jobFor,
   loadCatalog,
-  openApp,
-  setupFor,
+  showOtherDevices,
   startBundle,
-  toast,
-  trackJob,
-  user,
+  updateAll,
+  updateRun,
 } from '../store'
 import { strings } from '../strings'
+import { admin, fitsHere, installedOf } from './icestore/actions'
+import AppPage from './icestore/AppPage.vue'
+import FeaturedRow from './icestore/FeaturedRow.vue'
+import StoreCard from './icestore/StoreCard.vue'
 
 const query = ref('')
 const page = ref<{ app: api.CatalogApp; meta: api.Meta } | null>(null)
 const pageError = ref('')
 const refreshing = ref(false)
-const admin = computed(() => !!user.value?.admin)
 
 const all = computed(() => catalogList.value?.apps ?? [])
+/** The apps this box lists: all of them, or only those for its CPU. */
+const shown = computed(() => (showOtherDevices.value ? all.value : all.value.filter(fitsHere)))
+const hiddenCount = computed(() => all.value.length - shown.value.length)
+
 const categories = computed(() => {
   const seen = new Map<string, number>()
-  for (const a of all.value) if (a.category) seen.set(a.category, (seen.get(a.category) ?? 0) + 1)
+  for (const a of shown.value) if (a.category) seen.set(a.category, (seen.get(a.category) ?? 0) + 1)
   return [...seen.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([name, n]) => ({ name, n }))
 })
 
-/** The installed copy of a catalog app, by its store id. */
-const installedOf = (a: api.CatalogApp) => Object.values(appInfo.value).find((i) => i.store_id === a.id)
-
+const searching = computed(() => !!query.value.trim())
 const list = computed(() => {
   const q = query.value.trim().toLowerCase()
-  let l = all.value
   const v = iceStoreView.value
+  // Installed and Updates show every app the box has, whatever its CPU list says.
+  let l = v === 'installed' || v === 'updates' ? all.value : shown.value
   if (v === 'installed') l = l.filter((a) => installedOf(a))
   else if (v === 'updates') l = l.filter((a) => installedOf(a)?.update)
   else if (v !== 'all') l = l.filter((a) => a.category === v)
   if (q)
     l = l.filter((a) =>
-      [a.title, a.tagline, a.category, a.developer].some((s) => (s ?? '').toLowerCase().includes(q)),
+      [a.title, a.tagline, a.category, a.developer, ...(a.categories ?? [])].some((s) => (s ?? '').toLowerCase().includes(q)),
     )
-  return [...l].sort((a, b) => a.title.localeCompare(b.title, 'en', { sensitivity: 'base' }))
+  return sortApps(l, iceStoreSort.value)
 })
+/** Cards show the date the list is sorted by. */
+const cardDate = computed(() => (iceStoreSort.value === 'newest' ? 'added' : iceStoreSort.value === 'updated' ? 'updated' : undefined))
+
+// All apps, no search: Featured and Recently added above the list.
+const home = computed(() => iceStoreView.value === 'all' && !searching.value)
+const featured = computed(() => featuredApps(shown.value))
+const newest = computed(() => newestApps(shown.value, 8))
+function seeNewest() {
+  iceStoreSort.value = 'newest'
+  document.querySelector('.store .all-head')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 // ---- Phase 5b: bundles ----
 const bundles = computed(() => {
@@ -64,12 +78,13 @@ const bundles = computed(() => {
     .map((x) => ({ ...x, words: strings.bundles[x.bundle.id] ?? { name: x.bundle.id, about: '' }, have: x.apps.filter((a) => installedOf(a)).length }))
     .filter((x) => !q || [x.words.name, x.words.about, ...x.apps.map((a) => a.title)].some((s) => s.toLowerCase().includes(q)))
 })
-function installBundle(id: string, ids: string[]) {
-  startBundle(id, ids)
-}
 
-const updatesCount = computed(() => all.value.filter((a) => installedOf(a)?.update).length)
+const updatable = computed(() => all.value.filter((a) => installedOf(a)?.update))
+const updatesCount = computed(() => updatable.value.length)
 const installedCount = computed(() => all.value.filter((a) => installedOf(a)).length)
+function runUpdateAll() {
+  void updateAll(updatable.value.map((a) => installedOf(a)!.name))
+}
 
 watch(iceStoreView, () => (page.value = null))
 // Opened from search on one app: its page.
@@ -90,7 +105,8 @@ async function show(a: api.CatalogApp) {
   pageError.value = ''
   page.value = { app: a, meta: { description: '', screenshot_link: [] } as unknown as api.Meta }
   try {
-    page.value = await api.catalogApp(a.id)
+    const p = await api.catalogApp(a.id)
+    if (page.value?.app.id === a.id) page.value = p
   } catch (e) {
     pageError.value = e instanceof Error ? e.message : String(e)
   }
@@ -102,36 +118,8 @@ async function refresh() {
   refreshing.value = false
 }
 
-type Btn = { label: string; kind: 'install' | 'open' | 'update' | 'busy'; disabled?: boolean }
-function button(a: api.CatalogApp): Btn {
-  const inst = installedOf(a)
-  const job = jobFor(a.name)
-  if (job?.state === 'running') return { label: job.kind === 'update' ? strings.updatingApp : strings.installing, kind: 'busy', disabled: true }
-  if (inst?.update) return { label: strings.update, kind: 'update', disabled: !admin.value }
-  if (inst) return { label: strings.openApp, kind: 'open' }
-  return { label: strings.install, kind: 'install', disabled: !admin.value }
-}
-
-async function act(a: api.CatalogApp) {
-  const b = button(a)
-  if (b.kind === 'install') setupFor.value = a.id
-  else if (b.kind === 'open') {
-    const grid = apps.value.find((x) => x.id === installedOf(a)?.name)
-    if (grid) openApp(grid)
-  } else if (b.kind === 'update') {
-    const inst = installedOf(a)
-    if (!inst) return
-    try {
-      trackJob(await api.updateApp(inst.name))
-      toast({ title: strings.updatingApp, body: a.title })
-    } catch (e) {
-      toast({ title: strings.update, body: e instanceof Error ? e.message : String(e) })
-    }
-  }
-}
-
 const views = computed(() => [
-  { id: 'all', name: strings.allApps, n: all.value.length },
+  { id: 'all', name: strings.allApps, n: shown.value.length },
   ...categories.value.map((c) => ({ id: c.name, name: c.name, n: c.n })),
 ])
 </script>
@@ -147,7 +135,7 @@ const views = computed(() => [
         :class="{ on: iceStoreView === v.id }"
         @click="iceStoreView = v.id"
       >
-        {{ v.name }}
+        {{ v.name }} <span class="n">{{ v.n }}</span>
       </button>
       <span class="sep" />
       <button type="button" class="cat" :class="{ on: iceStoreView === 'bundles' }" @click="iceStoreView = 'bundles'">
@@ -168,7 +156,13 @@ const views = computed(() => [
             <Icon name="search" :size="16" />
             <input v-model="query" type="search" :placeholder="strings.searchIceStore" :aria-label="strings.searchIceStore" />
           </label>
-          <button type="button" class="ghost" :disabled="refreshing" :title="strings.refresh" @click="refresh">
+          <label v-if="iceStoreView !== 'bundles'" class="ghost sort" :title="strings.sortBy">
+            <Icon name="sort" :size="16" />
+            <select v-model="iceStoreSort" :aria-label="strings.sortBy">
+              <option v-for="k in SORTS" :key="k" :value="k">{{ strings.sortNames[k] }}</option>
+            </select>
+          </label>
+          <button type="button" class="ghost" :disabled="refreshing" :title="strings.refresh" :aria-label="strings.refresh" @click="refresh">
             <Icon name="refresh" :size="17" :class="{ spin: refreshing }" />
           </button>
           <a class="ghost wide" :href="dashboardUrl()" target="_blank" rel="noopener">
@@ -176,6 +170,7 @@ const views = computed(() => [
           </a>
         </div>
         <p v-if="catalogError" class="warn small">{{ catalogList ? strings.catalogOffline(catalogError) : catalogError }}</p>
+
         <template v-if="iceStoreView === 'bundles'">
           <p class="mut small">{{ strings.bundlesHint }}</p>
           <ul class="bundles">
@@ -192,7 +187,7 @@ const views = computed(() => [
                   :class="b.have === b.apps.length ? 'open' : 'install'"
                   :disabled="!admin || b.have === b.apps.length"
                   :title="!admin ? strings.adminInstallOnly : undefined"
-                  @click="installBundle(b.bundle.id, b.apps.map((a) => a.id))"
+                  @click="startBundle(b.bundle.id, b.apps.map((a) => a.id))"
                 >
                   {{ b.have === b.apps.length ? strings.bundleAllInstalled : strings.bundleInstall(b.apps.length - b.have) }}
                 </button>
@@ -210,90 +205,82 @@ const views = computed(() => [
             </li>
           </ul>
         </template>
-        <template v-else>
-        <p class="count mono">{{ strings.appCount(list.length) }}</p>
-        <p v-if="!catalogList && !catalogError" class="mut">{{ strings.loading }}</p>
-        <p v-else-if="catalogList && !list.length" class="mut">{{ strings.catalogEmpty }}</p>
 
-        <ul class="cards">
-          <li v-for="a in list" :key="a.id" class="card">
-            <button type="button" class="card-hit" :aria-label="`${a.title}: ${strings.details}`" @click="show(a)" />
-            <div class="card-top">
-              <AppIcon :src="a.icon" :name="a.title" :size="42" />
-              <div class="card-titles">
-                <span class="kicker">{{ a.category }}</span>
-                <span class="title">{{ a.title }}</span>
-              </div>
-            </div>
-            <p class="tagline">{{ a.tagline }}</p>
-            <div class="card-foot">
-              <span class="mono ver">{{ a.version }}</span>
+        <template v-else>
+          <template v-if="home && catalogList">
+            <FeaturedRow v-if="featured.length" :apps="featured" @open="show" />
+            <section v-if="newest.length" class="newest" :aria-label="strings.recentlyAdded">
+              <header class="row-head">
+                <h4>{{ strings.recentlyAdded }}</h4>
+                <button type="button" class="link" @click="seeNewest">{{ strings.seeAll }}</button>
+              </header>
+              <ul class="mini">
+                <li v-for="a in newest" :key="a.id">
+                  <button type="button" class="mini-app" :data-app="a.id" @click="show(a)">
+                    <AppIcon :src="a.icon" :name="a.title" :size="36" />
+                    <span class="mini-text">
+                      <span class="mini-title">{{ a.title }}</span>
+                      <span class="mut">{{ ago(new Date(a.added! * 1000)) }}</span>
+                    </span>
+                  </button>
+                </li>
+              </ul>
+            </section>
+          </template>
+
+          <header class="row-head all-head">
+            <h4 v-if="home && (featured.length || newest.length)">{{ strings.allApps }}</h4>
+            <span v-else class="count mono">{{ strings.appCount(list.length) }}</span>
+            <span class="head-end">
+              <span v-if="home && (featured.length || newest.length)" class="count mono">{{ strings.appCount(list.length) }}</span>
               <button
+                v-if="iceStoreView === 'updates' && admin && updatesCount"
                 type="button"
-                class="pill"
-                :class="button(a).kind"
-                :disabled="button(a).disabled"
-                :title="button(a).disabled && button(a).kind !== 'busy' ? strings.adminInstallOnly : undefined"
-                @click.stop="act(a)"
+                class="pill update"
+                :disabled="!!updateRun"
+                @click="runUpdateAll"
               >
-                {{ button(a).label }}
+                {{ updateRun ? strings.updatingN(updateRun.done + 1, updateRun.total) : strings.updateAll(updatesCount) }}
               </button>
-            </div>
-          </li>
-        </ul>
+            </span>
+          </header>
+          <p v-if="!catalogList && !catalogError" class="mut">{{ strings.loading }}</p>
+          <p v-else-if="catalogList && !list.length" class="mut">{{ strings.catalogEmpty }}</p>
+
+          <ul class="cards">
+            <StoreCard v-for="a in list" :key="a.id" :app="a" :date="cardDate" @open="show" />
+          </ul>
+
+          <p v-if="hiddenCount || showOtherDevices" class="other mut small">
+            <template v-if="!showOtherDevices">{{ strings.hiddenOther(hiddenCount) }}</template>
+            <label class="check">
+              <input v-model="showOtherDevices" type="checkbox" />
+              {{ strings.showOtherDevices }}
+            </label>
+          </p>
         </template>
       </template>
 
-      <article v-else class="page">
-        <button type="button" class="back" @click="page = null"><Icon name="arrowLeft" :size="17" /> {{ strings.back }}</button>
-        <header class="page-head">
-          <AppIcon :src="page.app.icon" :name="page.app.title" :size="60" />
-          <div class="page-titles">
-            <span class="kicker">{{ page.app.category }}</span>
-            <h3>{{ page.app.title }}</h3>
-            <p class="mut">{{ page.app.tagline }}</p>
-            <p class="mono small mut">
-              {{ strings.version(page.app.version) }}<template v-if="page.app.developer"> · {{ page.app.developer }}</template>
-              <template v-if="page.meta.min_memory"> · {{ strings.needsMemory(bytes(page.meta.min_memory)) }}</template>
-            </p>
-          </div>
-          <button
-            type="button"
-            class="pill big"
-            :class="button(page.app).kind"
-            :disabled="button(page.app).disabled"
-            :title="button(page.app).disabled && button(page.app).kind !== 'busy' ? strings.adminInstallOnly : undefined"
-            @click="act(page.app)"
-          >
-            {{ button(page.app).label }}
-          </button>
-        </header>
-        <p v-if="pageError" class="warn small">{{ pageError }}</p>
-        <div v-if="page.meta.screenshot_link?.length" class="shots">
-          <img v-for="s in page.meta.screenshot_link" :key="s" :src="s" alt="" loading="lazy" referrerpolicy="no-referrer" />
-        </div>
-        <!-- eslint-disable-next-line vue/no-v-html -- markdown() escapes everything first -->
-        <div v-if="page.meta.description" class="md" v-html="markdown(page.meta.description)" />
-        <template v-if="page.meta.release_note">
-          <h4>{{ strings.whatsNew }}</h4>
-          <!-- eslint-disable-next-line vue/no-v-html -->
-          <div class="md" v-html="markdown(page.meta.release_note)" />
-        </template>
-        <p v-if="page.meta.repo || page.meta.support || page.meta.docs" class="links">
-          <a v-if="page.meta.repo" :href="page.meta.repo" target="_blank" rel="noopener">{{ strings.source }} <Icon name="external" :size="13" /></a>
-          <a v-if="page.meta.docs" :href="page.meta.docs" target="_blank" rel="noopener">{{ strings.docs }} <Icon name="external" :size="13" /></a>
-          <a v-if="page.meta.support" :href="page.meta.support" target="_blank" rel="noopener">{{ strings.support }} <Icon name="external" :size="13" /></a>
-        </p>
-      </article>
+      <AppPage
+        v-else
+        :app="page.app"
+        :meta="page.meta"
+        :error="pageError"
+        :all="shown"
+        @back="page = null"
+        @open="show"
+        @bundles="(page = null), (iceStoreView = 'bundles')"
+      />
     </div>
   </div>
 </template>
 
+<style scoped src="./icestore/shared.css"></style>
 <style scoped>
 .store {
   display: grid;
-  grid-template-columns: 158px 1fr;
-  gap: 18px;
+  grid-template-columns: 168px 1fr;
+  gap: 20px;
   min-height: 50vh;
 }
 .side {
@@ -329,7 +316,7 @@ const views = computed(() => [
 }
 .n {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--mut);
 }
 .n.hot {
@@ -349,13 +336,14 @@ const views = computed(() => [
 .tools {
   display: flex;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 18px;
 }
 .search {
   flex: 1;
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   padding: 0 16px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--line);
@@ -388,6 +376,29 @@ const views = computed(() => [
   cursor: pointer;
   white-space: nowrap;
 }
+.ghost:hover {
+  border-color: rgba(var(--fg-rgb), 0.25);
+}
+.sort {
+  color: var(--mut);
+}
+.sort select {
+  padding: 7px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  outline: none;
+}
+.sort select option {
+  background: rgb(var(--surface-rgb));
+  color: var(--text);
+}
+.sort:focus-within {
+  border-color: rgba(var(--ac-rgb), 0.6);
+}
 .spin {
   animation: spin 0.9s linear infinite;
 }
@@ -397,210 +408,84 @@ const views = computed(() => [
   }
 }
 .count {
-  margin: 4px 0 10px;
-  text-align: right;
   font-size: 11.5px;
   color: var(--mut);
 }
+.all-head {
+  align-items: center;
+  min-height: 30px;
+  scroll-margin-top: 12px;
+}
+.head-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
   gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  padding: 13px;
-  border-radius: 16px;
-  border: 1px solid var(--line);
-  background: var(--card);
-  transition: border-color 0.15s, background 0.15s;
+.newest {
+  margin-bottom: 22px;
 }
-.card:hover {
-  border-color: rgba(var(--ac-rgb), 0.35);
-  background: rgba(var(--ac-rgb), 0.04);
+.mini {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.card-hit {
-  position: absolute;
-  inset: 0;
-  border: 0;
-  border-radius: inherit;
-  background: none;
-  cursor: pointer;
-}
-.card-top {
+.mini-app {
   display: flex;
   align-items: center;
   gap: 11px;
-  pointer-events: none;
-}
-.card-titles {
-  display: grid;
-  min-width: 0;
-}
-.kicker {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--mut);
-}
-.title {
-  font-size: 15px;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.tagline {
-  flex: 1;
-  margin: 0;
-  color: var(--mut);
-  font-size: 12.5px;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  pointer-events: none;
-}
-.card-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-.ver {
-  font-size: 11px;
-  color: var(--mut);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  pointer-events: none;
-}
-.pill {
-  position: relative;
-  padding: 6px 16px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--line);
-  background: rgba(var(--fg-rgb), 0.05);
+  width: 100%;
+  padding: 7px 10px 7px 7px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: none;
   color: var(--text);
   font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
+  text-align: left;
   cursor: pointer;
+}
+.mini-app:hover {
+  border-color: var(--line);
+  background: var(--card);
+}
+.mini-text {
+  display: grid;
+  min-width: 0;
+  font-size: 11.5px;
+}
+.mini-title {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.pill.install {
-  border: 0;
-  background: var(--ac);
-  color: var(--ink);
+.other {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin: 18px 0 0;
 }
-.pill.update {
-  border: 0;
-  background: var(--warn);
-  color: var(--ink);
-}
-.pill:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.pill.big {
-  padding: 9px 22px;
-  font-size: 14px;
-}
-.back {
+.check {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 14px;
-  border: 0;
-  background: none;
-  color: var(--mut);
-  font: inherit;
   cursor: pointer;
 }
-.back:hover {
-  color: var(--text);
-}
-.page-head {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-.page-titles {
-  flex: 1;
-  min-width: 200px;
-}
-h3 {
-  margin: 2px 0 4px;
-  font-size: 21px;
-}
-h4 {
-  margin: 22px 0 8px;
-  font-size: 16px;
-}
-.page-titles p {
-  margin: 0 0 4px;
-}
-.shots {
-  display: flex;
-  gap: 12px;
-  margin: 20px 0;
-  overflow-x: auto;
-}
-.shots img {
-  height: 170px;
-  border-radius: 14px;
-  border: 1px solid var(--line);
-  flex: none;
-}
-.md {
-  color: rgba(var(--fg-rgb), 0.82);
-  font-size: 13.5px;
-  line-height: 1.6;
-}
-.md :deep(a) {
-  color: var(--ac);
-}
-.md :deep(code) {
-  font-family: var(--font-mono);
-  font-size: 0.9em;
-  padding: 1px 5px;
-  border-radius: 5px;
-  background: rgba(var(--fg-rgb), 0.07);
-}
-.md :deep(ul),
-.md :deep(ol) {
-  padding-left: 22px;
-}
-.links {
-  display: flex;
-  gap: 18px;
-  margin-top: 20px;
-}
-.links a {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--ac);
-  text-decoration: none;
-}
-.mut {
-  color: var(--mut);
-}
-.small {
-  font-size: 13px;
-}
-.mono {
-  font-family: var(--font-mono);
-}
-.warn {
-  color: var(--warn);
+.check input {
+  accent-color: var(--ac);
 }
 @media (max-width: 760px) {
   .store {
@@ -654,9 +539,12 @@ h4 {
   background: rgba(var(--ac-rgb), 0.12);
   color: var(--ac);
 }
+.card-titles {
+  display: grid;
+  min-width: 0;
+}
 .bhead .card-titles {
   flex: 1;
-  min-width: 0;
 }
 .bapps {
   display: flex;

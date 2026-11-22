@@ -69,6 +69,9 @@ export const icons = {
   package: 'M12 3l8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9',
   drive: 'M3 13.5 5.6 6.2A2 2 0 0 1 7.5 5h9a2 2 0 0 1 1.9 1.2l2.6 7.3V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 13.5h18M7 16.8h.01M11 16.8h3',
   maximize: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
+  star: 'M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z',
+  fork: 'M7 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM17 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM12 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 7v2a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3V7M12 12v5',
+  sort: 'M4 6h12M4 12h9M4 18h6M18 9V19M15 16l3 3 3-3',
 } as const
 
 export type IconName = keyof typeof icons

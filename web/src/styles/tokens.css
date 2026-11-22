@@ -17,6 +17,9 @@
   --ac-rgb: 76, 201, 240;
   --ac2-rgb: 165, 232, 255;
   --warn-rgb: 245, 184, 76;
+  /* Destructive actions: uninstall, delete. */
+  --danger: #ff6b6b;
+  --danger-rgb: 255, 107, 107;
   /* Windows, menus and the dock. */
   --surface-rgb: 12, 16, 20;
   /* The top bar, and the dimming behind open windows. */

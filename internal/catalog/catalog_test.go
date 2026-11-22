@@ -13,7 +13,7 @@ import (
 )
 
 const indexJSON = `{"version":2,"updated_at":"2026-11-12T08:53:03Z","app_count":3,"base_url":"https://icestore.hsinghhira.me","apps":[
- {"id":"com.icestore.documenso","title":"Documenso","category":"Productivity","icon":"/apps/com.icestore.documenso/assets/icon.png","compose_url":"/apps/com.icestore.documenso/docker-compose.yml","meta_url":"/apps/com.icestore.documenso/meta.json","content_hash":"aa","version":"v2.21.1"},
+ {"id":"com.icestore.documenso","title":"Documenso","category":"Productivity","icon":"/apps/com.icestore.documenso/assets/icon.png","compose_url":"/apps/com.icestore.documenso/docker-compose.yml","meta_url":"/apps/com.icestore.documenso/meta.json","content_hash":"aa","version":"v2.21.1","stars":15750,"forks":2100,"added":1787207511,"updated":1792301861,"featured":true},
  {"id":"org.other.thing","title":"Not ours"},
  {"id":"com.icestore.../etc","title":"Bad name"}
 ]}`
@@ -79,6 +79,10 @@ func TestIndexFallsBackToTheCacheOffline(t *testing.T) {
 	idx, err := c.Index(context.Background(), false)
 	if err == nil || len(idx.Apps) != 1 {
 		t.Fatalf("want cached apps with an error, got %d apps, %v", len(idx.Apps), err)
+	} // The IceStore extras survive the cache.
+	if a := idx.Apps[0]; a.Stars == nil || *a.Stars != 15750 || a.Forks == nil || *a.Forks != 2100 ||
+		a.Added != 1787207511 || a.Updated != 1792301861 || !a.Featured {
+		t.Errorf("extras lost: %+v", a)
 	}
 }
 

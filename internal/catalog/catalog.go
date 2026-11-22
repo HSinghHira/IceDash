@@ -52,6 +52,12 @@ type App struct {
 	MetaURL       string   `json:"meta_url"`
 	ContentHash   string   `json:"content_hash"`
 	Version       string   `json:"version"`
+	// Written into index.json by the IceStore site build; absent in older indexes.
+	Stars    *int  `json:"stars,omitempty"`   // GitHub stars of the upstream project
+	Forks    *int  `json:"forks,omitempty"`   // and its forks
+	Added    int64 `json:"added,omitempty"`   // Unix time the app joined IceStore
+	Updated  int64 `json:"updated,omitempty"` // Unix time of its last version bump
+	Featured bool  `json:"featured,omitempty"`
 }
 
 // Index is index.json.
