@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v1.3.0 (2026-11-22)
+
 - **A new IceStore, laid out like the ZimaOS App Store.** It opens on **Discover**: a big headline beside a banner of featured apps; **Popular** and **Most forked** rows of big screenshot cards; compact three-column lists of **New in IceStore**, **Recently updated** and the biggest categories (icons only, so they load at once); and bundles as spotlight panels with an Install button. The sidebar has the search, Discover, All apps, My apps, Updates, Bundles, and every category with its own icon. Lists have a title and a **Sort** menu: A–Z, Z–A, newest first, recently updated, or the most GitHub stars or forks; IceDash remembers your choice. Cards show stars and forks, and say when an app is installed or has an update. The window is wider too.
 - **New app pages.** Like the ZimaOS App Store's: a header card with Install, Open or Update (and Uninstall), four cards for the category, developer, memory it needs and GitHub stars, the screenshots three across (click one to see it full size, and step with the arrow keys), what's new with its version and date, the introduction beside an Info card (source code, docs, CPUs, disk use, date added, Get support), the bundles it belongs to, and more apps from its category.
 - **Tidier lists.** All apps, the categories, My apps and Updates show apps as compact rows in three columns: icon, name and two lines, with the stars, forks or date the list is sorted by.
