@@ -53,6 +53,10 @@ type Service struct {
 	// /proc/self/mountinfo and /media, /mnt. Tests set their own.
 	MountInfo string
 	MountDirs []string
+	// Storages, when set, gives ZimaOS's own storages (folder → name). Any of
+	// them in a folder of its own under MountDirs that the mount table scan
+	// missed shows too, so Files lists what ZimaOS's Files does.
+	Storages func() map[string]string
 
 	mu      sync.Mutex
 	tickets map[string]ticket

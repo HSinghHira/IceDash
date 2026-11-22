@@ -9,3 +9,6 @@ func otherDisk(*os.Root, string) bool { return false }
 
 // usage can't be measured off Linux.
 func usage(string) (size, free uint64) { return 0, 0 }
+
+// sameDisk can't tell file systems apart off Linux.
+func sameDisk(string, string) bool { return false }

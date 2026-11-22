@@ -142,6 +142,21 @@ export const disks = [
   { id: 'USB_Stick', name: 'USB Stick', path: 'USB_Stick:/', main: false, trash: false, size: 58 * GB, free: 31 * GB },
 ]
 
+/** The Storage card: ZimaOS's storages for the same two disks (TB as ZimaOS counts them). */
+export const storagePools = () => ({
+  health: true,
+  pools: [
+    {
+      name: 'ZimaOS-HD', kind: 'system', size: disks[0]!.size, used: disks[0]!.size - disks[0]!.free, health: 'ok', files: '/',
+      drives: [{ name: 'sda', model: 'WD Red Plus 4TB', health: true, temp: 36, hours: 18686 }],
+    },
+    {
+      name: 'USB Stick', kind: 'usb', size: disks[1]!.size, used: disks[1]!.size - disks[1]!.free, health: 'ok', files: 'USB_Stick:/',
+      drives: [{ name: 'sdb', model: 'SanDisk Ultra', health: true }],
+    },
+  ],
+})
+
 export const logsFor = (title: string) =>
   [
     `[init] Starting ${title}`,

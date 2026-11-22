@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v1.4.0 (2026-11-22)
+
+- **A Storage card.** The panel has a new built-in card that lists every storage on the server as ZimaOS does: the system disk, RAID pools, other disks and USB drives. Each shows used and total space, a health dot (healthy, working, needs attention, failing), the RAID level and its state (protecting, degraded, resyncing with its progress…), how many drives it has and the warmest one's temperature; hover for each drive. Click a storage to open it in Files. It's added under System on your panel once; take it off like any card. On CasaOS it lists the disks Files finds, without health. ([#1](https://github.com/HSinghHira/IceDash/issues/1))
+- **Storage pools in Files.** Files now lists the storages ZimaOS shows even when they're mounted in a way IceDash missed, such as a btrfs pool mounted as one of its subvolumes.
+
 ## v1.3.0 (2026-11-22)
 
 - **A new IceStore, laid out like the ZimaOS App Store.** It opens on **Discover**: a big headline beside a banner of featured apps; **Popular** and **Most forked** rows of big screenshot cards; compact three-column lists of **New in IceStore**, **Recently updated** and the biggest categories (icons only, so they load at once); and bundles as spotlight panels with an Install button. The sidebar has the search, Discover, All apps, My apps, Updates, Bundles, and every category with its own icon. Lists have a title and a **Sort** menu: A–Z, Z–A, newest first, recently updated, or the most GitHub stars or forks; IceDash remembers your choice. Cards show stars and forks, and say when an app is installed or has an update. The window is wider too.

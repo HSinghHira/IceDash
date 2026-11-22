@@ -212,6 +212,17 @@ const dynamic: [RegExp, string, (m: RegExpMatchArray, body?: unknown) => unknown
     { id: '', name: 'DATA', path: '/', main: true, trash: true, size: 222 * GB, free: 140 * GB },
     { id: 'USB_Stick', name: 'USB Stick', path: 'USB_Stick:/', main: false, trash: false, size: 58 * GB, free: 31 * GB },
   ]],
+  [/^\/v2\/icedash\/storage$/, 'GET', () => ({
+    health: true,
+    pools: [
+      { name: 'ZimaOS-HD', kind: 'system', size: 238 * GB, used: 130 * GB, health: 'ok', files: '/', drives: [{ name: 'sda', health: true, temp: 34 }] },
+      {
+        name: 'Pool', kind: 'raid', level: 1, state: 'resyncing', progress: 42, size: 4000 * GB, used: 1200 * GB, health: 'busy',
+        drives: [{ name: 'sdc', model: 'WD Red', health: true, temp: 38 }, { name: 'sdd', model: 'WD Red', health: true, temp: 39 }],
+      },
+      { name: 'USB Stick', kind: 'usb', size: 58 * GB, used: 27 * GB, health: 'ok', files: 'USB_Stick:/', drives: [{ name: 'sdb', health: true }] },
+    ],
+  })],
   [/^\/v2\/icedash\/catalog$/, 'GET', () => catalog()],
   [/^\/v2\/icedash\/catalog\/refresh$/, 'POST', () => catalog()],
   [/^\/v2\/icedash\/catalog\/([^/]+)\/setup$/, 'GET', (m) => setupView(m[1]!)],

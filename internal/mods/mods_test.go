@@ -450,3 +450,24 @@ func TestBuiltinCards(t *testing.T) {
 		t.Fatal("an unknown card accepted")
 	}
 }
+
+// A panel saved before the Storage card gets it once, under System.
+func TestStorageCardAdded(t *testing.T) {
+	dir := t.TempDir()
+	old := `{"mods":{},"users":{"hira":{"theme":"","panel":["apps","system","clock"],"cards":1},"ann":{"panel":["clock"],"cards":1}}}`
+	os.WriteFile(filepath.Join(dir, "mods.json"), []byte(old), 0o600)
+	s := &Service{Dir: filepath.Join(dir, "mods"), State: filepath.Join(dir, "mods.json"), Cache: filepath.Join(dir, "c.json")}
+	if p := s.List("hira").Prefs.Panel; !slices.Equal(p, []string{"apps", "system", "storage", "clock"}) {
+		t.Fatalf("hira %v", p)
+	}
+	if p := s.List("ann").Prefs.Panel; !slices.Equal(p, []string{"clock", "storage"}) {
+		t.Fatalf("ann %v", p)
+	}
+	// Taken off again: it stays off.
+	if err := s.SetPanel("hira", []string{"apps", "clock"}); err != nil {
+		t.Fatal(err)
+	}
+	if p := s.List("hira").Prefs.Panel; !slices.Equal(p, []string{"apps", "clock"}) {
+		t.Fatalf("after taking it off %v", p)
+	}
+}

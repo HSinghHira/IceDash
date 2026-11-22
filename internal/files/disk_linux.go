@@ -31,3 +31,13 @@ func usage(dir string) (size, free uint64) {
 	}
 	return st.Blocks * uint64(st.Bsize), st.Bavail * uint64(st.Bsize)
 }
+
+// sameDisk reports whether two folders are on the same file system: a folder
+// under /media that nothing is mounted on is still /DATA's.
+func sameDisk(a, b string) bool {
+	var x, y syscall.Stat_t
+	if syscall.Stat(a, &x) != nil || syscall.Stat(b, &y) != nil {
+		return false
+	}
+	return x.Dev == y.Dev
+}

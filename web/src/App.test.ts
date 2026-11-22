@@ -9,6 +9,16 @@ const adminToken = `${enc({ alg: 'ES256' })}.${enc({ username: 'Hira', role: 'ad
 const answers: Record<string, unknown> = {
   '/v2/icedash/health': { version: '0.2.0', arch: 'amd64', started: '2026-11-12T00:00:00Z' },
   '/v2/icedash/system': { down: 1000, up: 500, history: [], interfaces: ['wlan0'], uptime_sec: 3600, device: 'ZimaCube' },
+  '/v2/icedash/storage': {
+    health: true,
+    pools: [
+      { name: 'ZimaOS-HD', kind: 'system', size: 238e9, used: 130e9, health: 'ok', files: '/' },
+      {
+        name: 'Pool', kind: 'raid', level: 1, state: 'degraded', size: 4e12, used: 1e12, health: 'warn',
+        drives: [{ name: 'sdb', model: 'WD Red', health: true, temp: 38 }, { name: '', health: true, missing: true }],
+      },
+    ],
+  },
   '/v2/icedash/notifications?since=0': { items: [], unread: 0 },
   '/v2/icedash/update': { current: '0.2.0', state: 'idle', steps: [] },
   '/v2/icedash/settings': { auto_check: true },
@@ -277,15 +287,30 @@ describe('IceCards, menus and the top bar', () => {
     w.unmount()
   })
 
-  it('shows the four built-in cards, each with its own menu', async () => {
+  it('shows the five built-in cards, each with its own menu', async () => {
     const w = await desktop()
     const cards = w.findAll('.panel [data-card]').map((c) => c.attributes('data-card'))
-    expect(cards).toEqual(['clock', 'system', 'network', 'apps'])
+    expect(cards).toEqual(['clock', 'system', 'storage', 'network', 'apps'])
     await w.find('[data-card="clock"]').trigger('contextmenu', { clientX: 900, clientY: 100 })
     await flushPromises()
     const items = [...document.querySelectorAll('.ctx [role^="menuitem"]')].map((b) => b.textContent?.trim())
     expect(items).toEqual(['12-hour', '24-hour', 'Move up', 'Move down', 'Take off the panel', 'IceCards settings…', 'Hide the panel'])
     expect(document.querySelector('.ctx [data-ctx="up"]')?.hasAttribute('disabled')).toBe(true)
+    w.unmount()
+  })
+
+  it('lists every storage pool with its health on the Storage card', async () => {
+    const w = await desktop()
+    const pools = w.findAll('[data-card="storage"] .pool')
+    expect(pools.map((p) => p.find('.pname').text())).toEqual(['ZimaOS-HD', 'Pool'])
+    expect(pools[0]!.text()).toContain('130 of 238 GB')
+    expect(pools[0]!.text()).toContain('Healthy')
+    expect(pools[0]!.element.tagName).toBe('BUTTON')
+    // The RAID: its level, the drives still there, the warmest, its state.
+    expect(pools[1]!.find('.pmeta').text()).toContain('RAID 1 · 1 drive · 38 °C')
+    expect(pools[1]!.find('.pstate.warn').text()).toBe('Degraded')
+    expect(pools[1]!.find('.dot.warn').exists()).toBe(true)
+    expect(pools[1]!.element.tagName).toBe('DIV')
     w.unmount()
   })
 

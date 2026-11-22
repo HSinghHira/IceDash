@@ -183,3 +183,49 @@ func TestDiskTicketsAndZip(t *testing.T) {
 		t.Errorf("zip: %v", err)
 	}
 }
+
+// A btrfs pool mounted as a subvolume, and ZimaOS storages the mount table
+// doesn't show: one in a folder of its own, its link to /DATA (ZimaOS-HD),
+// and one outside /media and /mnt.
+func TestDisksPoolsAndStorages(t *testing.T) {
+	s, _ := newData(t)
+	base := filepath.ToSlash(filepath.Dir(s.Root))
+	data := filepath.ToSlash(s.Root)
+	for _, d := range []string{base + "/media/Pool1", base + "/media/Pool2", base + "/elsewhere/x"} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	links := os.Symlink(data, base+"/media/ZimaOS-HD") == nil
+	table := "30 26 8:8 / " + data + " rw - ext4 /dev/sda8 rw\n" +
+		"60 31 0:70 /@data " + base + "/media/Pool1 rw - btrfs /dev/md0 rw,subvol=/@data\n"
+	info := filepath.Join(t.TempDir(), "mountinfo")
+	if err := os.WriteFile(info, []byte(table), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s.Root, s.MountInfo, s.MountDirs = data, info, []string{base + "/media", base + "/mnt"}
+	s.Storages = func() map[string]string {
+		return map[string]string{
+			base + "/media/Pool1": "Pool1", base + "/media/Pool2": "Pool2",
+			base + "/media/ZimaOS-HD": "ZimaOS-HD", base + "/elsewhere/x": "x", base + "/media/gone": "gone",
+		}
+	}
+	var got []string
+	for _, d := range s.Disks() {
+		got = append(got, d.Name+"="+d.Path)
+	}
+	want := []string{"DATA=/", "Pool1=Pool1:/", "Pool2=Pool2:/"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("Disks() = %v, want %v", got, want)
+	}
+	for dir, want := range map[string]string{base + "/media/Pool2": "Pool2:/", data: "/", base + "/elsewhere/x": "", "": ""} {
+		if got := s.PathFor(dir); got != want {
+			t.Errorf("PathFor(%q) = %q, want %q", dir, got, want)
+		}
+	}
+	if links {
+		if got := s.PathFor(base + "/media/ZimaOS-HD"); got != "/" {
+			t.Errorf("PathFor(ZimaOS-HD) = %q, want /", got)
+		}
+	}
+}

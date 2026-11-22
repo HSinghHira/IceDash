@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The panel (IceCards): IceDash's own cards (Clock, System, Network, Apps)
+// The panel (IceCards): IceDash's own cards (Clock, System, Storage, Network, Apps)
 // and the user's widgets (Phase 4), each in its sandbox, in the user's order.
 // Every card can be dragged to a new place, taken off, or right-clicked.
 // Cards dragged from Settings → IceCards drop here. When the cards don't fit
@@ -22,10 +22,12 @@ import {
   iceStoreInZimaOS,
   modsView,
   openContext,
+  openFiles,
   openIceStore,
   panelCards,
   prefs,
   setPanelCards,
+  storage,
   sys,
   util,
   zone,
@@ -190,6 +192,37 @@ const chart = computed(() => {
   return { down: line('down'), up: line('up') }
 })
 
+// Storage: each pool ZimaOS lists, with its health and drives (issue #1).
+const pools = computed(() =>
+  (storage.value?.pools ?? []).map((p) => {
+    const u = usedOfTotal(p.used, p.size, 1000)
+    const drives = p.drives ?? []
+    const kind =
+      p.kind === 'raid' ? (p.level === -1 ? strings.poolKind.jbod : `${strings.poolKind.raid} ${p.level ?? ''}`.trim()) : (strings.poolKind[p.kind] ?? '')
+    const temps = drives.map((d) => d.temp ?? 0).filter((t) => t > 0)
+    const state = p.state && p.state !== 'ok' ? strings.raidState[p.state] ?? p.state : strings.poolHealth[p.health] ?? ''
+    const meta = [
+      kind,
+      p.kind === 'raid' || drives.length > 1 ? strings.drives(drives.filter((d) => !d.missing).length) : '',
+      temps.length ? `${Math.max(...temps)} °C` : '',
+    ].filter(Boolean)
+    const tip = drives
+      .map((d) => [d.name, d.model, d.temp ? `${d.temp} °C` : '', d.missing ? strings.driveMissing : d.health ? '' : strings.driveFailing].filter(Boolean).join(' · '))
+      .join('\n')
+    return {
+      key: `${p.kind}:${p.name}`,
+      name: p.name,
+      files: p.files ?? '',
+      value: p.size ? strings.of(u.used, `${u.total} ${u.unit}`) : '',
+      pct: pct(p.used, p.size),
+      health: p.health,
+      state: p.progress ? `${state} ${Math.round(p.progress)}%` : state,
+      meta: meta.join(' · '),
+      tip,
+    }
+  }),
+)
+
 const tally = computed(() => counts(apps.value))
 const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICESTORE_SITE))
 </script>
@@ -245,6 +278,37 @@ const storeUrl = computed(() => (iceStoreInZimaOS.value ? dashboardUrl() : ICEST
         </div>
       </div>
       <p v-if="!meters.length" class="aside">{{ strings.loading }}</p>
+    </template>
+
+    <template v-else-if="c.id === 'storage'">
+      <header>
+        <h2 class="kicker">{{ strings.cardName.storage }}</h2>
+      </header>
+      <component
+        :is="p.files ? 'button' : 'div'"
+        v-for="p in pools"
+        :key="p.key"
+        class="pool"
+        :type="p.files ? 'button' : undefined"
+        :title="[p.files ? strings.poolOpen(p.name) : '', p.tip].filter(Boolean).join('\n') || undefined"
+        @click="p.files && openFiles('files', p.files)"
+      >
+        <div class="row">
+          <span class="pname">
+            <span v-if="p.health" class="dot" :class="p.health" aria-hidden="true" />{{ p.name }}
+          </span>
+          <span class="mono">{{ p.value }}</span>
+        </div>
+        <div class="bar" role="meter" :aria-label="p.name" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(p.pct)">
+          <span :class="p.health" :style="{ width: `${p.pct}%` }" />
+        </div>
+        <p class="pmeta">
+          <span>{{ p.meta }}</span>
+          <span v-if="p.state" class="pstate" :class="p.health">{{ p.state }}</span>
+        </p>
+      </component>
+      <p v-if="!storage" class="aside left">{{ strings.loading }}</p>
+      <p v-else-if="!pools.length" class="aside left">{{ strings.poolNone }}</p>
     </template>
 
     <template v-else-if="c.id === 'network'">
@@ -437,6 +501,79 @@ header {
   background: var(--ac);
   box-shadow: 0 0 10px rgba(var(--ac-rgb), 0.5);
   transition: width 0.6s ease;
+}
+.pool {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.pool + .pool {
+  margin-top: 14px;
+}
+button.pool {
+  cursor: pointer;
+}
+button.pool:hover .pname {
+  text-decoration: underline;
+}
+.pname {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mut);
+}
+.dot.ok {
+  background: var(--ac);
+}
+.dot.busy {
+  background: var(--ac2);
+}
+.dot.warn {
+  background: var(--warn);
+}
+.dot.bad {
+  background: var(--danger);
+}
+.bar span.warn {
+  background: var(--warn);
+  box-shadow: none;
+}
+.bar span.bad {
+  background: var(--danger);
+  box-shadow: none;
+}
+.pmeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px 0 0;
+  color: var(--mut);
+  font-size: 12.5px;
+}
+.pstate.warn {
+  color: var(--warn);
+}
+.pstate.bad {
+  color: var(--danger);
+}
+.aside.left {
+  margin: 0;
+  text-align: left;
 }
 .speeds {
   display: inline-flex;

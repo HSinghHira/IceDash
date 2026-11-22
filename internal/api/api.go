@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/HSinghHira/IceDash/internal/prefs"
 	"github.com/HSinghHira/IceDash/internal/session"
 	"github.com/HSinghHira/IceDash/internal/settings"
+	"github.com/HSinghHira/IceDash/internal/storage"
 	"github.com/HSinghHira/IceDash/internal/system"
 	"github.com/HSinghHira/IceDash/internal/term"
 	"github.com/HSinghHira/IceDash/internal/update"
@@ -80,6 +82,9 @@ type Server struct {
 	// Phase 3c: the Files app and the Terminal (nil: not offered).
 	Files *files.Service
 	Term  *term.Service
+	// The Storage card: ZimaOS's storages with their health (nil: only the
+	// disks Files finds, without health; CasaOS).
+	Storage *storage.Client
 
 	// Phase 4: themes and widgets (nil: not offered).
 	Mods *mods.Service
@@ -113,6 +118,7 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+Route+"/health", s.health)
 	mux.Handle("GET "+Route+"/system", user(s.system))
+	mux.Handle("GET "+Route+"/storage", user(s.storage))
 
 	mux.Handle("GET "+Route+"/notifications", user(s.notifications))
 	mux.Handle("POST "+Route+"/notifications/read", user(s.markRead))
@@ -149,6 +155,44 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) system(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, s.System.Snapshot())
+}
+
+// StorageView is the answer of GET /v2/icedash/storage.
+type StorageView struct {
+	Pools []storage.Pool `json:"pools"`
+	// Health says whether the pools carry health: ZimaOS's list does, the
+	// disks Files finds on their own don't.
+	Health bool `json:"health"`
+}
+
+func (s *Server) storage(w http.ResponseWriter, r *http.Request) {
+	out := StorageView{Pools: []storage.Pool{}}
+	if s.Storage != nil {
+		if pools, err := s.Storage.Pools(r.Context()); err == nil && len(pools) > 0 {
+			out.Pools, out.Health = slices.Clone(pools), true
+		}
+	}
+	if !out.Health && s.Files != nil {
+		for _, d := range s.Files.Disks() {
+			kind := "disk"
+			if d.Main {
+				kind = "system"
+			}
+			out.Pools = append(out.Pools, storage.Pool{Name: d.Name, Kind: kind, Size: d.Size, Used: d.Size - d.Free, Files: d.Path})
+		}
+	}
+	c, _ := session.FromContext(r.Context())
+	for i := range out.Pools {
+		p := &out.Pools[i]
+		switch {
+		case !c.Admin(), s.Files == nil:
+			p.Files = "" // Files is for admins
+		case out.Health:
+			p.Files = s.Files.PathFor(p.Dir)
+		}
+		p.Dir = ""
+	}
+	httpx.WriteJSON(w, http.StatusOK, out)
 }
 
 // NotificationList is the answer of GET /v2/icedash/notifications.

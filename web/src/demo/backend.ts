@@ -6,7 +6,7 @@ import type { CatalogApp, Choices, Job, SetupView } from '../api/apps'
 import type { Entry, TrashItem } from '../api/files'
 import type { Notification, Prefs, Settings } from '../api/icedash'
 import type { Collection, Installed } from '../api/mods'
-import { DEVICE, SERVER_IP, STORE, disks, firstLaunchFor, icon, logsFor, people, startApps, startFiles, startNotes, usb, type DemoApp, type Node } from './data'
+import { DEVICE, SERVER_IP, STORE, disks, firstLaunchFor, storagePools, icon, logsFor, people, startApps, startFiles, startNotes, usb, type DemoApp, type Node } from './data'
 
 declare const __DEMO_VERSION__: string
 export const VERSION = typeof __DEMO_VERSION__ === 'string' ? __DEMO_VERSION__ : 'v1'
@@ -198,7 +198,7 @@ const collections = () =>
     .catch(() => []))
 let installed: Installed[] = remember('mods', [])
 // The panel starts with IceDash's own cards, as the backend's Builtin.
-let modPrefs: { theme: string; panel: string[] } = remember('mod-prefs', { theme: '', panel: ['clock', 'system', 'network', 'apps'] })
+let modPrefs: { theme: string; panel: string[] } = remember('mod-prefs', { theme: '', panel: ['clock', 'system', 'storage', 'network', 'apps'] })
 const modView = () => {
   keep('mods', installed)
   keep('mod-prefs', modPrefs)
@@ -241,6 +241,7 @@ const routes: [string, RegExp, Handler][] = [
     })
     return ok({ down: history.at(-1)!.down, up: history.at(-1)!.up, history, interfaces: ['eth0'], uptime_sec: 1_123_200 + Math.floor((now / 1000) % 86400), device: DEVICE })
   }],
+  ['GET', /^\/v2\/icedash\/storage$/, () => ok(storagePools())],
   ['GET', /^\/v2\/icedash\/notifications$/, () => ok({ items: notes, unread: notes.filter((n) => !n.read).length })],
   ['POST', /^\/v2\/icedash\/notifications\/read$/, (_m, b) => {
     for (const n of notes) if (!b.id || n.id === b.id) n.read = true

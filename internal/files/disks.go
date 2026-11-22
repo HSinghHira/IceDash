@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -146,7 +147,9 @@ func (s *Service) mounted() []mount {
 	var out []mount
 	seen := map[string]bool{}
 	for _, r := range rows {
-		if !slices.Contains(dirs, path.Dir(r.at)) || !diskTypes[r.fstype] || (r.root != "/" && !shareTypes[r.fstype]) {
+		// A btrfs pool is often mounted as one of its subvolumes, so its root
+		// in the mount table is the subvolume ("/@data"), not "/".
+		if !slices.Contains(dirs, path.Dir(r.at)) || !diskTypes[r.fstype] || (r.root != "/" && !shareTypes[r.fstype] && r.fstype != "btrfs") {
 			continue
 		}
 		if r.dev == dataDev || seen[r.dev] || strings.HasPrefix(r.source, "/dev/loop") {
@@ -163,7 +166,66 @@ func (s *Service) mounted() []mount {
 		}
 		out = append(out, mount{place: place{id: id, dir: r.at}, name: name})
 	}
+	return s.addStorages(out, dirs)
+}
+
+// addStorages adds ZimaOS's storages the mount table scan didn't find: a
+// folder of its own under one of dirs, on another file system than /DATA
+// (ZimaOS-HD is a link to /DATA and is left out).
+func (s *Service) addStorages(out []mount, dirs []string) []mount {
+	if s.Storages == nil {
+		return out
+	}
+	list := s.Storages()
+	keys := make([]string, 0, len(list))
+	for dir := range list {
+		keys = append(keys, dir)
+	}
+	slices.Sort(keys)
+	for _, dir := range keys {
+		dir = path.Clean(dir)
+		if !slices.Contains(dirs, path.Dir(dir)) || slices.ContainsFunc(out, func(m mount) bool { return m.dir == dir }) {
+			continue
+		}
+		real, err := realDir(dir)
+		if err != nil || real == s.Root || strings.HasPrefix(real, s.Root+"/") || sameDisk(dir, s.Root) {
+			continue
+		}
+		if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+			continue
+		}
+		name := path.Base(dir)
+		id := idFor(name)
+		for n := 2; slices.ContainsFunc(out, func(m mount) bool { return m.id == id }); n++ {
+			id = fmt.Sprintf("%s-%d", idFor(name), n)
+		}
+		out = append(out, mount{place: place{id: id, dir: dir}, name: name})
+	}
 	return out
+}
+
+// realDir is dir with its links followed, in slashes.
+func realDir(dir string) (string, error) {
+	r, err := filepath.EvalSymlinks(dir)
+	return filepath.ToSlash(r), err
+}
+
+// PathFor is the Files API path of a folder on the host that is the top of
+// /DATA or of another disk ("/", "<id>:/"), or "" when Files doesn't show it.
+func (s *Service) PathFor(dir string) string {
+	if dir == "" {
+		return ""
+	}
+	dir = path.Clean(dir)
+	if real, err := realDir(dir); err == nil && real == s.Root || dir == s.Root {
+		return "/"
+	}
+	for _, m := range s.mounted() {
+		if m.dir == dir {
+			return m.api("")
+		}
+	}
+	return ""
 }
 
 // idFor makes a folder's name usable in an API path.

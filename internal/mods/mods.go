@@ -45,22 +45,44 @@ type Prefs struct {
 	Panel []string `json:"panel"` // card ids, top to bottom: built-in names and widget ids
 	// Cards is 1 once the panel lists the built-in cards too. Panels saved
 	// before that (v0.8.0 and older) showed them always, above the widgets.
+	// 2 once it has seen the Storage card (v1.4.0): a panel saved before gets
+	// it once, under System.
 	Cards int `json:"cards,omitempty"`
 }
 
 // Builtin are IceDash's own cards: they need no install and can be moved
 // and taken off like any widget.
-var Builtin = []string{"clock", "system", "network", "apps"}
+var Builtin = []string{"clock", "system", "storage", "network", "apps"}
+
+// cardsNow is Prefs.Cards for a panel that has every built-in card's chance.
+const cardsNow = 2
 
 // IsBuiltin reports whether id is one of IceDash's own cards.
 func IsBuiltin(id string) bool { return slices.Contains(Builtin, id) }
 
 // panel is the panel a user sees, with the built-in cards in place.
 func (p *Prefs) panel() []string {
-	if p.Cards >= 1 {
+	switch {
+	case p.Cards >= cardsNow:
 		return slices.Clone(p.Panel)
+	case p.Cards == 1:
+		return withStorage(p.Panel)
 	}
 	return append(slices.Clone(Builtin), p.Panel...)
+}
+
+// withStorage adds the Storage card under System (or last) to a panel saved
+// before it existed.
+func withStorage(panel []string) []string {
+	out := slices.Clone(panel)
+	if slices.Contains(out, "storage") {
+		return out
+	}
+	at := slices.Index(out, "system") + 1
+	if at == 0 {
+		at = len(out)
+	}
+	return slices.Insert(out, at, "storage")
 }
 
 type file struct {
@@ -387,7 +409,7 @@ func (s *Service) prefs(user string) *Prefs {
 	f := s.load()
 	p, ok := f.Users[user]
 	if !ok {
-		p = &Prefs{Panel: slices.Clone(Builtin), Cards: 1}
+		p = &Prefs{Panel: slices.Clone(Builtin), Cards: cardsNow}
 		f.Users[user] = p
 	}
 	return p
@@ -428,7 +450,7 @@ func (s *Service) SetPanel(user string, ids []string) error {
 		}
 	}
 	p := s.prefs(user)
-	p.Panel, p.Cards = out, 1
+	p.Panel, p.Cards = out, cardsNow
 	return s.save()
 }
 
@@ -460,9 +482,9 @@ func (s *Service) List(user string) View {
 		}
 		mods = append(mods, cp)
 	}
-	p := Prefs{Panel: slices.Clone(Builtin), Cards: 1}
+	p := Prefs{Panel: slices.Clone(Builtin), Cards: cardsNow}
 	if up, ok := f.Users[user]; ok {
-		p = Prefs{Theme: up.Theme, Panel: up.panel(), Cards: 1}
+		p = Prefs{Theme: up.Theme, Panel: up.panel(), Cards: cardsNow}
 	}
 	slices.SortFunc(mods, func(a, b Installed) int { return strings.Compare(a.Name, b.Name) })
 	return View{Mods: mods, Prefs: p}

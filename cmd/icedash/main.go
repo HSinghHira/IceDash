@@ -48,6 +48,7 @@ import (
 	"github.com/HSinghHira/IceDash/internal/session"
 	"github.com/HSinghHira/IceDash/internal/settings"
 	"github.com/HSinghHira/IceDash/internal/state"
+	"github.com/HSinghHira/IceDash/internal/storage"
 	"github.com/HSinghHira/IceDash/internal/system"
 	"github.com/HSinghHira/IceDash/internal/term"
 	"github.com/HSinghHira/IceDash/internal/update"
@@ -184,6 +185,12 @@ func main() {
 		Media: &media.Store{Dir: filepath.Join(state.Dir, "media")},
 		// The weather location's place search (Open-Meteo, as the widget uses).
 		Places: &places.Search{HTTP: &http.Client{Timeout: 10 * time.Second}},
+	}
+	if kind != host.CasaOS {
+		// ZimaOS's storages (RAID pools and all), with their health; Files
+		// shows any the mount table scan misses.
+		srv.Storage = &storage.Client{Gateway: "http://127.0.0.1"}
+		srv.Files.Storages = srv.Storage.Dirs
 	}
 	if kind == host.CasaOS {
 		srv.StockURL = casa.StockPath

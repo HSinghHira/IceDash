@@ -63,6 +63,8 @@ export const apps = ref<App[]>([])
 export const appsLoaded = ref(false)
 export const util = ref<zima.Utilization | null>(null)
 export const sys = ref<ice.SystemInfo | null>(null)
+/** The Storage card's pools, read while the card is on the panel. */
+export const storage = ref<ice.StorageInfo | null>(null)
 export const zone = ref(pickZone(undefined))
 /** The zone comes from the user's saved setting, not the browser. */
 export const zoneSaved = ref(false)
@@ -171,6 +173,15 @@ async function loadStats() {
     sys.value = s.value
     offline.value = false
   } else handle(s.reason)
+}
+
+async function loadStorage() {
+  if (!panelCards.value.some((c) => c.id === 'storage')) return
+  try {
+    storage.value = await ice.storage()
+  } catch (e) {
+    handle(e)
+  }
 }
 
 let lastNoteId = 0
@@ -389,7 +400,7 @@ export function openSettings(page: SettingsPage = 'general') {
 }
 
 /** IceDash's own cards (IceCards): on the panel like any widget, nothing to install. */
-export const BUILTIN_CARDS = ['clock', 'system', 'network', 'apps'] as const
+export const BUILTIN_CARDS = ['clock', 'system', 'storage', 'network', 'apps'] as const
 export type BuiltinCard = (typeof BUILTIN_CARDS)[number]
 export const isBuiltinCard = (id: string): id is BuiltinCard => (BUILTIN_CARDS as readonly string[]).includes(id)
 
@@ -827,6 +838,12 @@ export async function start() {
   void Promise.all([loadPrefs(), sysDone]).then(() => prefsLoaded.value && settleLanguage())
 
   pollers.push(poll(loadStats, 5000))
+  pollers.push(poll(loadStorage, 30000))
+  // Put on the panel: read at once rather than at the next round.
+  watch(
+    () => panelCards.value.some((c) => c.id === 'storage'),
+    (on) => on && void loadStorage(),
+  )
   pollers.push(poll(loadApps, 15000))
   pollers.push(poll(loadAppInfo, 15000))
   jobsPoller = poll(loadJobs, 20000)

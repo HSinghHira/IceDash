@@ -31,6 +31,43 @@ export interface SystemInfo {
 
 export const system = () => request<SystemInfo>(`${base}/system`)
 
+/** One disk in a storage pool. */
+export interface StorageDrive {
+  name: string
+  model?: string
+  size?: number
+  health: boolean
+  missing?: boolean
+  /** °C */
+  temp?: number
+  hours?: number
+}
+
+/** One storage as ZimaOS lists it: the system disk, a RAID pool, a disk, a USB drive. */
+export interface StoragePool {
+  name: string
+  kind: string
+  size: number
+  used: number
+  /** ok, busy, warn, bad; "" when unknown (CasaOS) */
+  health: string
+  /** A RAID's state, as ZimaOS names it (ok, degraded, rebuilding …). */
+  state?: string
+  /** RAID level; -1 is JBOD. */
+  level?: number
+  progress?: number
+  drives?: StorageDrive[]
+  /** Its top in Files, for admins. */
+  files?: string
+}
+
+export interface StorageInfo {
+  pools: StoragePool[]
+  health: boolean
+}
+
+export const storage = () => request<StorageInfo>(`${base}/storage`)
+
 export interface Notification {
   id: number
   time: string
