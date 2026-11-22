@@ -72,17 +72,22 @@ describe('IceStore', () => {
     expect(cardIds(w)).toEqual(['com.icestore.plain', 'com.icestore.gamma', 'com.icestore.beta', 'com.icestore.alpha'])
   })
 
-  it('opens on Discover: the featured banner, rows, and categories', async () => {
+  it('opens on Discover: the banner, a picture row, and compact lists', async () => {
     iceStoreView.value = 'discover'
     const w = mount(IceStorePanel)
-    expect(w.find('.hero-card .info').attributes('data-app')).toBe('com.icestore.beta')
+    expect(w.find('.hero-card .banner').attributes('data-app')).toBe('com.icestore.beta')
     const rows = w.findAll('.showcase')
-    expect(rows.map((r) => r.find('h3').text())).toEqual(['Popular', 'New in IceStore'])
-    // Rows show screenshots: plain, with none, is left out though it has the most stars.
+    expect(rows.map((r) => r.find('h3').text())).toEqual(['Popular'])
+    // Picture rows need a screenshot: plain, with none, is left out though it has the most stars.
     expect(rows[0]!.findAll('.tile').map((t) => t.attributes('data-app'))).toEqual(['com.icestore.beta', 'com.icestore.gamma', 'com.icestore.alpha'])
-    expect(w.find('.ranked h3').text()).toBe('Most forked')
-    expect(w.findAll('.ranked .entry').map((e) => e.attributes('data-app'))).toEqual(['com.icestore.alpha', 'com.icestore.beta'])
-    expect(w.findAll('.cat-tile').map((c) => c.text())).toEqual(['Tools4'])
+    // Compact lists load no screenshots.
+    const grids = w.findAll('.grid-sec')
+    expect(grids.map((g) => g.find('h3').text())).toEqual(['New in IceStore', 'Tools'])
+    expect(grids[0]!.findAll('.row').map((r) => r.attributes('data-app'))).toEqual(['com.icestore.beta', 'com.icestore.gamma', 'com.icestore.alpha'])
+    // Category sections leave out what the picture rows show.
+    expect(grids[1]!.findAll('.row').map((r) => r.attributes('data-app'))).toEqual(['com.icestore.plain'])
+    expect(w.findAll('.grid-sec .thumb').length).toBe(0)
+    expect(w.findAll('.showcase .thumb').length).toBe(3)
     // See all on Popular: every app, most stars first.
     await rows[0]!.find('.link').trigger('click')
     expect(iceStoreView.value).toBe('all')

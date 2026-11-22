@@ -1,14 +1,13 @@
 <script setup lang="ts">
-// The banner on Discover: one featured app at a time, its screenshot large,
-// with dots and arrows. It moves on by itself unless the pointer is on it,
-// it has focus, or the user prefers less motion.
+// The banner on Discover, as in the ZimaOS App Store: one featured app at a
+// time, its screenshot full bleed with its icon, name and tagline on it, and
+// dots with an arrow below. It moves on by itself unless the pointer is on
+// it, it has focus, or the user prefers less motion.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CatalogApp } from '../../api/apps'
 import AppIcon from '../../components/AppIcon.vue'
 import Icon from '../../components/Icon.vue'
-import { shortNum } from '../../lib/icestore'
 import { strings } from '../../strings'
-import { act, button } from './actions'
 
 const props = defineProps<{ apps: CatalogApp[] }>()
 defineEmits<{ open: [app: CatalogApp] }>()
@@ -16,7 +15,6 @@ defineEmits<{ open: [app: CatalogApp] }>()
 const i = ref(0)
 const n = computed(() => props.apps.length)
 const app = computed(() => props.apps[i.value % Math.max(1, n.value)])
-const b = computed(() => (app.value ? button(app.value) : null))
 const go = (d: number) => (i.value = (i.value + d + n.value) % n.value)
 watch(n, () => (i.value = 0))
 
@@ -43,69 +41,54 @@ onBeforeUnmount(() => clearInterval(timer))
     @focusin="held = true"
     @focusout="held = false"
   >
-    <button type="button" class="hit" :aria-label="`${app.title}: ${strings.details}`" @click="$emit('open', app)" />
-    <div class="art" :class="{ empty: !app.thumbnail }">
+    <button type="button" class="banner" :class="{ empty: !app.thumbnail }" :data-app="app.id" :aria-label="`${app.title}: ${strings.details}`" @click="$emit('open', app)">
       <img v-if="app.thumbnail" :key="app.id" class="thumb" :src="app.thumbnail" alt="" referrerpolicy="no-referrer" />
-      <AppIcon v-else :src="app.icon" :name="app.title" :size="96" />
-      <div v-if="n > 1" class="controls">
-        <span class="dots" role="tablist">
-          <button
-            v-for="(a, k) in apps"
-            :key="a.id"
-            type="button"
-            role="tab"
-            class="dot"
-            :class="{ on: k === i }"
-            :aria-selected="k === i"
-            :aria-label="a.title"
-            @click.stop="i = k"
-          />
-        </span>
-        <button type="button" class="arrow" :aria-label="strings.previous" @click.stop="go(-1)"><Icon name="arrowLeft" :size="15" /></button>
-        <button type="button" class="arrow" :aria-label="strings.next" @click.stop="go(1)"><Icon name="arrowRight" :size="15" /></button>
-      </div>
-    </div>
-    <div class="info" :data-app="app.id">
-      <AppIcon :src="app.icon" :name="app.title" :size="52" />
-      <div class="text">
-        <span class="kicker">
-          {{ strings.featured }} · {{ app.category }}<template v-if="app.stars != null"> · <Icon name="star" :size="11" /> {{ shortNum(app.stars) }}</template>
-        </span>
-        <span class="name">{{ app.title }}</span>
+      <span class="info">
+        <AppIcon :src="app.icon" :name="app.title" :size="46" />
+        <span class="small-name">{{ app.title }}</span>
         <span class="line">{{ app.tagline }}</span>
-      </div>
-      <button v-if="b" type="button" class="pill" :class="b.kind" :disabled="b.disabled" :title="b.title" @click.stop="act(app)">
-        {{ b.label }}
-      </button>
+      </span>
+    </button>
+    <div v-if="n > 1" class="pager">
+      <span class="dots" role="tablist">
+        <button
+          v-for="(a, k) in apps"
+          :key="a.id"
+          type="button"
+          role="tab"
+          class="dot"
+          :class="{ on: k === i }"
+          :aria-selected="k === i"
+          :aria-label="a.title"
+          @click="i = k"
+        >
+          <Icon v-if="k === i" name="star" :size="13" />
+        </button>
+      </span>
+      <button type="button" class="next" :aria-label="strings.next" @click="go(1)"><Icon name="chevron" :size="16" /></button>
     </div>
   </section>
 </template>
 
-<style scoped src="./shared.css"></style>
 <style scoped>
 .hero-card {
-  position: relative;
   display: grid;
-  grid-template-rows: 1fr auto;
-  min-height: 300px;
-  border-radius: var(--radius-card);
-  border: 1px solid var(--line);
-  background: var(--card);
-  overflow: hidden;
+  gap: 16px;
 }
-.hit {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  border: 0;
-  background: none;
-  cursor: pointer;
-}
-.art {
+.banner {
   position: relative;
-  min-height: 0;
+  display: block;
+  aspect-ratio: 16 / 10;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: rgba(var(--ac-rgb), 0.08);
+  color: #fff;
+  font: inherit;
+  text-align: left;
   overflow: hidden;
-  background: rgba(var(--fg-rgb), 0.04);
+  cursor: pointer;
 }
 .thumb {
   position: absolute;
@@ -114,99 +97,97 @@ onBeforeUnmount(() => clearInterval(timer))
   height: 100%;
   object-fit: cover;
   object-position: top;
-  animation: show 0.4s ease;
+  animation: show 0.45s ease;
+  transition: transform 0.5s ease;
+}
+.banner:hover .thumb {
+  transform: scale(1.02);
 }
 @keyframes show {
   from {
     opacity: 0;
   }
 }
-.art.empty {
-  display: grid;
-  place-items: center;
-  background: rgba(var(--ac-rgb), 0.07);
-}
+/* The app's name on the picture: a dark panel so it reads on any screenshot. */
 .info {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 18px;
-  border-top: 1px solid var(--line);
-  background: rgba(var(--surface-rgb), 0.92);
-}
-.text {
+  position: absolute;
+  top: 18px;
+  left: 18px;
   display: grid;
-  flex: 1;
-  min-width: 0;
+  justify-items: start;
+  gap: 4px;
+  max-width: min(52%, 290px);
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(8, 12, 18, 0.72);
+  backdrop-filter: blur(10px);
 }
-.kicker {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  white-space: pre;
-  overflow: hidden;
+.info > :first-child {
+  margin-bottom: 4px;
+  border-radius: 12px;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9);
 }
-.name {
-  font-size: 18px;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.small-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  opacity: 0.85;
 }
 .line {
-  color: var(--mut);
-  font-size: 12.5px;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.pill {
-  z-index: 2;
-}
-.controls {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  z-index: 2;
+.pager {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 4px 4px 10px;
-  border-radius: var(--radius-pill);
-  background: rgba(var(--surface-rgb), 0.8);
-  backdrop-filter: var(--blur);
+  justify-content: center;
+  gap: 18px;
 }
 .dots {
   display: flex;
-  gap: 5px;
-  margin-right: 4px;
+  align-items: center;
+  gap: 12px;
 }
 .dot {
-  width: 7px;
-  height: 7px;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: rgba(var(--fg-rgb), 0.3);
-  cursor: pointer;
-}
-.dot.on {
-  width: 18px;
-  border-radius: var(--radius-pill);
-  background: var(--ac);
-}
-.arrow {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(var(--fg-rgb), 0.08);
+  background: rgba(var(--fg-rgb), 0.18);
   color: var(--text);
   cursor: pointer;
 }
-.arrow:hover {
-  background: rgba(var(--fg-rgb), 0.16);
+.dot.on {
+  background: none;
+}
+.dot:hover:not(.on) {
+  background: rgba(var(--fg-rgb), 0.35);
+}
+.next {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(var(--fg-rgb), 0.04);
+  color: var(--text);
+  cursor: pointer;
+}
+.next:hover {
+  border-color: rgba(var(--fg-rgb), 0.3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .thumb {
+    animation: none;
+    transition: none;
+  }
 }
 </style>
