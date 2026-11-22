@@ -42,7 +42,7 @@ function stubFetch() {
   })
 }
 
-const cardIds = (w: ReturnType<typeof mount>) => w.findAll('.cards > .card').map((c) => c.attributes('data-app'))
+const cardIds = (w: ReturnType<typeof mount>) => w.findAll('.main > .rows .row').map((c) => c.attributes('data-app'))
 
 beforeEach(() => {
   stubFetch()
@@ -116,7 +116,7 @@ describe('IceStore', () => {
   it('offers Uninstall on an installed app’s page, to admins only', async () => {
     appInfo.value = { alpha: { name: 'alpha', store_id: 'com.icestore.alpha', icestore: true, version: '2', update: false, first_launch: false } }
     const w = mount(IceStorePanel, { attachTo: document.body })
-    await w.find('[data-app="com.icestore.alpha"] .card-hit').trigger('click')
+    await w.find('.row[data-app="com.icestore.alpha"]').trigger('click')
     await flushPromises()
     const btn = w.findAll('.page .actions button').find((b) => b.text() === 'Uninstall')
     expect(btn).toBeDefined()
@@ -142,7 +142,7 @@ describe('IceStore', () => {
 
   it('opens screenshots full size and steps through them with the arrow keys', async () => {
     const w = mount(IceStorePanel, { attachTo: document.body })
-    await w.find('[data-app="com.icestore.gamma"] .card-hit').trigger('click')
+    await w.find('.row[data-app="com.icestore.gamma"]').trigger('click')
     await flushPromises()
     await w.findAll('.shots .shot')[1]!.trigger('click')
     await flushPromises()

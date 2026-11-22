@@ -50,6 +50,10 @@ export interface Meta {
   support: string
   docs: string
   min_memory: number
+  /** Download size of the app's images, by CPU (amd64, arm64), in bytes. */
+  min_image_size?: Record<string, number>
+  /** Who packaged the app for IceStore. */
+  author?: string
 }
 
 export const catalog = () => request<CatalogList>(`${base}/catalog`)

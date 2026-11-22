@@ -27,7 +27,7 @@ import { strings } from '../strings'
 import { admin, fitsHere, installedOf } from './icestore/actions'
 import AppPage from './icestore/AppPage.vue'
 import Discover from './icestore/Discover.vue'
-import StoreCard from './icestore/StoreCard.vue'
+import AppRow from './icestore/AppRow.vue'
 
 const query = ref('')
 const page = ref<{ app: api.CatalogApp; meta: api.Meta } | null>(null)
@@ -63,8 +63,11 @@ const list = computed(() => {
     )
   return sortApps(l, iceStoreSort.value)
 })
-/** Cards show the date the list is sorted by. */
-const cardDate = computed(() => (iceStoreSort.value === 'newest' ? 'added' : iceStoreSort.value === 'updated' ? 'updated' : undefined))
+/** Rows show the number or date the list is sorted by. */
+const rowFact = computed(() => {
+  const s = iceStoreSort.value
+  return s === 'stars' || s === 'forks' ? s : s === 'newest' ? 'added' : s === 'updated' ? 'updated' : undefined
+})
 
 const title = computed(() => {
   const v = view.value
@@ -200,6 +203,7 @@ async function refresh() {
         @back="page = null"
         @open="show"
         @bundles="go('bundles')"
+        @view="go"
       />
 
       <p v-else-if="!catalogList && !catalogError" class="mut">{{ strings.loading }}</p>
@@ -267,8 +271,8 @@ async function refresh() {
 
         <template v-else>
           <p v-if="catalogList && !list.length" class="empty mut">{{ strings.catalogEmpty }}</p>
-          <ul class="cards">
-            <StoreCard v-for="a in list" :key="a.id" :app="a" :date="cardDate" @open="show" />
+          <ul class="rows" :class="{ wide: view === 'updates' }">
+            <AppRow v-for="a in list" :key="a.id" :app="a" :fact="rowFact" :action="view === 'updates'" @open="show" />
           </ul>
         </template>
       </template>
@@ -434,6 +438,7 @@ async function refresh() {
 .main {
   min-width: 0;
   scroll-margin-top: 20px;
+  container-type: inline-size;
 }
 .banner {
   margin: 0 0 14px;
@@ -488,14 +493,6 @@ async function refresh() {
 .sort select option {
   background: rgb(var(--surface-rgb));
   color: var(--text);
-}
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 .empty {
   margin: 30px 0;
