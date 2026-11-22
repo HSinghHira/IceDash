@@ -177,6 +177,10 @@ func (s *Service) addStorages(out []mount, dirs []string) []mount {
 		return out
 	}
 	list := s.Storages()
+	same := s.sameDisk
+	if same == nil {
+		same = sameDisk
+	}
 	keys := make([]string, 0, len(list))
 	for dir := range list {
 		keys = append(keys, dir)
@@ -188,7 +192,7 @@ func (s *Service) addStorages(out []mount, dirs []string) []mount {
 			continue
 		}
 		real, err := realDir(dir)
-		if err != nil || real == s.Root || strings.HasPrefix(real, s.Root+"/") || sameDisk(dir, s.Root) {
+		if err != nil || real == s.Root || strings.HasPrefix(real, s.Root+"/") || same(dir, s.Root) {
 			continue
 		}
 		if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {

@@ -57,6 +57,8 @@ type Service struct {
 	// them in a folder of its own under MountDirs that the mount table scan
 	// missed shows too, so Files lists what ZimaOS's Files does.
 	Storages func() map[string]string
+	// sameDisk tells whether two folders are on one file system (tests).
+	sameDisk func(a, b string) bool
 
 	mu      sync.Mutex
 	tickets map[string]ticket

@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-## v1.4.0 (2026-11-22)
+## v1.4.1 (2026-11-22)
+
+v1.4.0 was tagged but never released (a test that only failed on Linux stopped the build); v1.4.1 is the same release.
 
 - **A Storage card.** The panel has a new built-in card that lists every storage on the server as ZimaOS does: the system disk, RAID pools, other disks and USB drives. Each shows used and total space, a health dot (healthy, working, needs attention, failing), the RAID level and its state (protecting, degraded, resyncing with its progress…), how many drives it has and the warmest one's temperature; hover for each drive. Click a storage to open it in Files. It's added under System on your panel once; take it off like any card. On CasaOS it lists the disks Files finds, without health. ([#1](https://github.com/HSinghHira/IceDash/issues/1))
 - **Storage pools in Files.** Files now lists the storages ZimaOS shows even when they're mounted in a way IceDash missed, such as a btrfs pool mounted as one of its subvolumes.

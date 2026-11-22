@@ -45,7 +45,7 @@ type Prefs struct {
 	Panel []string `json:"panel"` // card ids, top to bottom: built-in names and widget ids
 	// Cards is 1 once the panel lists the built-in cards too. Panels saved
 	// before that (v0.8.0 and older) showed them always, above the widgets.
-	// 2 once it has seen the Storage card (v1.4.0): a panel saved before gets
+	// 2 once it has seen the Storage card (v1.4.1): a panel saved before gets
 	// it once, under System.
 	Cards int `json:"cards,omitempty"`
 }

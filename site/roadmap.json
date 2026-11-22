@@ -1,5 +1,5 @@
 [
-  {"title": "Storage pools and their health", "type": "feature", "status": "done", "version": "v1.4.0", "issue": 1,
+  {"title": "Storage pools and their health", "type": "feature", "status": "done", "version": "v1.4.1", "issue": 1,
    "desc": "A view of every storage pool and disk, as in ZimaOS, with RAID or btrfs health, used and free space."},
   {"title": "Sign in on IceDash's own screen on ZimaOS", "type": "bug", "status": "planned",
    "desc": "On ZimaOS, IceDash still sends you to the ZimaOS dashboard to sign in. It will sign you in on its own screen, as it does on CasaOS."},

@@ -191,7 +191,7 @@ func TestDisksPoolsAndStorages(t *testing.T) {
 	s, _ := newData(t)
 	base := filepath.ToSlash(filepath.Dir(s.Root))
 	data := filepath.ToSlash(s.Root)
-	for _, d := range []string{base + "/media/Pool1", base + "/media/Pool2", base + "/elsewhere/x"} {
+	for _, d := range []string{base + "/media/Pool1", base + "/media/Pool2", base + "/media/Unmounted", base + "/elsewhere/x"} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -208,8 +208,11 @@ func TestDisksPoolsAndStorages(t *testing.T) {
 		return map[string]string{
 			base + "/media/Pool1": "Pool1", base + "/media/Pool2": "Pool2",
 			base + "/media/ZimaOS-HD": "ZimaOS-HD", base + "/elsewhere/x": "x", base + "/media/gone": "gone",
+			base + "/media/Unmounted": "Unmounted",
 		}
 	}
+	// Pool2 is mounted; Unmounted is a bare folder on /DATA's file system.
+	s.sameDisk = func(a, b string) bool { return path.Base(a) != "Pool2" }
 	var got []string
 	for _, d := range s.Disks() {
 		got = append(got, d.Name+"="+d.Path)
