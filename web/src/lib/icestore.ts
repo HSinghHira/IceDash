@@ -3,6 +3,7 @@
 // older index has none, and those sorts then fall back to A–Z.
 import type { CatalogApp } from '../api/apps'
 import { availableBundles, type Bundle } from './bundles'
+import type { IconName } from './icons'
 
 export const SORTS = ['az', 'za', 'newest', 'updated', 'stars', 'forks'] as const
 export type SortKey = (typeof SORTS)[number]
@@ -65,6 +66,31 @@ export const featuredApps = (all: CatalogApp[]) => all.filter((a) => a.featured)
 
 /** The n apps added last. Empty when the index has no dates. */
 export const newestApps = (all: CatalogApp[], n = 8) => sortApps(all.filter((a) => a.added), 'newest').slice(0, n)
+
+const CATEGORY_ICONS: Record<string, IconName> = {
+  ai: 'sparkle',
+  developer: 'terminal',
+  finance: 'coins',
+  home: 'home',
+  media: 'film',
+  music: 'music',
+  networking: 'globe',
+  network: 'globe',
+  productivity: 'checks',
+  security: 'shield',
+  social: 'users',
+  utilities: 'settings',
+  others: 'grid',
+}
+
+/** The sidebar icon for an IceStore category. */
+export const categoryIcon = (name: string): IconName => CATEGORY_ICONS[name.trim().toLowerCase()] ?? 'package'
+
+/** The n apps changed last (a version bump, else when added). Empty without dates. */
+export const updatedApps = (all: CatalogApp[], n = 10) => sortApps(all.filter((a) => a.updated || a.added), 'updated').slice(0, n)
+
+/** The n most-starred apps. Empty when the index has no stars. */
+export const popularApps = (all: CatalogApp[], n = 10) => sortApps(all.filter((a) => a.stars != null), 'stars').slice(0, n)
 
 /** 950 → "950", 12345 → "12.3k", 1520000 → "1.5M". */
 export function shortNum(n: number): string {

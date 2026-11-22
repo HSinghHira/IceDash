@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **A better-looking IceStore.** All apps opens on a **Featured** row, with a screenshot of each app, and **Recently added**. A new **Sort** menu next to the search lists apps A–Z, Z–A, newest first, recently updated, or by the most GitHub stars or forks; IceDash remembers your choice. Cards show stars and forks, and say when an app is installed or has an update.
+- **A new IceStore, laid out like the ZimaOS App Store.** It opens on **Discover**: a headline beside a banner of featured apps, rows of **Popular**, **New in IceStore** and **Recently updated** apps led by their screenshots, and tiles to browse by category. The sidebar has the search, Discover, All apps, My apps, Updates, Bundles, and every category with its own icon. Lists have a title and a **Sort** menu: A–Z, Z–A, newest first, recently updated, or the most GitHub stars or forks; IceDash remembers your choice. Cards show stars and forks, and say when an app is installed or has an update. The window is wider too.
 - **Bigger app pages.** An app's page shows its stars, forks, when it was added and last updated, the memory it needs and the CPUs it runs on. Click a screenshot to see it full size, and step through them with the arrow keys. At the bottom are the bundles it belongs to and more apps from its category.
 - **Uninstall from IceStore.** An installed app's page has an **Uninstall** button next to Open, with the same question about its data as the right-click menu.
 - **Update all.** The Updates list has an **Update all** button that updates every waiting app, one after the other.

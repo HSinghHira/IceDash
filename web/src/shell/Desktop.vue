@@ -26,7 +26,7 @@ import Toasts from './Toasts.vue'
 import TopBar from './TopBar.vue'
 import WidgetPanel from './WidgetPanel.vue'
 
-const widths: Record<WindowKind, number> = { settings: 1040, notifications: 380, icestore: 920, logs: 700, credentials: 520, app: 1080, files: 980, terminal: 820 }
+const widths: Record<WindowKind, number> = { settings: 1040, notifications: 380, icestore: 1080, logs: 700, credentials: 520, app: 1080, files: 980, terminal: 820 }
 
 /** Something is open: the rest fades so it stands out. */
 const dimmed = computed(() => notesOpen.value || windows.some((w) => !w.min))

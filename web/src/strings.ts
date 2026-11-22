@@ -454,6 +454,15 @@ export const strings = {
   adminInstallOnly: 'Only an admin can install apps.',
 
   // IceStore: sorting, featured, the app page
+  discover: 'Discover',
+  myApps: 'My apps',
+  heroTitle: 'Apps for your own server.',
+  heroBody: (n: number, sys: string) => `${n} self-hosted apps, each set up to install on ${sys} in a few clicks.`,
+  popular: 'Popular',
+  newInStore: 'New in IceStore',
+  recentlyUpdated: 'Recently updated',
+  browseCategories: 'Browse by category',
+  searchResults: (q: string) => `Results for “${q}”`,
   sortBy: 'Sort',
   sortNames: {
     az: 'A–Z',
@@ -464,7 +473,6 @@ export const strings = {
     forks: 'Most forks',
   } as Record<string, string>,
   featured: 'Featured',
-  recentlyAdded: 'Recently added',
   seeAll: 'See all',
   notForDevice: 'Not for this device',
   notForDeviceLong: (arch: string) => `This app doesn’t list ${arch}, the CPU in this box, so it may not start.`,

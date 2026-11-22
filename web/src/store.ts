@@ -316,8 +316,8 @@ export const appInfo = ref<Record<string, appsApi.AppInfo>>({})
 export const jobs = ref<appsApi.Job[]>([])
 export const catalogList = ref<appsApi.CatalogList | null>(null)
 export const catalogError = ref('')
-/** The IceStore window's current list: all, installed, updates, bundles, or a category. */
-export const iceStoreView = ref<string>('all')
+/** The IceStore window's current page: discover, all, installed, updates, bundles, or a category. */
+export const iceStoreView = ref<string>('discover')
 /** An app whose page IceStore opens on (search, Phase 5b). */
 export const iceStoreFocus = ref<string | null>(null)
 /** Open popups: setup (a catalog id), first launch and uninstall (app names). */
@@ -720,7 +720,7 @@ export async function updateAll(names: string[]) {
   toast({ title: strings.updateAllDone(run.total), body: '' })
 }
 
-export function openIceStore(view = 'all') {
+export function openIceStore(view = 'discover') {
   iceStoreView.value = view
   openWindow('icestore')
   if (!catalogList.value) void loadCatalog()

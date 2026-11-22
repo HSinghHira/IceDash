@@ -71,13 +71,27 @@ describe('IceStore', () => {
     expect(cardIds(w)).toEqual(['com.icestore.gamma', 'com.icestore.beta', 'com.icestore.alpha'])
   })
 
-  it('shows Featured and Recently added only on All apps without a search', async () => {
+  it('opens on Discover: the featured banner, rows, and categories', async () => {
+    iceStoreView.value = 'discover'
     const w = mount(IceStorePanel)
-    expect(w.findAll('.featured .feat').map((c) => c.attributes('data-app'))).toEqual(['com.icestore.beta'])
-    expect(w.findAll('.mini-app').map((c) => c.attributes('data-app'))).toEqual(['com.icestore.beta', 'com.icestore.gamma', 'com.icestore.alpha'])
+    expect(w.find('.hero-card .info').attributes('data-app')).toBe('com.icestore.beta')
+    const rows = w.findAll('.showcase')
+    expect(rows.map((r) => r.find('h3').text())).toEqual(['Popular', 'New in IceStore'])
+    expect(rows[0]!.findAll('.tile').map((t) => t.attributes('data-app'))).toEqual(['com.icestore.beta', 'com.icestore.gamma', 'com.icestore.alpha'])
+    expect(w.findAll('.cat-tile').map((c) => c.text())).toEqual(['Tools3'])
+    // See all on Popular: every app, most stars first.
+    await rows[0]!.find('.link').trigger('click')
+    expect(iceStoreView.value).toBe('all')
+    expect(iceStoreSort.value).toBe('stars')
+    expect(cardIds(w)).toEqual(['com.icestore.beta', 'com.icestore.gamma', 'com.icestore.alpha'])
+  })
+
+  it('searching on Discover lists the matches', async () => {
+    iceStoreView.value = 'discover'
+    const w = mount(IceStorePanel)
     await w.find('.search input').setValue('alp')
-    expect(w.find('.featured').exists()).toBe(false)
-    expect(w.find('.newest').exists()).toBe(false)
+    expect(w.find('.discover').exists()).toBe(false)
+    expect(w.find('.page-head h2').text()).toBe('Results for “alp”')
     expect(cardIds(w)).toEqual(['com.icestore.alpha'])
   })
 
@@ -111,10 +125,10 @@ describe('IceStore', () => {
     iceStoreView.value = 'updates'
     const w = mount(IceStorePanel)
     expect(cardIds(w)).toEqual(['com.icestore.gamma'])
-    expect(w.find('.all-head .pill.update').text()).toBe('Update all (1)')
+    expect(w.find('.page-head .pill.update').text()).toBe('Update all (1)')
     user.value = { name: 'guest', admin: false }
     await flushPromises()
-    expect(w.find('.all-head .pill.update').exists()).toBe(false)
+    expect(w.find('.page-head .pill.update').exists()).toBe(false)
   })
 
   it('opens screenshots full size and steps through them with the arrow keys', async () => {

@@ -39,7 +39,7 @@ watch(
   () => props.app.id,
   () => {
     viewing.value = null
-    top.value?.scrollIntoView({ block: 'start' })
+    top.value?.scrollIntoView?.({ block: 'start' })
   },
 )
 </script>
