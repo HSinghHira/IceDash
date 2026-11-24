@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v1.4.2 (2026-11-24)
+
+- **IceStore refreshes again.** Refresh failed with "cannot unmarshal number into Go struct field Index.apps.25.developer" because one app (copyparty) lists its developer as the number 9001. IceDash now reads a number or true/false in a text field as text, so one odd value no longer stops the whole store from loading.
+
 ## v1.4.1 (2026-11-22)
 
 v1.4.0 was tagged but never released (a test that only failed on Linux stopped the build); v1.4.1 is the same release.

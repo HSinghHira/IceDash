@@ -60,6 +60,56 @@ type App struct {
 	Featured bool  `json:"featured,omitempty"`
 }
 
+// UnmarshalJSON reads the app leniently: see lenient.
+func (a *App) UnmarshalJSON(b []byte) error {
+	type plain App
+	return lenient(b, (*plain)(a))
+}
+
+// UnmarshalJSON reads the details leniently: see lenient.
+func (m *Meta) UnmarshalJSON(b []byte) error {
+	type plain Meta
+	return lenient(b, (*plain)(m))
+}
+
+// lenient decodes b into v after turning bare numbers and booleans into
+// strings wherever v wants a string, so one odd value (copyparty's developer
+// "9001" came through as the number 9001) doesn't lose the whole catalog.
+func lenient(b []byte, v any) error {
+	err := json.Unmarshal(b, v)
+	var te *json.UnmarshalTypeError
+	if err == nil || !errors.As(err, &te) {
+		return err
+	}
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(b, &obj) != nil {
+		return err
+	}
+	fixed := false
+	for k, raw := range obj {
+		s := strings.TrimSpace(string(raw))
+		if s == "" || s[0] == '"' || s[0] == '{' || s[0] == '[' || s == "null" {
+			continue
+		}
+		// A number or boolean: try it as a string field.
+		q, _ := json.Marshal(s)
+		probe := map[string]json.RawMessage{k: q}
+		pb, _ := json.Marshal(probe)
+		if json.Unmarshal(pb, v) == nil {
+			obj[k] = q
+			fixed = true
+		}
+	}
+	if !fixed {
+		return err
+	}
+	nb, mErr := json.Marshal(obj)
+	if mErr != nil {
+		return err
+	}
+	return json.Unmarshal(nb, v)
+}
+
 // Index is index.json.
 type Index struct {
 	Version   int       `json:"version"`

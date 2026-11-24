@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -126,5 +127,26 @@ func TestOnlyCatalogHosts(t *testing.T) {
 		if ValidName(s) != ok {
 			t.Errorf("ValidName(%q) want %v", s, ok)
 		}
+	}
+}
+
+func TestNumbersInTextFieldsAreRead(t *testing.T) {
+	// The live index had copyparty's developer "9001" as the number 9001.
+	var idx Index
+	err := json.Unmarshal([]byte(`{"apps":[{"id":"com.icestore.copyparty","developer":9001,"version":2,"stars":40,"featured":true}]}`), &idx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := idx.Apps[0]
+	if a.Developer != "9001" || a.Version != "2" || a.Stars == nil || *a.Stars != 40 || !a.Featured {
+		t.Errorf("app %+v", a)
+	}
+	var m Meta
+	if err := json.Unmarshal([]byte(`{"developer":9001,"min_memory":256}`), &m); err != nil || m.Developer != "9001" || m.MinMemory != 256 {
+		t.Errorf("meta %+v %v", m, err)
+	}
+	// A real type mismatch still fails.
+	if err := json.Unmarshal([]byte(`{"apps":[{"stars":"many"}]}`), &idx); err == nil {
+		t.Error("want an error for stars \"many\"")
 	}
 }
