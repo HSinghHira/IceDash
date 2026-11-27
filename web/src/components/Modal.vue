@@ -49,6 +49,8 @@ function backdrop(e: MouseEvent) {
   inset: 0;
   z-index: 300;
   display: grid;
+  /* One column no wider than the window, so a wide dialog shrinks to fit. */
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: 16px;
   background: rgba(0, 0, 0, 0.55);

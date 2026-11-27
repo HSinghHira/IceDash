@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"os"
 	"regexp"
 	"slices"
@@ -63,6 +64,18 @@ type Manager struct {
 	AppData string // /DATA/AppData
 	// Poll is how often a running task is checked (default 2 s).
 	Poll time.Duration
+	// Docker reads the apps' containers and images (nil: no way back and
+	// no night updates).
+	Docker Docker
+	// Versions holds each app's previous version (default app-versions
+	// beside State).
+	Versions string
+	// SelfBusy reports IceDash's own install, which night updates wait for.
+	SelfBusy func() bool
+	// NightLock is shared with IceDash's own night install (update.Manager).
+	NightLock sync.Locker
+	// Steady shortens the health check in tests (0: 3 minutes).
+	Steady time.Duration
 
 	mu       sync.Mutex
 	jobs     map[string]*Job
@@ -70,6 +83,8 @@ type Manager struct {
 	status   map[string]string     // last app grid status per app
 	ownStops map[string]time.Time  // stops IceDash asked for, so they aren't "unexpected"
 	frames   map[string]frameEntry // Frameable answers, by app
+	// refreshed is the night the catalog was last refreshed for night updates.
+	refreshed string
 }
 
 // file is what the manager keeps in /DATA/.icedash/apps.json.
@@ -78,6 +93,35 @@ type file struct {
 	Fresh []string `json:"fresh"`
 	// Dismissed lists, per ZimaOS user, apps whose popup they turned off.
 	Dismissed map[string][]string `json:"dismissed"`
+
+	// Night updates and the way back (auto.go).
+	Auto    []string            `json:"auto,omitempty"`        // apps that update at night
+	Prev    map[string]Prev     `json:"prev,omitempty"`        // kept previous versions
+	Held    map[string]Hold     `json:"held,omitempty"`        // versions not installed by themselves
+	Skip    map[string]string   `json:"night_skip,omitempty"`  // why last night skipped an app
+	Tried   map[string]string   `json:"night_tried,omitempty"` // the night each app was last tried
+	Pending map[string]*Pending `json:"pending,omitempty"`     // night updates and go backs in progress
+}
+
+func (f *file) init() {
+	if f.Dismissed == nil {
+		f.Dismissed = map[string][]string{}
+	}
+	if f.Prev == nil {
+		f.Prev = map[string]Prev{}
+	}
+	if f.Held == nil {
+		f.Held = map[string]Hold{}
+	}
+	if f.Skip == nil {
+		f.Skip = map[string]string{}
+	}
+	if f.Tried == nil {
+		f.Tried = map[string]string{}
+	}
+	if f.Pending == nil {
+		f.Pending = map[string]*Pending{}
+	}
 }
 
 // Job is an install or update in progress or just finished.
@@ -85,7 +129,7 @@ type Job struct {
 	Name    string    `json:"name"`
 	Title   string    `json:"title"`
 	Icon    string    `json:"icon"`
-	Kind    string    `json:"kind"` // install, update
+	Kind    string    `json:"kind"` // install, update, rollback
 	TaskID  string    `json:"task_id"`
 	State   string    `json:"state"` // running, succeeded, failed
 	Phase   string    `json:"phase"`
@@ -98,18 +142,16 @@ func (m *Manager) load() *file {
 	if m.st != nil {
 		return m.st
 	}
-	m.st = &file{Dismissed: map[string][]string{}}
+	m.st = &file{}
 	if m.State != "" {
 		if b, err := os.ReadFile(m.State); err == nil {
 			var f file
 			if json.Unmarshal(b, &f) == nil {
-				if f.Dismissed == nil {
-					f.Dismissed = map[string][]string{}
-				}
 				m.st = &f
 			}
 		}
 	}
+	m.st.init()
 	return m.st
 }
 
@@ -326,48 +368,12 @@ func (m *Manager) Install(ctx context.Context, id string, ch compose.Choices) (J
 		}
 		return Job{}, err
 	}
+	m.mu.Lock()
+	m.forget(name, false) // installed again from the popup: an earlier copy no longer applies
+	m.save()
+	m.mu.Unlock()
 	j := m.start(name, a.Title, a.Icon, "install", res.TaskID)
 	return j, nil
-}
-
-// Update rebuilds an installed IceStore app with the catalog's newer file,
-// keeping the env values and ports it has now.
-func (m *Manager) Update(ctx context.Context, name string) (Job, error) {
-	list, err := m.Zima.List(ctx)
-	if err != nil {
-		return Job{}, err
-	}
-	inst, ok := list[name]
-	if !ok || !strings.HasPrefix(inst.StoreID, catalog.IDPrefix) {
-		return Job{}, &InputError{errors.New("only apps from IceStore can be updated here")}
-	}
-	a, err := m.Catalog.App(ctx, inst.StoreID)
-	if err != nil {
-		return Job{}, err
-	}
-	doc, err := m.doc(ctx, a)
-	if err != nil {
-		return Job{}, err
-	}
-	if old, err := compose.Parse(inst.Compose); err == nil {
-		doc.KeepFrom(old)
-	}
-	b, err := doc.Bytes()
-	if err != nil {
-		return Job{}, err
-	}
-	if !m.claim(name) {
-		return Job{}, ErrBusy
-	}
-	res, err := m.Zima.Install(ctx, b, a.Icon, false)
-	if err != nil {
-		m.release(name)
-		if errors.Is(err, zima.ErrOldInstall) {
-			return Job{}, &InputError{err}
-		}
-		return Job{}, err
-	}
-	return m.start(name, a.Title, a.Icon, "update", res.TaskID), nil
 }
 
 // claim marks name busy unless a job for it is running.
@@ -388,16 +394,6 @@ func (m *Manager) release(name string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.jobs, name)
-}
-
-func (m *Manager) start(name, title, icon, kind, task string) Job {
-	m.mu.Lock()
-	j := m.jobs[name]
-	j.Title, j.Icon, j.Kind, j.TaskID, j.Phase = title, icon, kind, task, "accepted"
-	cp := *j
-	m.mu.Unlock()
-	go m.track(name)
-	return cp
 }
 
 // track follows the job's task to its end (at most 30 minutes), then raises
@@ -504,6 +500,12 @@ type Info struct {
 	Latest      string `json:"latest,omitempty"`
 	Update      bool   `json:"update"`
 	FirstLaunch bool   `json:"first_launch"` // the popup should show for this user
+	// Night updates and the way back.
+	Auto      bool   `json:"auto"`
+	Back      string `json:"back,omitempty"`    // the previous version kept to go back to
+	Held      string `json:"held,omitempty"`    // a version that isn't installed by itself
+	HeldBy    string `json:"held_by,omitempty"` // user, night
+	NightSkip string `json:"night_skip,omitempty"`
 }
 
 // List returns the installed apps for user.
@@ -521,6 +523,22 @@ func (m *Manager) List(ctx context.Context, user string) ([]Info, error) {
 	m.mu.Lock()
 	f := m.load()
 	fresh, dismissed := slices.Clone(f.Fresh), slices.Clone(f.Dismissed[user])
+	auto, held, skip := slices.Clone(f.Auto), maps.Clone(f.Held), maps.Clone(f.Skip)
+	prev := map[string]Prev{}
+	stale := false
+	for n, p := range f.Prev {
+		// A kept version applies only while the app runs the version it was
+		// kept for (it may have changed in the stock dashboard).
+		if in, ok := list[n]; ok && in.Version == p.To {
+			prev[n] = p
+		} else if _, running := m.jobs[n]; !running || m.jobs[n].State != "running" {
+			m.dropPrev(n)
+			stale = true
+		}
+	}
+	if stale {
+		m.save()
+	}
 	m.mu.Unlock()
 
 	out := []Info{}
@@ -532,6 +550,12 @@ func (m *Manager) List(ctx context.Context, user string) ([]Info, error) {
 			i.Update = i.Latest != "" && i.Version != "" && i.Latest != i.Version
 		}
 		i.FirstLaunch = slices.Contains(fresh, name) && !slices.Contains(dismissed, name)
+		if i.IceStore {
+			i.Auto = slices.Contains(auto, name)
+			i.Back = prev[name].From
+			i.Held, i.HeldBy = held[name].Version, held[name].By
+			i.NightSkip = skip[name]
+		}
 		out = append(out, i)
 	}
 	slices.SortFunc(out, func(a, b Info) int { return strings.Compare(a.Name, b.Name) })
@@ -604,6 +628,7 @@ func (m *Manager) Uninstall(ctx context.Context, name string, deleteData bool) e
 	m.mu.Lock()
 	f := m.load()
 	f.Fresh = slices.DeleteFunc(f.Fresh, func(s string) bool { return s == name })
+	m.forget(name, true)
 	for u, l := range f.Dismissed {
 		f.Dismissed[u] = slices.DeleteFunc(l, func(s string) bool { return s == name })
 	}
@@ -712,6 +737,7 @@ func (m *Manager) Watch(ctx context.Context) {
 	defer status.Stop()
 	updates := time.NewTimer(3 * time.Minute)
 	defer updates.Stop()
+	m.Resume(ctx)
 	m.watchStatus(ctx)
 	for {
 		select {
@@ -780,7 +806,7 @@ func (m *Manager) CheckUpdates(ctx context.Context) {
 		return
 	}
 	for _, a := range list {
-		if !a.Update || m.Notify == nil {
+		if !a.Update || m.Notify == nil || m.autoQuiet(a.Name, a.Latest) {
 			continue
 		}
 		title := a.Name

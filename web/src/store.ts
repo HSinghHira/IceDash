@@ -335,6 +335,8 @@ export const iceStoreFocus = ref<string | null>(null)
 export const setupFor = ref<string | null>(null)
 export const firstLaunchFor = ref<string | null>(null)
 export const uninstallFor = ref<string | null>(null)
+/** The app whose "Go back" popup is open. */
+export const goBackFor = ref<string | null>(null)
 /** The right-click menu: which app, where. */
 export const menu = ref<{ name: string; x: number; y: number } | null>(null)
 

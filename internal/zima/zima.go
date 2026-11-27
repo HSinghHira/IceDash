@@ -507,3 +507,38 @@ func (c *Client) AppGrid(ctx context.Context) ([]Grid, error) {
 	err := c.do(ctx, http.MethodGet, "/web/appgrid", nil, "", &res)
 	return res.Data, err
 }
+
+// ComposeFile reads an installed app's file as app management keeps it
+// (GET /zimaapp/v2app/files/compose: JSON, with $AppID and the like left
+// unexpanded, measured 2026-11-17), as ZimaOS's own app settings do.
+func (c *Client) ComposeFile(ctx context.Context, name string) ([]byte, error) {
+	raw, status, _, err := c.send(ctx, http.MethodGet, composePath(name), nil, "", nil)
+	if err != nil {
+		return nil, err
+	}
+	if status >= 300 {
+		return nil, &Error{Status: status}
+	}
+	return composeBody(raw)
+}
+
+// composeBody takes the compose file out of an answer, bare or in "data".
+func composeBody(raw []byte) ([]byte, error) {
+	var v struct {
+		Services json.RawMessage `json:"services"`
+		Data     json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return nil, fmt.Errorf("the installed file: %w", err)
+	}
+	if len(v.Services) > 0 {
+		return raw, nil
+	}
+	var d struct {
+		Services json.RawMessage `json:"services"`
+	}
+	if len(v.Data) > 0 && json.Unmarshal(v.Data, &d) == nil && len(d.Services) > 0 {
+		return v.Data, nil
+	}
+	return nil, errors.New("app management sent no compose file")
+}

@@ -3,6 +3,7 @@ package update
 import (
 	"context"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -71,3 +72,41 @@ func TestNightStepInstallsOncePerNight(t *testing.T) {
 		}
 	}
 }
+
+// The night install waits while an app update runs (Manager.Wait).
+func TestNightStepWaitsForApps(t *testing.T) {
+	f := newFake(t, "v0.2.0")
+	m, _, _ := manager(t, f)
+	m.Wait = func() bool { return true }
+	on := func() (bool, string) { return true, "Pacific/Auckland" }
+	night := time.Date(2026, 11, 14, 14, 30, 0, 0, time.UTC)
+	if got := m.nightStep(context.Background(), on, night, ""); got != "" || m.Status().State != StateIdle {
+		t.Fatalf("ran beside an app update: %q %s", got, m.Status().State)
+	}
+}
+
+// An app update that starts while GitHub answers keeps the install back
+// (Wait is asked again just before Apply), and the shared lock is held.
+func TestNightStepRechecksWaitBeforeApply(t *testing.T) {
+	f := newFake(t, "v0.2.0")
+	m, _, _ := manager(t, f)
+	calls := 0
+	m.Wait = func() bool { calls++; return calls > 1 }
+	var lock countLock
+	m.NightLock = &lock
+	on := func() (bool, string) { return true, "Pacific/Auckland" }
+	night := time.Date(2026, 11, 14, 14, 30, 0, 0, time.UTC)
+	if got := m.nightStep(context.Background(), on, night, ""); got != "" || m.Status().State == StateInstalling {
+		t.Fatalf("installed beside an app update: %q %s", got, m.Status().State)
+	}
+	if calls != 2 || lock.n != 1 {
+		t.Errorf("wait asked %d times, lock taken %d times", calls, lock.n)
+	}
+}
+
+type countLock struct {
+	sync.Mutex
+	n int
+}
+
+func (l *countLock) Lock() { l.Mutex.Lock(); l.n++ }

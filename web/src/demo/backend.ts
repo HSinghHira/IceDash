@@ -128,7 +128,7 @@ async function setupView(id: string): Promise<SetupView | null> {
   }
 }
 
-function startJob(kind: 'install' | 'update', a: DemoApp, done: () => void): Job {
+function startJob(kind: Job['kind'], a: DemoApp, done: () => void): Job {
   const job: Job = {
     name: a.name, title: a.title, icon: icon(a.name), kind, task_id: `demo-${Date.now()}`,
     state: 'running', phase: 'accepted', started: new Date().toISOString(),
@@ -280,7 +280,10 @@ const routes: [string, RegExp, Handler][] = [
 
   // IceDash: apps
   ['GET', /^\/v2\/icedash\/apps$/, () => ok({
-    items: apps.map((a) => ({ name: a.name, store_id: `com.icestore.${a.name}`, icestore: true, version: a.version, latest: a.latest ?? a.version, update: !!a.latest, first_launch: !!a.firstLaunch })),
+    items: apps.map((a) => ({
+      name: a.name, store_id: `com.icestore.${a.name}`, icestore: true, version: a.version, latest: a.latest ?? a.version, update: !!a.latest, first_launch: !!a.firstLaunch,
+      auto: !!a.auto, back: a.back, held: a.held, held_by: a.heldBy,
+    })),
   })],
   ['GET', /^\/v2\/icedash\/jobs$/, () => ok({ items: [...jobs.values()].map(jobNow) })],
   ['GET', /^\/v2\/icedash\/apps\/([^/]+)\/frame$/, (m) => ok({ name: m[1], frameable: true })],
@@ -316,9 +319,34 @@ const routes: [string, RegExp, Handler][] = [
     const a = apps.find((x) => x.name === m[1])
     if (!a) return no('No such app.', 'not_found', 404)
     return ok(startJob('update', a, () => {
+      a.back = a.version
       a.version = a.latest ?? a.version
       a.latest = undefined
+      a.held = a.heldBy = undefined
       note({ kind: 'app_updated', app: a.name, title: `${a.title} is up to date`, body: `${a.title} ${a.version} is running.` })
+    }))
+  }],
+  ['POST', /^\/v2\/icedash\/apps\/([^/]+)\/auto$/, (m, b) => {
+    const a = apps.find((x) => x.name === m[1])
+    if (!a) return no('No such app.', 'not_found', 404)
+    const body = b as { on?: boolean; zone?: string }
+    if (body.on && !body.zone) return no('updating at night needs the time zone it counts the night in', 'bad_zone', 400)
+    a.auto = !!body.on
+    if (body.on) settings = { ...settings, zone: body.zone ?? '' }
+    return ok({ name: a.name, auto: a.auto })
+  }],
+  ['POST', /^\/v2\/icedash\/apps\/([^/]+)\/rollback$/, (m) => {
+    const a = apps.find((x) => x.name === m[1])
+    if (!a) return no('No such app.', 'not_found', 404)
+    if (!a.back) return no('there’s no earlier version to go back to', 'no_previous', 404)
+    return ok(startJob('rollback', a, () => {
+      const from = a.version
+      a.latest = from
+      a.version = a.back ?? a.version
+      a.back = undefined
+      a.held = from
+      a.heldBy = 'user'
+      note({ kind: 'app_rolled_back', app: a.name, title: `${a.title} is back on ${a.version}`, body: `${from} won’t install by itself again.` })
     }))
   }],
   ['POST', /^\/v2\/icedash\/apps\/([^/]+)\/uninstall$/, (m, b) => {

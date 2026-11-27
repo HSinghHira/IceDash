@@ -97,11 +97,13 @@ async function catalog() {
   return indexCache
 }
 
-const appInfo = [
-  { name: 'gitsave', store_id: 'com.icestore.gitsave', icestore: true, version: '1.4.0', latest: '1.5.0', update: true, first_launch: false },
-  { name: 'pocket-id', store_id: 'com.icestore.pocket-id', icestore: true, version: 'v2.19.1', latest: 'v2.19.1', update: false, first_launch: false },
-  { name: 'yuvomi', store_id: 'com.icestore.yuvomi', icestore: true, version: '2.79.0', latest: '2.79.0', update: false, first_launch: true },
-  { name: 'appflowy', store_id: 'com.icestore.appflowy', icestore: true, version: '0.19.2', latest: '0.19.2', update: false, first_launch: false },
+// Night updates: GitSave has 1.5.0 held after a broken night, Pocket ID
+// updates tonight, AppFlowy keeps 0.19.1 to go back to.
+const appInfo: Record<string, unknown>[] = [
+  { name: 'gitsave', store_id: 'com.icestore.gitsave', icestore: true, version: '1.4.0', latest: '1.5.0', update: true, first_launch: false, auto: true, held: '1.5.0', held_by: 'night' },
+  { name: 'pocket-id', store_id: 'com.icestore.pocket-id', icestore: true, version: 'v2.19.1', latest: 'v2.20.0', update: true, first_launch: false, auto: true },
+  { name: 'yuvomi', store_id: 'com.icestore.yuvomi', icestore: true, version: '2.79.0', latest: '2.79.0', update: false, first_launch: true, night_skip: 'stopped' },
+  { name: 'appflowy', store_id: 'com.icestore.appflowy', icestore: true, version: '0.19.2', latest: '0.19.2', update: false, first_launch: false, back: '0.19.1' },
   { name: 'homeassistant', store_id: 'org.icewhale.homeassistant', icestore: false, version: '2026.5.4', update: false, first_launch: false },
 ]
 
@@ -250,6 +252,16 @@ const dynamic: [RegExp, string, (m: RegExpMatchArray, body?: unknown) => unknown
   }],
   [/^\/v2\/icedash\/apps$/, 'GET', () => ({ items: appInfo })],
   [/^\/v2\/icedash\/jobs$/, 'GET', () => ({ items: job ? [jobNow()] : [] })],
+  [/^\/v2\/icedash\/apps\/([^/]+)\/auto$/, 'POST', (m, body) => {
+    const a = appInfo.find((x) => x.name === m[1])
+    if (a) a.auto = !!(body as { on?: boolean })?.on
+    return { name: m[1], auto: a?.auto }
+  }],
+  [/^\/v2\/icedash\/apps\/([^/]+)\/rollback$/, 'POST', (m) => {
+    const a = appInfo.find((x) => x.name === m[1])
+    if (a?.back) [a.version, a.latest, a.held, a.held_by, a.back, a.update] = [a.back, a.version, a.version, 'user', undefined, true]
+    return { name: m[1], title: m[1], icon: '', kind: 'rollback', task_id: '', state: 'succeeded', phase: 'completed', started: new Date().toISOString() }
+  }],
   [/^\/v2\/icedash\/apps\/([^/]+)\/credentials$/, 'GET', () => creds],
   [/^\/v2\/icedash\/apps\/([^/]+)\/frame$/, 'GET', (m) => frameCheck(m[1]!)],
   [/^\/v2\/icedash\/apps\/([^/]+)\/logs$/, 'GET', (m) => ({ name: m[1], text: 'Server starting\nServer running on port 3000\nScheduling 2 backup jobs\n' })],

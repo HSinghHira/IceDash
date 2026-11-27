@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/HSinghHira/IceDash/internal/apps"
+	"github.com/HSinghHira/IceDash/internal/catalog"
 	"github.com/HSinghHira/IceDash/internal/notify"
 	"github.com/HSinghHira/IceDash/internal/session"
 	"github.com/HSinghHira/IceDash/internal/settings"
@@ -119,7 +121,7 @@ func TestEverythingElseNeedsAToken(t *testing.T) {
 		{"POST", "/apps/gitsave/restart"}, {"POST", "/apps/gitsave/update"}, {"POST", "/apps/gitsave/uninstall"},
 		{"GET", "/apps/gitsave/logs"}, {"GET", "/apps/gitsave/credentials"}, {"GET", "/apps/gitsave/backup"},
 		{"GET", "/apps/gitsave/first-launch"}, {"POST", "/apps/gitsave/first-launch/dismiss"},
-		{"GET", "/apps/gitsave/frame"},
+		{"GET", "/apps/gitsave/frame"}, {"POST", "/apps/gitsave/auto"}, {"POST", "/apps/gitsave/rollback"},
 	} {
 		if w := call(h, c.method, Route+c.path, "", ""); w.Code != 401 {
 			t.Errorf("%s %s without a token: %d", c.method, c.path, w.Code)
@@ -241,6 +243,7 @@ func TestMemberCantChangeApps(t *testing.T) {
 		{"POST", "/catalog/documenso/install"}, {"POST", "/apps/gitsave/start"}, {"POST", "/apps/gitsave/stop"},
 		{"POST", "/apps/gitsave/restart"}, {"POST", "/apps/gitsave/update"}, {"POST", "/apps/gitsave/uninstall"},
 		{"GET", "/apps/gitsave/logs"}, {"GET", "/apps/gitsave/credentials"}, {"GET", "/apps/gitsave/backup"},
+		{"POST", "/apps/gitsave/auto"}, {"POST", "/apps/gitsave/rollback"},
 	} {
 		if w := call(h, c.method, Route+c.path, member, "{}"); w.Code != 403 {
 			t.Errorf("%s %s as a member: %d", c.method, c.path, w.Code)
@@ -252,5 +255,17 @@ func TestMemberCantChangeApps(t *testing.T) {
 	}
 	if w := call(h, "POST", Route+"/apps/..%2Fetc/start", admin, ""); w.Code != 400 && w.Code != 404 {
 		t.Errorf("bad name: %d", w.Code)
+	}
+}
+
+// "Update at night" counts the night in the clock's zone: one is needed.
+func TestAppAutoNeedsAZone(t *testing.T) {
+	e := newEnv(t)
+	e.srv.Apps, e.srv.Catalog = &apps.Manager{}, &catalog.Catalog{}
+	h := e.srv.Handler()
+	for _, body := range []string{`{"on":true}`, `{"on":true,"zone":"Mars/Base"}`} {
+		if w := call(h, "POST", Route+"/apps/gitsave/auto", admin, body); w.Code != 400 || !strings.Contains(w.Body.String(), "bad_zone") {
+			t.Errorf("%s: %d %s", body, w.Code, w.Body)
+		}
 	}
 }

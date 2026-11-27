@@ -19,6 +19,11 @@ export interface DemoApp {
   version: string
   latest?: string
   firstLaunch?: boolean
+  /** Updates at night, the previous version kept, a held version. */
+  auto?: boolean
+  back?: string
+  held?: string
+  heldBy?: 'user' | 'night'
 }
 
 export const startApps: DemoApp[] = [
@@ -27,12 +32,12 @@ export const startApps: DemoApp[] = [
   { name: 'watchyourlan', title: 'WatchYourLAN', port: '6121', status: 'running', version: '2.1.4' },
   { name: 'pocket-id', title: 'Pocket ID', port: '6157', status: 'running', version: 'v2.19.1' },
   { name: 'stirling-pdf', title: 'Stirling-PDF', port: '6131', status: 'running', version: '3.3.0' },
-  { name: 'readeck', title: 'Readeck', port: '6145', status: 'running', version: '0.23.5' },
+  { name: 'readeck', title: 'Readeck', port: '6145', status: 'running', version: '0.23.5', back: '0.23.4' },
   { name: 'ntfy', title: 'ntfy', port: '6118', status: 'running', version: '2.32.0' },
   { name: 'searxng', title: 'SearXNG', port: '6170', status: 'running', version: '2026.8.10' },
   { name: 'changedetection', title: 'changedetection.io', port: '6113', status: 'restarting', version: '0.70.3' },
-  { name: 'outline', title: 'Outline', port: '6150', status: 'running', version: '1.12.0' },
-  { name: 'gitsave', title: 'GitSave', port: '6181', status: 'exited', version: '1.4.0', latest: '1.5.0' },
+  { name: 'outline', title: 'Outline', port: '6150', status: 'running', version: '1.12.0', latest: '1.13.0', auto: true },
+  { name: 'gitsave', title: 'GitSave', port: '6181', status: 'exited', version: '1.4.0', latest: '1.5.0', held: '1.5.0', heldBy: 'night', auto: true },
   { name: 'it-tools', title: 'IT-Tools', port: '6127', status: 'running', version: '2024.10.22' },
   { name: 'dispatcharr', title: 'Dispatcharr', port: '6190', status: 'running', version: '0.33.0' },
   { name: 'cartvibe', title: 'CartVibe', port: '6161', status: 'running', version: '2.79.0', firstLaunch: true },

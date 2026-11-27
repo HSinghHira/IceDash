@@ -12,13 +12,14 @@ import SettingsPanel from '../panels/SettingsPanel.vue'
 import TerminalPanel from '../panels/TerminalPanel.vue'
 import { wallStyle, wallTone } from '../lib/wallpaper'
 import { desktopMenu } from '../menus'
-import { activeTheme, firstLaunchFor, notesOpen, offline, openContext, panelOpen, pictureLight, prefs, setupFor, uninstallFor, updating, wallpaperUrl, windows, type WindowKind } from '../store'
+import { activeTheme, firstLaunchFor, notesOpen, offline, openContext, panelOpen, pictureLight, prefs, goBackFor, setupFor, uninstallFor, updating, wallpaperUrl, windows, type WindowKind } from '../store'
 import { strings } from '../strings'
 import AppMenu from './AppMenu.vue'
 import AppWindow from './AppWindow.vue'
 import ContextMenu from './ContextMenu.vue'
 import FirstLaunchDialog from './FirstLaunchDialog.vue'
 import SetupDialog from './SetupDialog.vue'
+import GoBackDialog from './GoBackDialog.vue'
 import UninstallDialog from './UninstallDialog.vue'
 import DesktopIcons from './DesktopIcons.vue'
 import Dock from './Dock.vue'
@@ -95,6 +96,7 @@ onBeforeUnmount(() => clearInterval(tick))
     <SetupDialog v-if="setupFor" :id="setupFor" :key="setupFor" />
     <FirstLaunchDialog v-if="firstLaunchFor" :key="firstLaunchFor" :name="firstLaunchFor" />
     <UninstallDialog v-if="uninstallFor" :key="uninstallFor" :name="uninstallFor" />
+    <GoBackDialog v-if="goBackFor" :key="goBackFor" :name="goBackFor" />
     <Toasts />
   </div>
 </template>

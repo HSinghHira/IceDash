@@ -6,7 +6,7 @@ import * as api from '../api/apps'
 import Icon from '../components/Icon.vue'
 import type { IconName } from '../lib/icons'
 import { dashboardUrl } from '../lib/host'
-import { appInfo, apps, isPinned, jobFor, menu, openApp, openWindow, refreshApps, toast, togglePin, trackJob, uninstallFor, user } from '../store'
+import { appInfo, apps, goBackFor, isPinned, jobFor, menu, openApp, openWindow, refreshApps, toast, togglePin, trackJob, uninstallFor, user } from '../store'
 import { strings } from '../strings'
 
 const el = ref<HTMLElement | null>(null)
@@ -52,6 +52,8 @@ const groups = computed<Item[][]>(() => {
   )
   if (info.value?.update && !busy.value)
     life.push({ id: 'update', label: strings.updateTo(info.value.latest ?? ''), icon: 'download', run: update })
+  const back = info.value?.icestore ? info.value.back : undefined
+  if (back && !busy.value) life.push({ id: 'goback', label: strings.goBackTo(back), icon: 'undo', run: () => void (goBackFor.value = a.id) })
   const more: Item[] = [
     { id: 'settings', label: strings.appSettings, icon: 'settings', run: () => void window.open(dashboardUrl(), '_blank', 'noopener') },
     { id: 'backup', label: strings.backUpData, icon: 'download', run: backup },

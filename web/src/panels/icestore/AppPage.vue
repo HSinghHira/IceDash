@@ -12,9 +12,24 @@ import { bytes } from '../../lib/format'
 import { host } from '../../lib/host'
 import { bundlesWith, relatedApps, shortNum } from '../../lib/icestore'
 import { markdown } from '../../lib/markdown'
-import { jobFor } from '../../store'
+import { appInfo, jobFor } from '../../store'
 import { strings, uiLocale } from '../../strings'
-import { act, admin, button, day, fitsHere, installedOf, uninstall } from './actions'
+import {
+  act,
+  admin,
+  button,
+  day,
+  fitsHere,
+  goBack,
+  holdLine,
+  installedOf,
+  loadSavedZone,
+  nightCity,
+  savedZone,
+  setAuto,
+  skipLine,
+  uninstall,
+} from './actions'
 import AppGrid from './AppGrid.vue'
 import BundleSpotlight from './BundleSpotlight.vue'
 import ShotViewer from './ShotViewer.vue'
@@ -30,6 +45,13 @@ const shots = computed(() => props.meta.screenshot_link ?? [])
 const related = computed(() => relatedApps(props.app, props.all))
 const bundles = computed(() => bundlesWith(props.app, props.all))
 const archs = computed(() => (props.app.architectures ?? []).join(', '))
+
+// Updates card: admins, for an installed IceStore app.
+const showUpdates = computed(() => admin.value && !!inst.value?.icestore)
+if (savedZone.value === null) void loadSavedZone()
+const autoReady = computed(() => !!inst.value && savedZone.value !== null && appInfo.value[inst.value.name] !== undefined)
+const hold = computed(() => (inst.value ? holdLine(inst.value) : ''))
+const skipped = computed(() => (inst.value ? skipLine(inst.value) : ''))
 
 /** "41.1 MB" as its number and unit, for the stat cards. */
 function split(n: number | undefined): { v: string; u: string } | null {
@@ -93,6 +115,36 @@ watch(
         </span>
       </div>
     </header>
+
+    <section v-if="showUpdates && inst" class="card upd" :aria-label="strings.updatesHeading">
+      <span class="label">{{ strings.updatesHeading }}</span>
+      <div class="urow">
+        <div class="who">
+          <strong>{{ strings.autoApp }}</strong>
+          <span class="mut small">{{ strings.autoAppHint(nightCity) }}</span>
+        </div>
+        <button
+          type="button"
+          class="switch"
+          role="switch"
+          :aria-checked="!!inst.auto"
+          :aria-label="strings.autoApp"
+          :disabled="!autoReady"
+          @click="setAuto(inst.name, !inst.auto)"
+        >
+          <span />
+        </button>
+      </div>
+      <div v-if="inst.back" class="urow">
+        <span class="mono">{{ strings.previousVersion(inst.back) }}</span>
+        <button type="button" class="btn goback" :disabled="busy" @click="goBack(inst.name)">
+          <Icon name="undo" :size="14" />{{ strings.goBackTo(inst.back) }}
+        </button>
+      </div>
+      <p v-else class="mut small">{{ strings.goBackNone }}</p>
+      <p v-if="hold" class="mut small line"><Icon name="info" :size="14" />{{ hold }}</p>
+      <p v-if="skipped" class="mut small line"><Icon name="alert" :size="14" class="warn-i" />{{ skipped }}</p>
+    </section>
 
     <p v-if="!fits" class="note warn"><Icon name="alert" :size="15" />{{ strings.notForDeviceLong(host.arch) }}</p>
     <p v-if="error" class="note warn"><Icon name="alert" :size="15" />{{ error }}</p>
@@ -225,7 +277,36 @@ watch(
 </template>
 
 <style scoped src="./shared.css"></style>
+<style scoped src="../../styles/switch.css"></style>
 <style scoped>
+.upd {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 16px 20px;
+}
+.upd p {
+  margin: 0;
+}
+.urow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.who {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.warn-i {
+  color: var(--warn);
+}
 .page {
   container-type: inline-size;
   padding-bottom: 12px;

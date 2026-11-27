@@ -109,6 +109,12 @@ type Manager struct {
 	// AllowURL vets each download URL; nil means AllowedURL (GitHub only).
 	AllowURL func(string) error
 	MaxBytes int64
+	// Wait, when set, reports app work the night install waits for (an app
+	// update or its check).
+	Wait func() bool
+	// NightLock, when set, is shared with the night app updates: whoever
+	// holds it decides and starts, so the two never start together.
+	NightLock sync.Locker
 
 	mu     sync.Mutex
 	st     Status

@@ -151,3 +151,15 @@ func TestURLFileMustBeLoopback(t *testing.T) {
 		t.Error("want a refusal for a non-loopback address")
 	}
 }
+
+func TestComposeBody(t *testing.T) {
+	if b, err := composeBody([]byte(`{"name":"a","services":{"a":{}}}`)); err != nil || !strings.Contains(string(b), `"name":"a"`) {
+		t.Errorf("bare: %s %v", b, err)
+	}
+	if b, err := composeBody([]byte(`{"data":{"name":"a","services":{"a":{}}}}`)); err != nil || strings.Contains(string(b), "data") {
+		t.Errorf("in data: %s %v", b, err)
+	}
+	if _, err := composeBody([]byte(`{"message":"package not found"}`)); err == nil {
+		t.Error("no file, no error")
+	}
+}

@@ -63,6 +63,12 @@ type fakeZima struct {
 	task      zima.Task
 	grid      []zima.Grid
 	calls     []string
+	// apply, when set, makes an install change the installed copy to the
+	// version it returns; after runs after each install.
+	apply func([]byte) string
+	after func()
+	// taskErr makes task reads fail, as for a task the system forgot.
+	taskErr error
 }
 
 func (f *fakeZima) List(context.Context) (map[string]zima.Installed, error) {
@@ -99,13 +105,24 @@ func (f *fakeZima) Install(ctx context.Context, b []byte, _ string, dry bool) (z
 		return zima.InstallResult{}, nil
 	}
 	f.installs = append(f.installs, b)
+	if f.apply != nil {
+		in := f.installed[d.Name()]
+		in.Name, in.Version, in.Compose = d.Name(), f.apply(b), jsonBytes(b)
+		if in.StoreID == "" {
+			in.StoreID, in.Title = "com.icestore."+d.Name(), d.Name()
+		}
+		f.installed[d.Name()] = in
+	}
+	if f.after != nil {
+		f.after()
+	}
 	return zima.InstallResult{Accepted: true, TaskID: "t1"}, nil
 }
 
 func (f *fakeZima) Task(context.Context, string) (zima.Task, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.task, nil
+	return f.task, f.taskErr
 }
 
 func (f *fakeZima) rec(s string) error {
@@ -251,6 +268,13 @@ func TestSetupCheckInstall(t *testing.T) {
 	if list, _ := m2.List(ctx, "hira"); list[0].FirstLaunch {
 		t.Error("dismiss not saved")
 	}
+}
+
+func jsonBytes(y []byte) []byte {
+	var v any
+	_ = yaml.Unmarshal(y, &v)
+	b, _ := json.Marshal(v)
+	return b
 }
 
 func jsonOf(t *testing.T, y []byte) []byte {

@@ -20,6 +20,7 @@ import (
 	"github.com/HSinghHira/IceDash/internal/creds"
 	"github.com/HSinghHira/IceDash/internal/host"
 	"github.com/HSinghHira/IceDash/internal/session"
+	"github.com/HSinghHira/IceDash/internal/update"
 	"github.com/HSinghHira/IceDash/internal/zima"
 )
 
@@ -38,6 +39,8 @@ func (s *Server) appRoutes(mux *http.ServeMux, user, admin func(http.HandlerFunc
 	mux.Handle("POST "+Route+"/apps/{name}/restart", admin(s.appAction))
 	mux.Handle("POST "+Route+"/apps/{name}/update", admin(s.appUpdate))
 	mux.Handle("POST "+Route+"/apps/{name}/uninstall", admin(s.appUninstall))
+	mux.Handle("POST "+Route+"/apps/{name}/auto", admin(s.appAuto))
+	mux.Handle("POST "+Route+"/apps/{name}/rollback", admin(s.appRollback))
 	mux.Handle("GET "+Route+"/apps/{name}/logs", admin(s.appLogs))
 	mux.Handle("GET "+Route+"/apps/{name}/credentials", admin(s.appCredentials))
 	mux.Handle("GET "+Route+"/apps/{name}/backup", admin(s.appBackup))
@@ -70,6 +73,8 @@ func writeAppErr(w http.ResponseWriter, err error) {
 		httpx.WriteError(w, http.StatusNotFound, "unknown_app", err.Error())
 	case errors.Is(err, apps.ErrNotInstalled):
 		httpx.WriteError(w, http.StatusNotFound, "not_installed", err.Error())
+	case errors.Is(err, apps.ErrNoPrevious):
+		httpx.WriteError(w, http.StatusNotFound, "no_previous", err.Error())
 	case errors.Is(err, apps.ErrBusy):
 		httpx.WriteError(w, http.StatusConflict, "busy", err.Error())
 	case errors.Is(err, creds.ErrNone):
@@ -260,6 +265,53 @@ func (s *Server) appUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	j, err := s.Apps.Update(withToken(r), name)
+	if err != nil {
+		writeAppErr(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusAccepted, j)
+}
+
+// appAuto turns "Update at night" on or off. Turning it on saves the
+// clock's zone, the one the night counts in (as for IceDash's own night install).
+func (s *Server) appAuto(w http.ResponseWriter, r *http.Request) {
+	name, ok := appName(w, r)
+	if !ok || !s.appsReady(w) {
+		return
+	}
+	var body struct {
+		On   bool   `json:"on"`
+		Zone string `json:"zone"`
+	}
+	if !httpx.Decode(w, r, &body) {
+		return
+	}
+	if body.On && !update.ValidZone(body.Zone) {
+		httpx.WriteError(w, http.StatusBadRequest, "bad_zone", "updating at night needs the time zone it counts the night in")
+		return
+	}
+	if err := s.Apps.SetAuto(withToken(r), name, body.On); err != nil {
+		writeAppErr(w, err)
+		return
+	}
+	if body.On && s.Settings != nil {
+		if v := s.Settings.Get(); v.Zone != body.Zone {
+			v.Zone = body.Zone
+			if err := s.Settings.Set(v); err != nil {
+				httpx.WriteErr(w, err)
+				return
+			}
+		}
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"name": name, "auto": body.On})
+}
+
+func (s *Server) appRollback(w http.ResponseWriter, r *http.Request) {
+	name, ok := appName(w, r)
+	if !ok || !s.appsReady(w) {
+		return
+	}
+	j, err := s.Apps.Rollback(withToken(r), name)
 	if err != nil {
 		writeAppErr(w, err)
 		return

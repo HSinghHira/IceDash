@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,12 +48,31 @@ type Client struct {
 	// Poll is how long a task without bus news waits before asking app
 	// management directly (default 5 s).
 	Poll time.Duration
+	// AppsDir is where CasaOS keeps each app's installed file (default
+	// DefaultAppsDir).
+	AppsDir string
 
 	mu      sync.Mutex
 	tasks   map[string]*task
 	current map[string]*task // the running task per app name
 	live    bool             // the bus connection is up
 	seq     int
+}
+
+// DefaultAppsDir holds <name>/docker-compose.yml per app (measured on 0.4.15).
+const DefaultAppsDir = "/var/lib/casaos/apps"
+
+// ComposeFile reads an installed app's file as CasaOS keeps it. IceDash only
+// reads it; changes go through app management.
+func (c *Client) ComposeFile(_ context.Context, name string) ([]byte, error) {
+	if name == "" || strings.ContainsAny(name, "/\\") || strings.HasPrefix(name, ".") {
+		return nil, fmt.Errorf("bad app name %q", name)
+	}
+	dir := c.AppsDir
+	if dir == "" {
+		dir = DefaultAppsDir
+	}
+	return os.ReadFile(filepath.Join(dir, name, "docker-compose.yml"))
 }
 
 // New returns a client for the CasaOS box this runs on.

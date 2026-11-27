@@ -143,7 +143,7 @@ export interface Job {
   name: string
   title: string
   icon: string
-  kind: 'install' | 'update'
+  kind: 'install' | 'update' | 'rollback'
   task_id: string
   state: 'running' | 'succeeded' | 'failed'
   phase: string
@@ -171,6 +171,15 @@ export interface AppInfo {
   latest?: string
   update: boolean
   first_launch: boolean
+  /** "Update at night" is on. */
+  auto?: boolean
+  /** The previous version kept to go back to. */
+  back?: string
+  /** A version that isn't installed by itself, and why. */
+  held?: string
+  held_by?: 'user' | 'night'
+  /** Why last night's update was skipped. */
+  night_skip?: '' | 'stopped' | 'unhealthy' | 'no_copy' | 'cant_change'
 }
 
 export const appInfo = () => request<{ items: AppInfo[] }>(`${base}/apps`)
@@ -179,6 +188,9 @@ const app = (name: string) => `${base}/apps/${encodeURIComponent(name)}`
 export type AppAction = 'start' | 'stop' | 'restart'
 export const appAction = (name: string, a: AppAction) => request<{ name: string }>(`${app(name)}/${a}`, { method: 'POST' })
 export const updateApp = (name: string) => request<Job>(`${app(name)}/update`, { method: 'POST' })
+export const setAutoUpdate = (name: string, on: boolean, zone: string) =>
+  request<{ name: string; auto: boolean }>(`${app(name)}/auto`, { method: 'POST', body: { on, zone } })
+export const rollbackApp = (name: string) => request<Job>(`${app(name)}/rollback`, { method: 'POST' })
 export const uninstallApp = (name: string, deleteData: boolean) =>
   request<{ name: string; data_kept: boolean; data: string }>(`${app(name)}/uninstall`, {
     method: 'POST',

@@ -820,6 +820,7 @@ watch(() => props.page, enter)
   </section>
 </template>
 
+<style scoped src="../styles/switch.css"></style>
 <style scoped>
 .page {
   min-width: 0;
@@ -897,37 +898,6 @@ h2 {
 .grip {
   color: var(--mut);
   cursor: grab;
-}
-.switch {
-  position: relative;
-  flex: none;
-  width: 52px;
-  height: 30px;
-  border: 0;
-  border-radius: 99px;
-  background: rgba(var(--fg-rgb), 0.15);
-  cursor: pointer;
-}
-.switch:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.switch span {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--text);
-  transition: transform 0.15s;
-}
-.switch[aria-checked='true'] {
-  background: var(--ac);
-}
-.switch[aria-checked='true'] span {
-  background: var(--ink);
-  transform: translateX(22px);
 }
 .facts {
   display: grid;

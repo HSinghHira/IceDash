@@ -57,6 +57,13 @@ func (m *Manager) nightStep(ctx context.Context, on func() (bool, string), now t
 	if !due || night == done {
 		return done
 	}
+	if m.NightLock != nil {
+		m.NightLock.Lock()
+		defer m.NightLock.Unlock()
+	}
+	if m.Wait != nil && m.Wait() {
+		return done
+	}
 	cctx, cancel := context.WithTimeout(ctx, time.Minute)
 	st := m.Check(cctx)
 	cancel()
@@ -66,6 +73,9 @@ func (m *Manager) nightStep(ctx context.Context, on func() (bool, string), now t
 			return done
 		}
 		return night
+	}
+	if m.Wait != nil && m.Wait() {
+		return done // an app update started while GitHub answered: next minute
 	}
 	m.notify(notify.Notification{Kind: notify.KindNightInstall, Version: st.Latest,
 		Title: "Installing " + st.Latest + " overnight",

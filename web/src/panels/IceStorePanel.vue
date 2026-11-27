@@ -24,7 +24,7 @@ import {
   updateRun,
 } from '../store'
 import { strings } from '../strings'
-import { admin, fitsHere, installedOf } from './icestore/actions'
+import { admin, fitsHere, heldNow, holdLine, installedOf, loadSavedZone, nightCity, savedZone, setAuto, skipLine } from './icestore/actions'
 import AppPage from './icestore/AppPage.vue'
 import Discover from './icestore/Discover.vue'
 import AppRow from './icestore/AppRow.vue'
@@ -87,10 +87,30 @@ const bundles = computed(() =>
 )
 
 const updatable = computed(() => all.value.filter((a) => installedOf(a)?.update))
+/** Update all leaves out versions that don't install by themselves. */
+const updateAllList = computed(() => updatable.value.filter((a) => !heldNow(installedOf(a)!)))
 const installedCount = computed(() => all.value.filter((a) => installedOf(a)).length)
 function runUpdateAll() {
-  void updateAll(updatable.value.map((a) => installedOf(a)!.name))
+  void updateAll(updateAllList.value.map((a) => installedOf(a)!.name))
 }
+
+// ---- Update at night: one switch per installed IceStore app ----
+const autoRows = computed(() =>
+  all.value
+    .map((a) => ({ app: a, inst: installedOf(a) }))
+    .filter((x): x is { app: api.CatalogApp; inst: api.AppInfo } => !!x.inst?.icestore)
+    .sort((x, y) => x.app.title.localeCompare(y.app.title)),
+)
+function autoLine(i: api.AppInfo): string {
+  return holdLine(i) || skipLine(i) || (i.auto && i.update && i.latest ? strings.autoTonight(i.latest) : i.version)
+}
+watch(
+  () => view.value === 'updates' && admin.value,
+  (on) => {
+    if (on && savedZone.value === null) void loadSavedZone()
+  },
+  { immediate: true },
+)
 
 const nav = computed<{ id: string; name: string; icon: IconName; n?: number; hot?: boolean }[]>(() => [
   { id: 'discover', name: strings.discover, icon: 'compass' },
@@ -220,13 +240,13 @@ async function refresh() {
           </div>
           <span class="head-tools">
             <button
-              v-if="view === 'updates' && admin && updatable.length"
+              v-if="view === 'updates' && admin && updateAllList.length"
               type="button"
               class="pill update"
               :disabled="!!updateRun"
               @click="runUpdateAll"
             >
-              {{ updateRun ? strings.updatingN(updateRun.done + 1, updateRun.total) : strings.updateAll(updatable.length) }}
+              {{ updateRun ? strings.updatingN(updateRun.done + 1, updateRun.total) : strings.updateAll(updateAllList.length) }}
             </button>
             <label v-if="view !== 'bundles'" class="sort" :title="strings.sortBy">
               <Icon name="sort" :size="16" />
@@ -270,10 +290,40 @@ async function refresh() {
         </ul>
 
         <template v-else>
-          <p v-if="catalogList && !list.length" class="empty mut">{{ strings.catalogEmpty }}</p>
+          <p v-if="catalogList && !list.length" class="empty mut">
+            {{ view === 'updates' && !q ? strings.appsUpToDate : strings.catalogEmpty }}
+          </p>
           <ul class="rows" :class="{ wide: view === 'updates' }">
             <AppRow v-for="a in list" :key="a.id" :app="a" :fact="rowFact" :action="view === 'updates'" @open="show" />
           </ul>
+
+          <section v-if="view === 'updates' && admin && catalogList" class="night" :aria-label="strings.autoApp">
+            <h3>{{ strings.autoApp }}</h3>
+            <p class="mut small">{{ strings.autoListHint(nightCity) }}</p>
+            <p v-if="!autoRows.length" class="mut small">{{ strings.autoListEmpty }}</p>
+            <ul v-else class="auto-rows">
+              <li v-for="r in autoRows" :key="r.app.id" class="auto-row" :data-app="r.app.id">
+                <button type="button" class="auto-open" @click="show(r.app)">
+                  <AppIcon :src="r.app.icon" :name="r.app.title" :size="32" />
+                  <span class="auto-titles">
+                    <span class="title">{{ r.app.title }}</span>
+                    <span class="mut small">{{ autoLine(r.inst) }}</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="switch"
+                  role="switch"
+                  :aria-checked="!!r.inst.auto"
+                  :aria-label="strings.autoAppFor(r.app.title)"
+                  :disabled="savedZone === null"
+                  @click="setAuto(r.inst.name, !r.inst.auto)"
+                >
+                  <span />
+                </button>
+              </li>
+            </ul>
+          </section>
         </template>
       </template>
 
@@ -290,7 +340,58 @@ async function refresh() {
 </template>
 
 <style scoped src="./icestore/shared.css"></style>
+<style scoped src="../styles/switch.css"></style>
 <style scoped>
+.night {
+  display: grid;
+  gap: 8px;
+  margin-top: 28px;
+}
+.night h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.night p {
+  margin: 0;
+}
+.auto-rows {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.auto-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+.auto-open {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.auto-titles {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.auto-titles .title {
+  font-weight: 600;
+}
 .frame {
   container-type: inline-size;
 }

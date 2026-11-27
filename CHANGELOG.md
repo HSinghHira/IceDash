@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Apps can update at night, and go back.** Switch on "Update at night" for an IceStore app on its page or under IceStore → Updates, and new versions install between 2 and 5 am in your clock's time zone. If the app doesn't come up and stay running, IceDash puts the previous version back by itself, tells you in the notifications, and doesn't install that version by itself again. Before every update IceDash keeps the installed version (with the exact images it runs), so "Go back to …" on the app's page or in its right-click menu restores it, keeping the settings you changed since. Only the app goes back, not its data. Updates now also download the new images first, so a failed download changes nothing.
+
 ## v1.4.2 (2026-11-24)
 
 - **IceStore refreshes again.** Refresh failed with "cannot unmarshal number into Go struct field Index.apps.25.developer" because one app (copyparty) lists its developer as the number 9001. IceDash now reads a number or true/false in a text field as text, so one odd value no longer stops the whole store from loading.

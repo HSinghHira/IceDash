@@ -10,6 +10,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -300,4 +302,17 @@ func TestListenReadsEvents(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal("the end event never arrived")
+}
+
+func TestComposeFileReadsCasaOSCopy(t *testing.T) {
+	dir := t.TempDir()
+	_ = os.MkdirAll(filepath.Join(dir, "gitsave"), 0o700)
+	_ = os.WriteFile(filepath.Join(dir, "gitsave", "docker-compose.yml"), []byte("name: gitsave\n"), 0o600)
+	c := &Client{AppsDir: dir}
+	if b, err := c.ComposeFile(context.Background(), "gitsave"); err != nil || string(b) != "name: gitsave\n" {
+		t.Errorf("%q %v", b, err)
+	}
+	if _, err := c.ComposeFile(context.Background(), "../etc"); err == nil {
+		t.Error("read outside the apps folder")
+	}
 }

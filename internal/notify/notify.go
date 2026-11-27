@@ -36,6 +36,10 @@ const (
 	KindAppUpdateFailed    = "app_update_failed"
 	KindAppUpdateAvailable = "app_update_available"
 	KindAppStopped         = "app_stopped"
+
+	// Night updates and the way back to an app's previous version.
+	KindAppRolledBack     = "app_rolled_back"
+	KindAppRollbackFailed = "app_rollback_failed"
 )
 
 // Action is the optional button on a notification.

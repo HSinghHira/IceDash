@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 	_ "time/tzdata" // zone names for the night window, whatever the box has
@@ -150,7 +151,13 @@ func main() {
 		Creds:   &creds.Reader{},
 		Notify:  notes,
 		State:   filepath.Join(state.Dir, "apps.json"),
+		Docker:  &apps.DockerAPI{},
+		// Night app updates wait for IceDash's own install, and it for them.
+		SelfBusy: func() bool { return upd.Status().State == update.StateInstalling },
 	}
+	upd.Wait = mgr.Busy
+	var nightLock sync.Mutex // one night start at a time: IceDash's own or an app's
+	upd.NightLock, mgr.NightLock = &nightLock, &nightLock
 	go mgr.Watch(ctx)
 
 	srv := &api.Server{
@@ -224,6 +231,8 @@ func main() {
 	go upd.Loop(ctx, func() bool { return prefs.Get().AutoCheck }, 2*time.Minute, 6*time.Hour)
 	// Phase 5a: "Install updates at night", 02:00 to 05:00 in the saved zone.
 	go upd.NightLoop(ctx, func() (bool, string) { p := prefs.Get(); return p.AutoInstall, p.Zone }, time.Now)
+	// Apps with "Update at night" on, in the same window and zone.
+	go mgr.NightLoop(ctx, func() string { return prefs.Get().Zone }, time.Now)
 
 	dir := staticDir
 	if kind == host.CasaOS {
