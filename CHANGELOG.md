@@ -1,8 +1,11 @@
 # Changelog
 
-## Unreleased
+## v1.5.0 (2026-11-27)
 
-- **Apps can update at night, and go back.** Switch on "Update at night" for an IceStore app on its page or under IceStore → Updates, and new versions install between 2 and 5 am in your clock's time zone. If the app doesn't come up and stay running, IceDash puts the previous version back by itself, tells you in the notifications, and doesn't install that version by itself again. Before every update IceDash keeps the installed version (with the exact images it runs), so "Go back to …" on the app's page or in its right-click menu restores it, keeping the settings you changed since. Only the app goes back, not its data. Updates now also download the new images first, so a failed download changes nothing.
+- **Apps can update at night.** Switch on "Update at night" for an IceStore app on its page or under IceStore → Updates (admins only), and new versions install between 2 and 5 am in your clock's time zone. If an update changes the app and it doesn't come up and stay running, IceDash puts the previous version back by itself, tells you in the notifications, and doesn't install that version by itself again.
+- **Go back to an app's previous version.** When you update an app, IceDash first keeps the installed version with the exact images it runs, so "Go back to …" on the app's page or in its right-click menu restores it, keeping the settings you changed since. It works for updates made from this version on. Only the app goes back, not its data. A night update is skipped if that copy can't be saved.
+- **Update downloads first.** The Update button now downloads the new images before it changes the app, so a failed download changes nothing.
+- **Not yet tried on a real server.** Night updates and going back have passed automated tests and checks with sample data, but have not run on a real ZimaOS or CasaOS box. Back up an app's data before you rely on them.
 
 ## v1.4.2 (2026-11-24)
 

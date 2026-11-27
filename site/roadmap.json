@@ -33,7 +33,7 @@
    "desc": "Drag a window to an edge to fill half the screen, and each app opens again at the size and place you left it."},
   {"title": "Theme editor", "type": "feature", "status": "planned",
    "desc": "Pick the colours and wallpaper in Settings, see them live, and save the result as your own theme or export it for a collection."},
-  {"title": "App auto-updates and roll back", "type": "feature", "status": "planned",
+  {"title": "App auto-updates and roll back", "type": "feature", "status": "done", "version": "v1.5.0",
    "desc": "Choose which apps update by themselves at night, and go back to an app's previous version if an update breaks it."},
   {"title": "Export and import IceDash settings", "type": "feature", "status": "planned",
    "desc": "One file with your dock, cards, theme, wallpaper and choices, to move to a new server or recover after a reinstall."},
